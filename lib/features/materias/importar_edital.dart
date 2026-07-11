@@ -9,16 +9,78 @@ import '../../data/repositories/ambiente_filtros.dart';
 import '../../data/repositories/repositorios.dart';
 import '../../domain/edital_parser_service.dart';
 
+String _normalizar(String s) =>
+    s.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+
+/// Grava itens como tópicos SEM duplicar: item com mesmo nome (normalizado)
+/// sob o mesmo pai é reaproveitado — re-importar o edital só adiciona o que
+/// faltou. Retorna quantos são novos.
+Future<int> _gravarItens(
+    WidgetRef ref, Materia destino, List<ItemEdital> itens) async {
+  final repositorio = ref.read(topicosProvider.notifier);
+  final existentes = ref
+      .read(topicosProvider)
+      .where((t) => t.materiaId == destino.id)
+      .toList();
+  final porChave = <String, String>{
+    for (final t in existentes) '${t.parentId ?? ''}|${_normalizar(t.nome)}':
+        t.id,
+  };
+  // Pilha nível -> id: liga cada item ao pai de nível acima.
+  final pilha = <int, String>{};
+  var novos = 0;
+  for (final item in itens) {
+    final parentId = item.nivel == 0 ? null : pilha[item.nivel - 1];
+    final chave = '${parentId ?? ''}|${_normalizar(item.nome)}';
+    var id = porChave[chave];
+    if (id == null) {
+      id = const Uuid().v4();
+      await repositorio.salvar(Topico(
+        id: id,
+        materiaId: destino.id,
+        parentId: parentId,
+        nome: item.nome,
+      ));
+      porChave[chave] = id;
+      novos++;
+    }
+    pilha[item.nivel] = id;
+    pilha.removeWhere((nivel, _) => nivel > item.nivel);
+  }
+  return novos;
+}
+
+/// Acha matéria existente pelo nome normalizado ou cria uma nova no
+/// ambiente ativo.
+Future<Materia> _materiaPorNome(WidgetRef ref, String nome) async {
+  final repositorio = ref.read(materiasProvider.notifier);
+  final existente = ref
+      .read(materiasProvider)
+      .where((m) => _normalizar(m.nome) == _normalizar(nome))
+      .firstOrNull;
+  if (existente != null) return existente;
+  final nova = Materia(
+    id: const Uuid().v4(),
+    nome: nome,
+    ambienteId: ref.read(ambienteAtivoProvider)?.id ?? Ambiente.geralId,
+    corSlot: repositorio.proximoCorSlot(),
+    criadaEm: DateTime.now(),
+  );
+  await repositorio.salvar(nova);
+  return nova;
+}
+
 /// Import de edital por TEXTO COLADO (nunca JSON): copiar do PDF e colar.
-/// Numeração (1, 1.2, 1.2.3) e marcadores (-, •) viram hierarquia de
-/// tópicos. Com [materiaFixa] o destino é travado (fluxo da tela de
-/// tópicos); sem ela o usuário escolhe a matéria ou cria uma na hora.
+/// Com "detectar matérias" ligado, cabeçalhos em caixa alta viram matérias
+/// e os itens numerados abaixo viram os tópicos de cada uma — o Mapa de
+/// Estudos e o ciclo do Planejamento passam a enxergá-las na hora.
 Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
     {Materia? materiaFixa}) async {
   final texto = TextEditingController();
   final novaMateria = TextEditingController();
   String? materiaId = materiaFixa?.id;
   var criarNova = false;
+  var detectarMaterias = false;
 
   await showDialog<void>(
     context: context,
@@ -28,66 +90,82 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
             .read(materiasDoAmbienteProvider)
             .where((m) => !m.arquivada)
             .toList();
-        if (materias.isEmpty) criarNova = true;
+        if (materias.isEmpty && !detectarMaterias) criarNova = true;
         return AlertDialog(
           title: const Text('Importar edital (colar texto)'),
           content: SizedBox(
-            width: 520,
+            width: 540,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                    'Copie o conteúdo programático do PDF do edital e cole '
-                    'abaixo — texto normal, sem formato especial. '
-                    'Numeração (1, 1.2, 1.2.3) e marcadores (-, •) viram '
-                    'a hierarquia de tópicos.',
+                    'Copie o conteúdo programático do PDF e cole abaixo — '
+                    'texto normal. Numeração (1, 1.2, 1.2.3), itens '
+                    'separados por ";" e marcadores viram a hierarquia. '
+                    'Re-importar NÃO duplica: só entra o que faltou.',
                     style: TextStyle(fontSize: 12)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 if (materiaFixa == null) ...[
-                  if (!criarNova)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: materiaId,
-                            decoration: const InputDecoration(
-                                labelText: 'Matéria de destino *'),
-                            items: [
-                              for (final m in materias)
-                                DropdownMenuItem(
-                                    value: m.id, child: Text(m.nome)),
-                            ],
-                            onChanged: (v) =>
-                                setStateDialog(() => materiaId = v),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: const Text('Detectar matérias automaticamente',
+                        style: TextStyle(fontSize: 13)),
+                    subtitle: const Text(
+                        'Edital completo: cabeçalhos EM CAIXA ALTA viram '
+                        'matérias',
+                        style: TextStyle(fontSize: 11)),
+                    value: detectarMaterias,
+                    onChanged: (v) =>
+                        setStateDialog(() => detectarMaterias = v),
+                  ),
+                  if (!detectarMaterias) ...[
+                    if (!criarNova)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: materiaId,
+                              decoration: const InputDecoration(
+                                  labelText: 'Matéria de destino *'),
+                              items: [
+                                for (final m in materias)
+                                  DropdownMenuItem(
+                                      value: m.id, child: Text(m.nome)),
+                              ],
+                              onChanged: (v) =>
+                                  setStateDialog(() => materiaId = v),
+                            ),
                           ),
-                        ),
-                        TextButton(
-                          onPressed: () =>
-                              setStateDialog(() => criarNova = true),
-                          child: const Text('Nova'),
-                        ),
-                      ],
-                    )
-                  else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: novaMateria,
-                            decoration: const InputDecoration(
-                                labelText: 'Nome da nova matéria *',
-                                hintText: 'Ex.: Direito Constitucional'),
-                          ),
-                        ),
-                        if (materias.isNotEmpty)
                           TextButton(
                             onPressed: () =>
-                                setStateDialog(() => criarNova = false),
-                            child: const Text('Existente'),
+                                setStateDialog(() => criarNova = true),
+                            child: const Text('Nova'),
                           ),
-                      ],
-                    ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: novaMateria,
+                              decoration: const InputDecoration(
+                                  labelText: 'Nome da nova matéria *',
+                                  hintText:
+                                      'Ex.: Direito Constitucional'),
+                            ),
+                          ),
+                          if (materias.isNotEmpty)
+                            TextButton(
+                              onPressed: () =>
+                                  setStateDialog(() => criarNova = false),
+                              child: const Text('Existente'),
+                            ),
+                        ],
+                      ),
+                  ],
                   const SizedBox(height: 8),
                 ],
                 TextField(
@@ -97,7 +175,8 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
                   decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       hintText:
-                          '1 Auditoria Governamental\n1.1 Conceitos\n1.2 Normas\n2 AFO'),
+                          'LÍNGUA PORTUGUESA: 1 Compreensão de textos; '
+                          '2 Tipologia textual; 2.1 Gêneros...'),
                 ),
               ],
             ),
@@ -109,27 +188,58 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
             ),
             FilledButton(
               onPressed: () async {
+                // ---- Edital completo: várias matérias de uma vez.
+                if (materiaFixa == null && detectarMaterias) {
+                  final secoes =
+                      EditalParserService.parseSecoes(texto.text);
+                  final comMateria = secoes
+                      .where((s) =>
+                          s.materia != null && s.itens.isNotEmpty)
+                      .toList();
+                  if (comMateria.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'Nenhum cabeçalho de matéria detectado — '
+                                'desligue a detecção e escolha a matéria.')));
+                    return;
+                  }
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  var totalNovos = 0;
+                  var totalItens = 0;
+                  for (final secao in comMateria) {
+                    final destino =
+                        await _materiaPorNome(ref, secao.materia!);
+                    totalNovos +=
+                        await _gravarItens(ref, destino, secao.itens);
+                    totalItens += secao.itens.length;
+                  }
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(
+                            '${comMateria.length} matérias · $totalNovos '
+                            'tópicos novos (${totalItens - totalNovos} já '
+                            'existiam). Veja o Mapa de Estudos.')));
+                  }
+                  return;
+                }
+
+                // ---- Uma matéria só.
                 final itens = EditalParserService.parse(texto.text);
                 if (itens.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text(
-                          'Nenhum tópico detectado no texto colado.')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Nenhum tópico detectado no texto colado.')));
                   return;
                 }
                 Materia? destino = materiaFixa;
                 if (destino == null && criarNova) {
                   final nome = novaMateria.text.trim();
                   if (nome.isEmpty) return;
-                  final repositorio = ref.read(materiasProvider.notifier);
-                  destino = Materia(
-                    id: const Uuid().v4(),
-                    nome: nome,
-                    ambienteId: ref.read(ambienteAtivoProvider)?.id ??
-                        Ambiente.geralId,
-                    corSlot: repositorio.proximoCorSlot(),
-                    criadaEm: DateTime.now(),
-                  );
-                  await repositorio.salvar(destino);
+                  destino = await _materiaPorNome(ref, nome);
                 } else if (destino == null) {
                   if (materiaId == null) return;
                   destino = materias
@@ -140,28 +250,12 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
                 if (dialogContext.mounted) {
                   Navigator.pop(dialogContext);
                 }
-
-                final repositorio = ref.read(topicosProvider.notifier);
-                // Pilha nível -> id: liga cada item ao pai de nível acima.
-                final pilha = <int, String>{};
-                for (final item in itens) {
-                  final id = const Uuid().v4();
-                  final parentId =
-                      item.nivel == 0 ? null : pilha[item.nivel - 1];
-                  await repositorio.salvar(Topico(
-                    id: id,
-                    materiaId: destino.id,
-                    parentId: parentId,
-                    nome: item.nome,
-                  ));
-                  pilha[item.nivel] = id;
-                  pilha.removeWhere((nivel, _) => nivel > item.nivel);
-                }
+                final novos = await _gravarItens(ref, destino, itens);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text(
-                          '${itens.length} tópicos importados em '
-                          '${destino.nome}.')));
+                          '$novos tópicos novos em ${destino.nome} '
+                          '(${itens.length - novos} já existiam).')));
                 }
               },
               child: const Text('Importar'),

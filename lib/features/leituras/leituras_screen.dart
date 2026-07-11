@@ -3,9 +3,123 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
+import '../../core/utils/haptica.dart';
 import '../../data/models/leitura.dart';
 import '../../data/repositories/repositorios.dart';
 import '../../domain/leitura_service.dart';
+
+/// Registra a leitura do dia: páginas + tempo. Data padrão = hoje, mas
+/// editável (esqueceu de registrar na hora). Min/pág e projeção são
+/// calculados — nunca digitados.
+Future<void> registrarSessaoLeitura(
+    BuildContext context, WidgetRef ref, Leitura leitura) async {
+  final paginas = TextEditingController();
+  final minutos = TextEditingController();
+  var data = DateTime.now();
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setStateDialog) {
+        final p = int.tryParse(paginas.text);
+        final m = int.tryParse(minutos.text);
+        final previa = (p != null && p > 0 && m != null && m > 0)
+            ? '${(m / p).toStringAsFixed(1)} min/pág nesta sessão'
+            : '';
+        return AlertDialog(
+          title: Text('Registrar leitura — ${leitura.titulo}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        final escolhida = await showDatePicker(
+                          context: dialogContext,
+                          initialDate: data,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (escolhida != null) {
+                          setStateDialog(() => data = escolhida);
+                        }
+                      },
+                      child: InputDecorator(
+                        decoration:
+                            const InputDecoration(labelText: 'Data'),
+                        child: Text(formatarData(data)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: paginas,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                          labelText: 'Páginas lidas *'),
+                      onChanged: (_) => setStateDialog(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: minutos,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                          labelText: 'Minutos (opcional)'),
+                      onChanged: (_) => setStateDialog(() {}),
+                    ),
+                  ),
+                ],
+              ),
+              if (previa.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(previa,
+                        style: const TextStyle(
+                            color: LuminaColors.safiraClara,
+                            fontSize: 12)),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final pag = int.tryParse(paginas.text);
+                if (pag == null || pag <= 0) return;
+                final sessao = SessaoLeitura(
+                  data: data,
+                  paginas: pag,
+                  minutos: int.tryParse(minutos.text),
+                );
+                ref.read(leiturasProvider.notifier).salvar(leitura
+                    .copyWith(sessoes: [...leitura.sessoes, sessao]));
+                Haptica.leve();
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
 
 class LeiturasScreen extends ConsumerWidget {
   const LeiturasScreen({super.key});
@@ -158,6 +272,14 @@ class LeiturasScreen extends ConsumerWidget {
                       Text(
                           'págs ${leitura.paginaInicio}–${leitura.paginaFim} · ${leitura.partes} partes · '
                           '$lidas/${leitura.totalPaginas} lidas (${(progresso * 100).toStringAsFixed(0)}%)'),
+                      if (leitura.sessoes.isNotEmpty)
+                        Text(
+                          '${leitura.paginasRegistradas} pág registradas'
+                          '${leitura.minutosPorPagina == null ? '' : ' · ${leitura.minutosPorPagina!.toStringAsFixed(1)} min/pág'}'
+                          '${leitura.minutosParaTerminar == null || leitura.minutosParaTerminar == 0 ? '' : ' · ~${formatarMinutos(leitura.minutosParaTerminar!)} p/ terminar'}',
+                          style: const TextStyle(
+                              color: VizColors.muted, fontSize: 12),
+                        ),
                       const SizedBox(height: 4),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
@@ -172,11 +294,23 @@ class LeiturasScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  trailing: IconButton(
-                    tooltip: 'Excluir',
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () =>
-                        ref.read(leiturasProvider.notifier).remover(leitura.id),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Registrar leitura de hoje',
+                        icon: const Icon(Icons.add_task, size: 20),
+                        onPressed: () =>
+                            registrarSessaoLeitura(context, ref, leitura),
+                      ),
+                      IconButton(
+                        tooltip: 'Excluir',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => ref
+                            .read(leiturasProvider.notifier)
+                            .remover(leitura.id),
+                      ),
+                    ],
                   ),
                   onTap: () => Navigator.push(
                     context,
@@ -205,26 +339,67 @@ class _LeituraDetalhe extends ConsumerWidget {
     final blocos = LeituraService.dividir(
         leitura.paginaInicio, leitura.paginaFim, leitura.partes);
 
+    final sessoes = [...leitura.sessoes]
+      ..sort((a, b) => b.data.compareTo(a.data));
+
     return Scaffold(
       appBar: AppBar(title: Text(leitura.titulo)),
-      body: ListView.builder(
-        itemCount: blocos.length,
-        itemBuilder: (context, i) {
-          final bloco = blocos[i];
-          return CheckboxListTile(
-            value: leitura.partesConcluidas[i],
-            title: Text('Parte ${i + 1}'),
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
+        children: [
+          for (var i = 0; i < blocos.length; i++)
+            CheckboxListTile(
+              value: leitura.partesConcluidas[i],
+              title: Text('Parte ${i + 1}'),
+              subtitle: Text(
+                  'págs ${blocos[i].inicio}–${blocos[i].fim} (${blocos[i].fim - blocos[i].inicio + 1} páginas)'),
+              onChanged: (v) {
+                final novas = [...leitura.partesConcluidas];
+                novas[i] = v ?? false;
+                ref
+                    .read(leiturasProvider.notifier)
+                    .salvar(leitura.copyWith(partesConcluidas: novas));
+              },
+            ),
+          const Divider(color: VizColors.gridline),
+          ListTile(
+            title: const Text('Sessões de leitura'),
             subtitle: Text(
-                'págs ${bloco.inicio}–${bloco.fim} (${bloco.fim - bloco.inicio + 1} páginas)'),
-            onChanged: (v) {
-              final novas = [...leitura.partesConcluidas];
-              novas[i] = v ?? false;
-              ref
-                  .read(leiturasProvider.notifier)
-                  .salvar(leitura.copyWith(partesConcluidas: novas));
-            },
-          );
-        },
+              leitura.sessoes.isEmpty
+                  ? 'Registre páginas e tempo por dia — o ritmo é calculado'
+                  : '${leitura.paginasRegistradas} pág em '
+                      '${formatarMinutos(leitura.minutosRegistrados)}'
+                      '${leitura.minutosPorPagina == null ? '' : ' · ${leitura.minutosPorPagina!.toStringAsFixed(1)} min/pág'}'
+                      '${leitura.minutosParaTerminar == null || leitura.minutosParaTerminar == 0 ? '' : ' · ~${formatarMinutos(leitura.minutosParaTerminar!)} p/ terminar'}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            trailing: FilledButton.tonalIcon(
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Registrar'),
+              onPressed: () =>
+                  registrarSessaoLeitura(context, ref, leitura),
+            ),
+          ),
+          for (final sessao in sessoes)
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.menu_book_outlined, size: 18),
+              title: Text(
+                  '${formatarData(sessao.data)} · ${sessao.paginas} pág'
+                  '${sessao.minutos == null ? '' : ' · ${formatarMinutos(sessao.minutos!)}'}'
+                  '${sessao.minutosPorPagina == null ? '' : ' · ${sessao.minutosPorPagina!.toStringAsFixed(1)} min/pág'}'),
+              trailing: IconButton(
+                tooltip: 'Excluir sessão',
+                icon: const Icon(Icons.delete_outline, size: 18),
+                onPressed: () {
+                  final restantes = [...leitura.sessoes]..remove(sessao);
+                  ref
+                      .read(leiturasProvider.notifier)
+                      .salvar(leitura.copyWith(sessoes: restantes));
+                },
+              ),
+            ),
+        ],
       ),
     );
   }

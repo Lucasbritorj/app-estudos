@@ -53,64 +53,99 @@ class DashboardScreen extends ConsumerWidget {
               ),
             )
           : ConteudoCentral(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 88),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Text(
-                      _mensagemDoDia(hoje),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: VizColors.inkSecondary,
-                          fontStyle: FontStyle.italic),
+              maxWidth: 1280,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Tela larga: cards em 2 colunas — usa o monitor em vez
+                  // de empilhar tudo numa coluna com sobra dos lados.
+                  final duasColunas = constraints.maxWidth >= 980;
+                  final topo = <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        _mensagemDoDia(hoje),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(
+                                color: VizColors.inkSecondary,
+                                fontStyle: FontStyle.italic),
+                      ),
                     ),
-                  ),
-                  // Geralzão: tudo de relance, clicável, sem rolar.
-                  _HeroGeral(hoje: hoje),
-                  const SizedBox(height: 10),
-                  _CardAlertas(hoje: hoje),
-                  _CardMelhorarHoje(hoje: hoje),
-                  const SizedBox(height: 10),
-                  _CardRankings(
-                      registros: registros, materias: materias, hoje: hoje),
-                  const SizedBox(height: 10),
-                  if (ambienteAtivo == null) ...[
-                    _CardAmbientes(hoje: hoje),
+                    // Geralzão: tudo de relance, clicável, sem rolar.
+                    _HeroGeral(hoje: hoje),
                     const SizedBox(height: 10),
-                  ],
-                  _CardPlano(hoje: hoje),
-                  const SizedBox(height: 10),
-                  _CardSugestaoHoje(hoje: hoje),
-                  const SizedBox(height: 10),
-                  _CardDesempenho(registros: registros, materias: materias),
-                  const SizedBox(height: 10),
-                  _CardGrafico(
-                    titulo: 'Horas da semana por matéria',
-                    child: _BarrasSemana(
+                    _CardAlertas(hoje: hoje),
+                    _CardMelhorarHoje(hoje: hoje),
+                    const SizedBox(height: 10),
+                  ];
+                  final colunaA = <Widget>[
+                    _CardRankings(
                         registros: registros,
                         materias: materias,
                         hoje: hoje),
-                  ),
-                  const SizedBox(height: 10),
-                  _CardGrafico(
-                    titulo: 'Evolução — últimos 14 dias',
-                    child: _LinhaEvolucao(registros: registros, hoje: hoje),
-                  ),
-                  const SizedBox(height: 10),
-                  _CardGrafico(
-                    titulo: 'Distribuição total por matéria',
-                    child: _DonutDistribuicao(
+                    const SizedBox(height: 10),
+                    _CardPlano(hoje: hoje),
+                    const SizedBox(height: 10),
+                    _CardDesempenho(
                         registros: registros, materias: materias),
-                  ),
-                  const SizedBox(height: 10),
-                  _CardSimulados(),
-                  const SizedBox(height: 10),
-                  _CardGamificacao(hoje: hoje),
-                  const SizedBox(height: 10),
-                  _TilesResumo(registros: registros, hoje: hoje),
-                  const SizedBox(height: 10),
-                  _CardAnos(registros: registros, hoje: hoje),
-                ],
+                    const SizedBox(height: 10),
+                    _CardGrafico(
+                      titulo: 'Horas da semana por matéria',
+                      child: _BarrasSemana(
+                          registros: registros,
+                          materias: materias,
+                          hoje: hoje),
+                    ),
+                    const SizedBox(height: 10),
+                    _TilesResumo(registros: registros, hoje: hoje),
+                    const SizedBox(height: 10),
+                  ];
+                  final colunaB = <Widget>[
+                    if (ambienteAtivo == null) ...[
+                      _CardAmbientes(hoje: hoje),
+                      const SizedBox(height: 10),
+                    ],
+                    _CardSugestaoHoje(hoje: hoje),
+                    const SizedBox(height: 10),
+                    const _CardSimulados(),
+                    const SizedBox(height: 10),
+                    _CardGrafico(
+                      titulo: 'Evolução — últimos 14 dias',
+                      child: _LinhaEvolucao(
+                          registros: registros, hoje: hoje),
+                    ),
+                    const SizedBox(height: 10),
+                    _CardGrafico(
+                      titulo: 'Distribuição total por matéria',
+                      child: _DonutDistribuicao(
+                          registros: registros, materias: materias),
+                    ),
+                    const SizedBox(height: 10),
+                    _CardGamificacao(hoje: hoje),
+                    const SizedBox(height: 10),
+                    _CardAnos(registros: registros, hoje: hoje),
+                  ];
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 88),
+                    children: [
+                      ...topo,
+                      if (duasColunas)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: Column(children: colunaA)),
+                            const SizedBox(width: 10),
+                            Expanded(child: Column(children: colunaB)),
+                          ],
+                        )
+                      else ...[
+                        ...colunaA,
+                        ...colunaB,
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
     );
@@ -132,6 +167,16 @@ const _mensagens = [
   'Página lida sem revisão é página emprestada.',
   'Disciplina é escolher o que você quer MAIS.',
   'Um dia de cada vez, com método.',
+  'Nota de corte é consequência, não meta. Meta é o ciclo de hoje.',
+  'Quem revisa duas vezes erra metade.',
+  'A vaga é de quem transforma cansaço em constância.',
+  'Simulado ruim é diagnóstico grátis.',
+  'Estude a matéria que você evita: é onde mora a diferença.',
+  'Meia hora focada vale mais que três horas com o celular do lado.',
+  'A banca repete. Quem faz questões antigas chega em casa conhecida.',
+  'Ritmo sustentável > maratona de véspera.',
+  'Errar aqui é barato. Errar na prova custa um ano.',
+  'Seu eu de amanhã agradece a sessão de hoje.',
 ];
 
 String _mensagemDoDia(DateTime d) {

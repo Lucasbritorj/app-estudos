@@ -111,6 +111,46 @@ class TopicosScreen extends ConsumerWidget {
             onPressed: () =>
                 mostrarImportarEdital(context, ref, materiaFixa: materia),
           ),
+          if (topicos.isNotEmpty)
+            PopupMenuButton<String>(
+              onSelected: (acao) async {
+                if (acao != 'excluir-todos') return;
+                final confirmado = await showDialog<bool>(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: Text(
+                        'Excluir os ${topicos.length} tópicos de '
+                        '${materia.nome}?'),
+                    content: const Text(
+                        'Remove todos os tópicos e subtópicos desta '
+                        'matéria. Registros de horas não são apagados. '
+                        'Não há como desfazer.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pop(dialogContext, false),
+                        child: const Text('Cancelar'),
+                      ),
+                      FilledButton(
+                        onPressed: () =>
+                            Navigator.pop(dialogContext, true),
+                        child: const Text('Excluir todos'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmado != true) return;
+                final repositorio = ref.read(topicosProvider.notifier);
+                for (final topico in topicos) {
+                  await repositorio.remover(topico.id);
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                    value: 'excluir-todos',
+                    child: Text('Excluir todos os tópicos')),
+              ],
+            ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
