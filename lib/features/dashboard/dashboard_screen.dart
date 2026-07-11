@@ -21,6 +21,7 @@ import '../ambientes/ambiente_selector.dart';
 import '../registro/registro_form.dart';
 import '../simulados/simulados_screen.dart';
 import 'confete_leve.dart';
+import 'frases_do_dia.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -152,36 +153,11 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-const _mensagens = [
-  'Constância vence intensidade. Um bloco de cada vez.',
-  'A banca cobra o básico bem feito. Faça o básico hoje.',
-  'Revisar vale mais que avançar sem reter.',
-  'Quem mede, melhora. Registre a sessão.',
-  'Edital não assusta quem tem ciclo.',
-  'Hoje estudado é ansiedade de amanhã reduzida.',
-  'Questões erradas hoje são pontos ganhos na prova.',
-  'O streak não se quebra sozinho: proteja-o.',
-  'Menos redes, mais horas líquidas.',
-  'Aprovado é quem continua quando ninguém vê.',
-  'Seu concorrente também está cansado.',
-  'Página lida sem revisão é página emprestada.',
-  'Disciplina é escolher o que você quer MAIS.',
-  'Um dia de cada vez, com método.',
-  'Nota de corte é consequência, não meta. Meta é o ciclo de hoje.',
-  'Quem revisa duas vezes erra metade.',
-  'A vaga é de quem transforma cansaço em constância.',
-  'Simulado ruim é diagnóstico grátis.',
-  'Estude a matéria que você evita: é onde mora a diferença.',
-  'Meia hora focada vale mais que três horas com o celular do lado.',
-  'A banca repete. Quem faz questões antigas chega em casa conhecida.',
-  'Ritmo sustentável > maratona de véspera.',
-  'Errar aqui é barato. Errar na prova custa um ano.',
-  'Seu eu de amanhã agradece a sessão de hoje.',
-];
-
+/// Frase do dia: 366 frases em frases_do_dia.dart, indexadas pelo
+/// dia-do-ano — cada dia do ano tem a SUA frase, sem repetir no ano.
 String _mensagemDoDia(DateTime d) {
   final diaDoAno = d.difference(DateTime(d.year, 1, 1)).inDays;
-  return _mensagens[diaDoAno % _mensagens.length];
+  return frasesDoDia[diaDoAno % frasesDoDia.length];
 }
 
 class _TilesResumo extends StatelessWidget {
