@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/repositories/ambiente_filtros.dart';
 import '../ambientes/ambiente_selector.dart';
 import '../registro/registro_form.dart';
+import 'dashboard_providers.dart';
 import 'frases_do_dia.dart';
 import 'widgets/card_alertas.dart';
 import 'widgets/card_ambientes.dart';
@@ -14,6 +15,7 @@ import 'widgets/card_desempenho.dart';
 import 'widgets/card_gamificacao.dart';
 import 'widgets/card_melhorar_hoje.dart';
 import 'widgets/card_plano.dart';
+import 'widgets/card_prontidao.dart';
 import 'widgets/card_rankings.dart';
 import 'widgets/card_simulados.dart';
 import 'widgets/card_sugestao_hoje.dart';
@@ -28,10 +30,9 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final registros = ref.watch(registrosDoAmbienteProvider);
-    final materias = ref.watch(materiasDoAmbienteProvider);
+    final vazio = ref.watch(registrosDoAmbienteProvider).isEmpty;
     final ambienteAtivo = ref.watch(ambienteAtivoProvider);
-    final hoje = DateTime.now();
+    final hoje = ref.watch(hojeProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -43,7 +44,7 @@ class DashboardScreen extends ConsumerWidget {
         onPressed: () => mostrarFormularioRegistro(context),
         child: const Icon(Icons.add),
       ),
-      body: registros.isEmpty
+      body: vazio
           ? const _EstadoVazio()
           : ConteudoCentral(
               maxWidth: 1280,
@@ -66,58 +67,50 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                     ),
                     // Geralzão: tudo de relance, clicável, sem rolar.
-                    HeroGeral(hoje: hoje),
+                    const HeroGeral(),
                     const SizedBox(height: 10),
-                    CardAlertas(hoje: hoje),
-                    CardMelhorarHoje(hoje: hoje),
+                    const CardProntidao(),
+                    const CardAlertas(),
+                    const CardMelhorarHoje(),
                     const SizedBox(height: 10),
                   ];
                   final colunaA = <Widget>[
-                    CardRankings(
-                        registros: registros,
-                        materias: materias,
-                        hoje: hoje),
+                    const CardRankings(),
                     const SizedBox(height: 10),
-                    CardPlano(hoje: hoje),
+                    const CardPlano(),
                     const SizedBox(height: 10),
-                    CardDesempenho(
-                        registros: registros, materias: materias),
+                    const CardDesempenho(),
                     const SizedBox(height: 10),
-                    CardGrafico(
+                    const CardGrafico(
                       titulo: 'Horas da semana por matéria',
-                      child: BarrasSemana(
-                          registros: registros,
-                          materias: materias,
-                          hoje: hoje),
+                      child: BarrasSemana(),
                     ),
                     const SizedBox(height: 10),
-                    TilesResumo(registros: registros, hoje: hoje),
+                    const TilesResumo(),
                     const SizedBox(height: 10),
                   ];
                   final colunaB = <Widget>[
                     if (ambienteAtivo == null) ...[
-                      CardAmbientes(hoje: hoje),
+                      const CardAmbientes(),
                       const SizedBox(height: 10),
                     ],
-                    CardSugestaoHoje(hoje: hoje),
+                    const CardSugestaoHoje(),
                     const SizedBox(height: 10),
                     const CardSimulados(),
                     const SizedBox(height: 10),
-                    CardGrafico(
+                    const CardGrafico(
                       titulo: 'Evolução — últimos 14 dias',
-                      child: LinhaEvolucao(
-                          registros: registros, hoje: hoje),
+                      child: LinhaEvolucao(),
                     ),
                     const SizedBox(height: 10),
-                    CardGrafico(
+                    const CardGrafico(
                       titulo: 'Distribuição total por matéria',
-                      child: DonutDistribuicao(
-                          registros: registros, materias: materias),
+                      child: DonutDistribuicao(),
                     ),
                     const SizedBox(height: 10),
-                    CardGamificacao(hoje: hoje),
+                    const CardGamificacao(),
                     const SizedBox(height: 10),
-                    CardAnos(registros: registros, hoje: hoje),
+                    const CardAnos(),
                   ];
                   return ListView(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 88),

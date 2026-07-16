@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
-import '../../core/notificacoes/notificacoes_service.dart';
+import '../../application/revisao_use_case.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/revisao.dart';
 import '../../data/repositories/ambiente_filtros.dart';
-import '../../data/repositories/configuracoes_repositorio.dart';
 import '../../data/repositories/repositorios.dart';
-import '../../domain/revisao_service.dart';
 
 class RevisoesScreen extends ConsumerStatefulWidget {
   const RevisoesScreen({super.key});
@@ -83,21 +80,11 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
             FilledButton(
               onPressed: () async {
                 if (titulo.text.trim().isEmpty) return;
-                final config = ref.read(configuracoesProvider);
-                final revisao = Revisao(
-                  id: const Uuid().v4(),
-                  materiaId: materiaId,
-                  titulo: titulo.text.trim(),
-                  dataAgendada: data,
-                  intervaloDias: 0,
-                );
-                await ref.read(revisoesProvider.notifier).salvar(revisao);
-                await NotificacoesService.agendarRevisao(
-                  id: revisao.id,
-                  titulo: revisao.titulo,
-                  dia: revisao.dataAgendada,
-                  hora: config.horaNotificacao,
-                );
+                await ref.read(revisaoUseCaseProvider).criarManual(
+                      materiaId: materiaId,
+                      titulo: titulo.text.trim(),
+                      data: data,
+                    );
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
               child: const Text('Salvar'),
@@ -108,79 +95,22 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
     );
   }
 
-  /// Conclui e emenda a próxima revisão — FSRS-lite adaptativo pelo
-  /// desempenho do tópico: <75% de acerto derruba a estabilidade e agenda
-  /// reforço curto; 75-84% cresce devagar; >=85% (ou sem questões) espaça
-  /// pleno (~7->15->32->70), com bônus quando revisada perto do
-  /// esquecimento. Intervalo além do teto encerra a cadeia.
+  /// Conclui via caso de uso (FSRS-lite) e formata o feedback.
   Future<void> _concluir(Revisao revisao) async {
-    final agora = DateTime.now();
-    await ref
-        .read(revisoesProvider.notifier)
-        .salvar(revisao.copyWith(feita: true, dataConclusao: agora));
-    await NotificacoesService.cancelar(revisao.id);
-
-    final config = ref.read(configuracoesProvider);
-    final taxa = RevisaoService.taxaAcertoDe(
-      ref.read(registrosProvider),
-      materiaId: revisao.materiaId,
-      topicoId: revisao.topicoId,
-    );
-    final agendada = DateTime(revisao.dataAgendada.year,
-        revisao.dataAgendada.month, revisao.dataAgendada.day);
-    final passo = RevisaoService.proximoPassoFsrs(
-      estabilidade: revisao.estabilidade,
-      dificuldade: revisao.dificuldade,
-      intervaloAtual: revisao.intervaloDias,
-      diasDeAtraso: agora.difference(agendada).inDays,
-      taxaAcerto: taxa,
-    );
-    if (passo == null) return;
-
-    final tituloBase =
-        revisao.titulo.replaceFirst(RegExp(r' \((\d+d|reforço)\)$'), '');
-    final proxima = Revisao(
-      id: const Uuid().v4(),
-      materiaId: revisao.materiaId,
-      topicoId: revisao.topicoId,
-      titulo:
-          passo.reforco ? '$tituloBase (reforço)' : '$tituloBase (${passo.dias}d)',
-      dataAgendada:
-          DateTime(agora.year, agora.month, agora.day + passo.dias),
-      intervaloDias: passo.intervalo,
-      estabilidade: passo.estabilidade,
-      dificuldade: passo.dificuldade,
-    );
-    await ref.read(revisoesProvider.notifier).salvar(proxima);
-    await NotificacoesService.agendarRevisao(
-      id: proxima.id,
-      titulo: proxima.titulo,
-      dia: proxima.dataAgendada,
-      hora: config.horaNotificacao,
-    );
-    if (mounted) {
-      final motivo = passo.reforco
-          ? 'Acerto ${(taxa! * 100).toStringAsFixed(0)}% abaixo de 75% — reforço em ${passo.dias}d'
-          : 'Próxima em ${passo.dias}d';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Feita. $motivo (${formatarData(proxima.dataAgendada)}).')));
-    }
+    final resultado = await ref.read(revisaoUseCaseProvider).concluir(revisao);
+    final proxima = resultado.proxima;
+    if (proxima == null || !mounted) return;
+    final motivo = resultado.reforco
+        ? 'Acerto ${(resultado.taxaAcerto! * 100).toStringAsFixed(0)}% '
+            'abaixo de 75% — reforço em ${proxima.intervaloDias}d'
+        : 'Próxima em ${proxima.intervaloDias}d';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:
+            Text('Feita. $motivo (${formatarData(proxima.dataAgendada)}).')));
   }
 
-  Future<void> _adiar(Revisao revisao, int dias) async {
-    final base = revisao.dataAgendada;
-    final nova = revisao.copyWith(
-        dataAgendada: DateTime(base.year, base.month, base.day + dias));
-    await ref.read(revisoesProvider.notifier).salvar(nova);
-    await NotificacoesService.cancelar(revisao.id);
-    await NotificacoesService.agendarRevisao(
-      id: nova.id,
-      titulo: nova.titulo,
-      dia: nova.dataAgendada,
-      hora: ref.read(configuracoesProvider).horaNotificacao,
-    );
-  }
+  Future<void> _adiar(Revisao revisao, int dias) =>
+      ref.read(revisaoUseCaseProvider).adiar(revisao, dias);
 
   @override
   Widget build(BuildContext context) {

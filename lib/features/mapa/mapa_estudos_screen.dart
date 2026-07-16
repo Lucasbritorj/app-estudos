@@ -10,6 +10,7 @@ import '../../data/models/topico.dart';
 import '../../data/repositories/ambiente_filtros.dart';
 import '../../data/repositories/repositorios.dart';
 import '../../domain/aula_service.dart';
+import '../../domain/dominio_service.dart';
 import '../../domain/leitura_service.dart';
 import '../../domain/mapa_estudos_service.dart';
 import '../../domain/planejamento_service.dart';
@@ -40,6 +41,10 @@ class MapaEstudosScreen extends ConsumerWidget {
     final topicos = ref.watch(topicosProvider);
     final desempenho = StatsService.desempenhoPorMateria(registros);
     final minutosPorMateria = StatsService.minutosPorMateria(registros);
+    // Diagnóstico pela medição Elo (mesma régua do ciclo/prontidão); a taxa
+    // acumulada continua exibida como percentual informativo.
+    final medidos = DominioService.dominioPorMateria(
+        registros, materias.map((m) => m.id));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mapa de Estudos')),
@@ -61,6 +66,7 @@ class MapaEstudosScreen extends ConsumerWidget {
                         .where((t) => t.materiaId == materia.id)
                         .toList(),
                     minutos: minutosPorMateria[materia.id] ?? 0,
+                    medicao: medidos[materia.id],
                     taxa: switch (desempenho[materia.id]) {
                       null => null,
                       final d when d.questoes == 0 => null,
@@ -86,6 +92,7 @@ class _MateriaTile extends ConsumerWidget {
   final List<Aula> aulas;
   final List<Topico> topicos;
   final int minutos;
+  final MedicaoDominio? medicao;
   final double? taxa;
   final double? progressoLeitura;
   final int? minutosParaTerminar;
@@ -95,6 +102,7 @@ class _MateriaTile extends ConsumerWidget {
     required this.aulas,
     required this.topicos,
     required this.minutos,
+    required this.medicao,
     required this.taxa,
     required this.progressoLeitura,
     required this.minutosParaTerminar,
@@ -103,8 +111,7 @@ class _MateriaTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final diagnostico =
-        PlanejamentoService.diagnostico(materia.intimidade, taxa);
-    final raizes = topicos.where((t) => t.parentId == null).toList();
+        PlanejamentoService.diagnostico(materia.intimidade, medicao);
     final concluidos = topicos.where((t) => t.concluido).length;
     final aulasConcluidas = aulas.where((a) => a.concluida).length;
 
@@ -163,14 +170,39 @@ class _MateriaTile extends ConsumerWidget {
                 'Matérias (ícone de livro) ou importe o edital.',
                 style: TextStyle(color: VizColors.muted)),
           ),
-        for (final raiz in raizes) ...[
-          _TopicoLinha(topico: raiz, nivel: 0),
-          for (final filho
-              in topicos.where((t) => t.parentId == raiz.id))
-            _TopicoLinha(topico: filho, nivel: 1),
-        ],
+        ..._linhasDeTopicos(ref),
       ],
     );
+  }
+
+  /// Árvore completa em profundidade arbitrária (edital importado tem
+  /// níveis 2+; renderizar só raiz+filho fazia ramos sumirem do mapa).
+  /// Métricas calculadas UMA vez por matéria, nunca por linha.
+  List<Widget> _linhasDeTopicos(WidgetRef ref) {
+    final registros = ref.watch(registrosProvider);
+    final metricas = MapaEstudosService.metricasPorTopico(topicos, registros);
+    final filhosDe = <String?, List<Topico>>{};
+    for (final t in topicos) {
+      (filhosDe[t.parentId] ??= []).add(t);
+    }
+
+    final linhas = <Widget>[];
+    void adicionar(Topico t, int nivel) {
+      linhas.add(_TopicoLinha(
+        topico: t,
+        nivel: nivel,
+        metricas: metricas[t.id]!,
+        topicosDaMateria: topicos,
+      ));
+      for (final filho in filhosDe[t.id] ?? const <Topico>[]) {
+        adicionar(filho, nivel + 1);
+      }
+    }
+
+    for (final raiz in filhosDe[null] ?? const <Topico>[]) {
+      adicionar(raiz, 0);
+    }
+    return linhas;
   }
 }
 
@@ -261,7 +293,15 @@ class _TopicoLinha extends ConsumerWidget {
   final Topico topico;
   final int nivel;
 
-  const _TopicoLinha({required this.topico, required this.nivel});
+  final MetricasTopico metricas;
+  final List<Topico> topicosDaMateria;
+
+  const _TopicoLinha({
+    required this.topico,
+    required this.nivel,
+    required this.metricas,
+    required this.topicosDaMateria,
+  });
 
   Future<void> _notaRapida(
       BuildContext context, WidgetRef ref, Topico topico) async {
@@ -299,7 +339,12 @@ class _TopicoLinha extends ConsumerWidget {
         .where((t) => t.materiaId == topico.materiaId && t.id != topico.id)
         .toList()
       ..sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
-    if (candidatos.isEmpty) return;
+    if (candidatos.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Cadastre outro tópico nesta matéria para definir pré-requisitos.')));
+      return;
+    }
 
     final selecionados = {...topico.prerequisitos};
     await showDialog<void>(
@@ -357,15 +402,10 @@ class _TopicoLinha extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final registros = ref.watch(registrosProvider);
-    final todosTopicos = ref.watch(topicosProvider);
-    final status = MapaEstudosService.statusDe(topico, registros);
-    final taxa = MapaEstudosService.taxaDoTopico(registros, topico.id);
-    final dominio = MapaEstudosService.dominioDoTopico(registros, topico.id);
-    final minutos =
-        MapaEstudosService.minutosDoTopico(registros, topico.id);
-    final bloqueios =
-        MapaEstudosService.bloqueadoPor(topico, todosTopicos, registros);
+    final status = metricas.status;
+    final taxa = metricas.taxa;
+    final dominio = metricas.dominio;
+    final bloqueios = metricas.bloqueadoPor;
 
     // Cor pela estimativa de domínio (evidência recente pesa mais) quando a
     // amostra é confiável; senão pela taxa acumulada, como antes.
@@ -382,7 +422,7 @@ class _TopicoLinha extends ConsumerWidget {
       StatusTopico.emEstudo => (
           Icons.play_circle_outline,
           seriesColors[0],
-          'Em estudo · ${formatarMinutos(minutos)}'
+          'Em estudo · ${formatarMinutos(metricas.minutos)}'
         ),
       StatusTopico.concluido => (
           Icons.check_circle,
@@ -402,49 +442,103 @@ class _TopicoLinha extends ConsumerWidget {
         ? ''
         : ' · domínio ${(dominio.dominio * 100).toStringAsFixed(0)}%'
             '${dominio.confiavel ? '' : ' (pouca amostra)'}';
+    final linhaStatus = (taxa != null && status == StatusTopico.emEstudo
+            ? '$rotulo · ${(taxa * 100).toStringAsFixed(0)}% de acerto'
+            : rotulo) +
+        sufixoDominio;
+    // Pré-requisitos já satisfeitos ainda aparecem — a dependência existe
+    // no grafo mesmo depois de liberada (não é só "bloqueado").
+    final temPreReqs = topico.prerequisitos.isNotEmpty;
 
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.only(left: 24.0 + nivel * 20, right: 8),
-      leading: Icon(icone, size: 20, color: cor),
-      title: Text(topico.nome, maxLines: 2, overflow: TextOverflow.ellipsis),
-      onTap: () => _editarPrerequisitos(context, ref, todosTopicos),
-      subtitle: Text(
-        (taxa != null && status == StatusTopico.emEstudo
-                ? '$rotulo · ${(taxa * 100).toStringAsFixed(0)}% de acerto'
-                : rotulo) +
-            sufixoDominio,
-        style: TextStyle(color: cor, fontSize: 12),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: 'Anotações',
-            icon: Icon(
-                topico.notas.isEmpty
-                    ? Icons.note_add_outlined
-                    : Icons.sticky_note_2,
-                size: 18,
-                color: topico.notas.isEmpty
-                    ? VizColors.muted
-                    : seriesColors[2]),
-            onPressed: () => _notaRapida(context, ref, topico),
-          ),
-          IconButton(
-            tooltip: 'Registrar estudo',
-            icon: const Icon(Icons.play_arrow, size: 18,
-                color: VizColors.muted),
-            onPressed: () => mostrarFormularioRegistro(context,
-                materiaInicial: topico.materiaId, topicoInicial: topico.id),
-          ),
-          Checkbox(
-            value: topico.concluido,
-            onChanged: (v) => ref
-                .read(topicosProvider.notifier)
-                .salvar(topico.copyWith(concluido: v ?? false)),
-          ),
-        ],
+    return Semantics(
+      label: '${topico.nome}. $linhaStatus'
+          '${topico.notas.isEmpty ? '' : '. Com anotações'}',
+      child: ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.only(left: 24.0 + nivel * 20, right: 4),
+        leading: Icon(icone, size: 20, color: cor),
+        title:
+            Text(topico.nome, maxLines: 2, overflow: TextOverflow.ellipsis),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(linhaStatus, style: TextStyle(color: cor, fontSize: 12)),
+            if (temPreReqs && bloqueios.isEmpty)
+              Row(
+                children: [
+                  const Icon(Icons.account_tree_outlined,
+                      size: 12, color: VizColors.muted),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                        'pré-req: '
+                        '${topico.prerequisitos.length} tópico'
+                        '${topico.prerequisitos.length == 1 ? '' : 's'}',
+                        style: const TextStyle(
+                            color: VizColors.muted, fontSize: 11)),
+                  ),
+                ],
+              ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Checkbox(
+              value: topico.concluido,
+              onChanged: (v) => ref
+                  .read(topicosProvider.notifier)
+                  .salvar(topico.copyWith(concluido: v ?? false)),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'Ações do tópico',
+              icon: Icon(
+                  topico.notas.isEmpty ? Icons.more_vert : Icons.sticky_note_2,
+                  color: topico.notas.isEmpty
+                      ? VizColors.muted
+                      : seriesColors[2]),
+              onSelected: (acao) {
+                switch (acao) {
+                  case 'registrar':
+                    mostrarFormularioRegistro(context,
+                        materiaInicial: topico.materiaId,
+                        topicoInicial: topico.id);
+                  case 'notas':
+                    _notaRapida(context, ref, topico);
+                  case 'prereqs':
+                    _editarPrerequisitos(context, ref, topicosDaMateria);
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                    value: 'registrar',
+                    child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.play_arrow),
+                        title: Text('Registrar estudo'))),
+                PopupMenuItem(
+                    value: 'notas',
+                    child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.sticky_note_2_outlined),
+                        title: Text(topico.notas.isEmpty
+                            ? 'Anotações'
+                            : 'Editar anotações'))),
+                PopupMenuItem(
+                    value: 'prereqs',
+                    child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.account_tree_outlined),
+                        title: Text(temPreReqs
+                            ? 'Pré-requisitos (${topico.prerequisitos.length})'
+                            : 'Definir pré-requisitos'))),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

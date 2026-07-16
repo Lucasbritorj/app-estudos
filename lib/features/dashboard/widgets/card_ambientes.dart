@@ -3,29 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../data/repositories/repositorios.dart';
-import '../../../domain/insights_service.dart';
-import '../../../domain/stats_service.dart';
+import '../dashboard_providers.dart';
 
 /// Resumo por Ambiente (só na visão consolidada): tempo da semana em cada
 /// ambiente, com participação relativa.
 class CardAmbientes extends ConsumerWidget {
-  final DateTime hoje;
-
-  const CardAmbientes({super.key, required this.hoje});
+  const CardAmbientes({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ambientes = ref.watch(ambientesProvider);
-    final materias = ref.watch(materiasProvider);
-    final registros = ref.watch(registrosProvider);
+    final dados = ref.watch(ambientesSemanaProvider);
+    final ambientes = dados.ambientes;
     if (ambientes.length < 2) return const SizedBox.shrink();
-
-    final inicioSemana = StatsService.inicioDaSemana(hoje);
-    final porAmbiente = InsightsService.minutosPorAmbiente(
-        registros, materias,
-        de: inicioSemana, ate: hoje);
-    final total = porAmbiente.values.fold(0, (a, b) => a + b);
+    final porAmbiente = dados.porAmbiente;
+    final total = dados.total;
 
     return Card(
       child: Padding(

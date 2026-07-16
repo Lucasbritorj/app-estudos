@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../data/models/materia.dart';
-import '../../../data/models/registro_hora.dart';
-import '../../../domain/insights_service.dart';
+import '../../../data/repositories/ambiente_filtros.dart';
+import '../dashboard_providers.dart';
 
 const _nomesDiaSemana = [
   'segunda',
@@ -18,23 +18,17 @@ const _nomesDiaSemana = [
 
 /// Rankings inteligentes: mais estudada, melhor/pior taxa, dia forte e
 /// ranking de acertos por matéria (amostra mínima de 10 questões).
-class CardRankings extends StatelessWidget {
-  final List<RegistroHora> registros;
-  final List<Materia> materias;
-  final DateTime hoje;
-
-  const CardRankings(
-      {super.key,
-      required this.registros,
-      required this.materias,
-      required this.hoje});
+class CardRankings extends ConsumerWidget {
+  const CardRankings({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final materias = ref.watch(materiasDoAmbienteProvider);
+    final dados = ref.watch(rankingsProvider);
     final nomes = {for (final m in materias) m.id: m};
-    final maisEstudada = InsightsService.maisEstudada(registros);
-    final ranking = InsightsService.rankingAcertos(registros);
-    final melhorDia = InsightsService.melhorDiaSemana(registros);
+    final maisEstudada = dados.maisEstudada;
+    final ranking = dados.ranking;
+    final melhorDia = dados.melhorDia;
 
     String nomeDe(String materiaId) => nomes[materiaId]?.nome ?? '—';
 

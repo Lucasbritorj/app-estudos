@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../data/models/registro_hora.dart';
-import '../../../domain/stats_service.dart';
+import '../dashboard_providers.dart';
 
 /// Horas acumuladas por ano + projeção do ano corrente (abas "Visão Geral"
 /// e "Cálculos" da planilha).
-class CardAnos extends StatelessWidget {
-  final List<RegistroHora> registros;
-  final DateTime hoje;
-
-  const CardAnos({super.key, required this.registros, required this.hoje});
+class CardAnos extends ConsumerWidget {
+  const CardAnos({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final porAno = StatsService.minutosPorAno(registros);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dados = ref.watch(anosProvider);
+    final porAno = dados.porAno;
     if (porAno.isEmpty) return const SizedBox.shrink();
-    final total = porAno.values.fold(0, (a, b) => a + b);
-    final projecao = StatsService.projecaoAno(registros, hoje);
+    final total = dados.total;
+    final projecao = dados.projecao;
 
     return Card(
       child: Padding(
@@ -56,11 +54,11 @@ class CardAnos extends StatelessWidget {
                     style: const TextStyle(color: VizColors.inkPrimary)),
               ],
             ),
-            if (projecao > (porAno[hoje.year] ?? 0))
+            if (projecao > (porAno[dados.ano] ?? 0))
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                    'Projeção ${hoje.year} no ritmo atual: ~${formatarMinutos(projecao)}',
+                    'Projeção ${dados.ano} no ritmo atual: ~${formatarMinutos(projecao)}',
                     style: const TextStyle(
                         color: VizColors.muted, fontSize: 11)),
               ),

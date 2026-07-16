@@ -12,7 +12,7 @@ class Aula {
   final bool concluida;
   final DateTime? dataConclusao;
 
-  const Aula({
+  const Aula._({
     required this.id,
     required this.materiaId,
     required this.nome,
@@ -21,6 +21,32 @@ class Aula {
     this.concluida = false,
     this.dataConclusao,
   });
+
+  /// Invariantes garantidas na construção: total não-negativo e páginas
+  /// lidas sempre em [0, total] — o comentário do campo ("nunca passa do
+  /// total") vira enforcement, valendo também para import de backup, não só
+  /// para o fluxo de sessão.
+  factory Aula({
+    required String id,
+    required String materiaId,
+    required String nome,
+    required int paginasTotais,
+    int paginasLidas = 0,
+    bool concluida = false,
+    DateTime? dataConclusao,
+  }) {
+    final total = paginasTotais < 0 ? 0 : paginasTotais;
+    final lidas = paginasLidas < 0 ? 0 : (paginasLidas > total ? total : paginasLidas);
+    return Aula._(
+      id: id,
+      materiaId: materiaId,
+      nome: nome,
+      paginasTotais: total,
+      paginasLidas: lidas,
+      concluida: concluida,
+      dataConclusao: dataConclusao,
+    );
+  }
 
   double get progresso =>
       paginasTotais <= 0 ? 0 : (paginasLidas / paginasTotais).clamp(0.0, 1.0);

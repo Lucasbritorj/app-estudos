@@ -32,7 +32,7 @@ class RegistroHora {
   final int? questoes;
   final int? acertos;
 
-  const RegistroHora({
+  const RegistroHora._({
     required this.id,
     required this.data,
     required this.materiaId,
@@ -48,6 +48,53 @@ class RegistroHora {
     this.questoes,
     this.acertos,
   });
+
+  /// Invariantes garantidas na construção — nenhuma via de entrada (form,
+  /// import de backup, cálculo) consegue gravar valores impossíveis que
+  /// contaminariam o Elo/desempenho: minutos e páginas não-negativos,
+  /// questões não-negativas e acertos nunca acima das questões.
+  factory RegistroHora({
+    required String id,
+    required DateTime data,
+    required String materiaId,
+    String? topicoId,
+    String? aulaId,
+    TipoEstudo tipo = TipoEstudo.teoria,
+    String tarefa = '',
+    required int minutos,
+    int? paginaInicial,
+    int? paginaFinal,
+    int? paginasLidasManual,
+    String? comentario,
+    int? questoes,
+    int? acertos,
+  }) {
+    final questoesClamp = questoes == null ? null : (questoes < 0 ? 0 : questoes);
+    // Acerto só existe contra questões; sem questões, não há taxa a apurar.
+    final acertosClamp = acertos == null
+        ? null
+        : (questoesClamp == null
+            ? null
+            : acertos.clamp(0, questoesClamp));
+    return RegistroHora._(
+      id: id,
+      data: data,
+      materiaId: materiaId,
+      topicoId: topicoId,
+      aulaId: aulaId,
+      tipo: tipo,
+      tarefa: tarefa,
+      minutos: minutos < 0 ? 0 : minutos,
+      paginaInicial: paginaInicial,
+      paginaFinal: paginaFinal,
+      paginasLidasManual: paginasLidasManual == null
+          ? null
+          : (paginasLidasManual < 0 ? 0 : paginasLidasManual),
+      comentario: comentario,
+      questoes: questoesClamp,
+      acertos: acertosClamp,
+    );
+  }
 
   int? get paginasLidas {
     if (paginasLidasManual != null) return paginasLidasManual;

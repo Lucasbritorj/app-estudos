@@ -2,17 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../core/notificacoes/notificacoes_service.dart';
+import '../../application/sessao_estudo_use_case.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/haptica.dart';
 import '../../data/models/registro_hora.dart';
 import '../../data/repositories/ambiente_filtros.dart';
-import '../../data/repositories/configuracoes_repositorio.dart';
 import '../../data/repositories/repositorios.dart';
-import '../../domain/aula_service.dart';
-import '../../domain/revisao_service.dart';
 import '../materias/materia_dialog.dart';
-import '../revisoes/criar_revisoes.dart';
 
 /// Abre o formulário de registro. Retorna true se um registro foi salvo.
 Future<bool> mostrarFormularioRegistro(BuildContext context,
@@ -149,59 +145,30 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
       questoes: teoria ? null : int.tryParse(_questoes.text),
       acertos: teoria ? null : int.tryParse(_acertos.text),
     );
-    await ref.read(registrosProvider.notifier).salvar(registro);
+    // Toda a orquestração (aula, cadeia de revisão, reancoragem,
+    // notificações) mora no caso de uso; aqui só se formata o resultado.
+    final resultado =
+        await ref.read(sessaoEstudoUseCaseProvider).registrar(registro);
 
-    // Estudo teórico com aula: acumula páginas; concluir a aula é O gatilho
-    // da cadeia de revisões (Revisão 1 nasce da data de conclusão do PDF).
     String? avisoAula;
-    final paginas = teoria ? (_paginasLidas ?? 0) : 0;
-    final aula = _aulaId == null
-        ? null
-        : ref.read(aulasProvider).where((a) => a.id == _aulaId).firstOrNull;
-    if (aula != null && paginas > 0) {
-      final resultado =
-          AulaService.aplicarSessao(aula, paginas, registro.data);
-      await ref.read(aulasProvider.notifier).salvar(resultado.aula);
-      if (resultado.concluiuAgora) {
-        final materia = ref
-            .read(materiasProvider)
-            .where((m) => m.id == _materiaId)
-            .firstOrNull;
-        final primeira = await criarCadeiaParaAula(
-            ref, resultado.aula, materia?.nome ?? 'Estudo');
+    final aulaAtualizada = resultado.aulaAtualizada;
+    if (aulaAtualizada != null) {
+      if (resultado.aulaConcluiuAgora) {
+        final primeira = resultado.primeiraRevisao;
         avisoAula = primeira == null
-            ? '${aula.nome} concluída!'
-            : '${aula.nome} concluída! Revisão 1 em '
+            ? '${aulaAtualizada.nome} concluída!'
+            : '${aulaAtualizada.nome} concluída! Revisão 1 em '
                 '${primeira.intervaloDias}d (${formatarData(primeira.dataAgendada)})';
       } else {
-        avisoAula =
-            '${resultado.aula.paginasLidas}/${resultado.aula.paginasTotais} '
-            'páginas da ${aula.nome}';
+        avisoAula = '${aulaAtualizada.paginasLidas}/'
+            '${aulaAtualizada.paginasTotais} páginas da ${aulaAtualizada.nome}';
       }
     }
-
-    // Revisões pendentes do tópico reancoram no último estudo (prática).
-    var reagendadas = 0;
-    if (registro.topicoId != null) {
-      final config = ref.read(configuracoesProvider);
-      final alteradas = RevisaoService.reagendarPorEstudo(
-          ref.read(revisoesProvider), registro.topicoId!, registro.data);
-      for (final revisao in alteradas) {
-        await ref.read(revisoesProvider.notifier).salvar(revisao);
-        await NotificacoesService.cancelar(revisao.id);
-        await NotificacoesService.agendarRevisao(
-          id: revisao.id,
-          titulo: revisao.titulo,
-          dia: revisao.dataAgendada,
-          hora: config.horaNotificacao,
-        );
-      }
-      reagendadas = alteradas.length;
-    }
+    final reagendadas = resultado.revisoesReancoradas;
 
     if (!mounted) return;
     // Aula concluída merece celebração; registro comum, confirmação leve.
-    if (avisoAula != null && avisoAula.contains('concluída')) {
+    if (resultado.aulaConcluiuAgora) {
       Haptica.celebrar();
     } else {
       Haptica.leve();
@@ -308,21 +275,19 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String?>(
                   initialValue: _aulaId,
-                  decoration: InputDecoration(
-                      labelText: teoria ? 'Aula *' : 'Aula (opcional)'),
+                  decoration:
+                      const InputDecoration(labelText: 'Aula (opcional)'),
                   items: [
-                    if (!teoria)
-                      const DropdownMenuItem<String?>(
-                          value: null, child: Text('— sem aula —')),
+                    // Teoria avulsa (caderno, videoaula) é legítima — aula
+                    // nunca é obrigatória; sem aula só não move o PDF.
+                    const DropdownMenuItem<String?>(
+                        value: null, child: Text('— sem aula —')),
                     for (final a in aulas)
                       DropdownMenuItem<String?>(
                           value: a.id,
                           child: Text(
                               '${a.nome} · ${a.paginasLidas}/${a.paginasTotais} pág')),
                   ],
-                  validator: (v) => teoria && v == null && aulas.isNotEmpty
-                      ? 'Escolha a aula do PDF'
-                      : null,
                   onChanged: (v) => setState(() => _aulaId = v),
                 ),
               ] else if (teoria && _materiaId != null)

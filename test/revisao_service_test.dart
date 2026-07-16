@@ -61,6 +61,42 @@ void main() {
               materiaId: 'm1', topicoId: 'sem-questoes'),
           isNull);
     });
+
+    test('janela de recência: sessão antiga sai do cálculo do passo', () {
+      // 1 sessão péssima antiga + 10 recentes perfeitas: com a janela de 10
+      // sessões a antiga não segura mais o intervalo (taxa acumulada
+      // seguraria para sempre).
+      final historico = [
+        RegistroHora(
+          id: 'antiga',
+          data: DateTime(2026, 1, 1),
+          materiaId: 'm1',
+          topicoId: 't1',
+          minutos: 60,
+          questoes: 10,
+          acertos: 0,
+        ),
+        for (var i = 0; i < 10; i++)
+          RegistroHora(
+            id: 'recente-$i',
+            data: DateTime(2026, 7, 1 + i),
+            materiaId: 'm1',
+            topicoId: 't1',
+            minutos: 60,
+            questoes: 10,
+            acertos: 10,
+          ),
+      ];
+      expect(
+          RevisaoService.taxaAcertoDe(historico,
+              materiaId: 'm1', topicoId: 't1'),
+          1.0);
+      // Janela maior que o histórico volta a incluir a antiga.
+      expect(
+          RevisaoService.taxaAcertoDe(historico,
+              materiaId: 'm1', topicoId: 't1', ultimasSessoes: 11),
+          100 / 110);
+    });
   });
 
   group('proximoPasso (adaptativa)', () {

@@ -1,11 +1,11 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../data/models/materia.dart';
-import '../../../data/models/registro_hora.dart';
-import '../../../domain/stats_service.dart';
+import '../../../data/repositories/ambiente_filtros.dart';
+import '../dashboard_providers.dart';
 
 /// Card com título padrão para envolver qualquer gráfico do dashboard.
 class CardGrafico extends StatelessWidget {
@@ -39,26 +39,15 @@ class CardGrafico extends StatelessWidget {
 String _abreviar(String nome, [int limite = 8]) =>
     nome.length <= limite ? nome : '${nome.substring(0, limite - 1)}…';
 
-class BarrasSemana extends StatelessWidget {
-  final List<RegistroHora> registros;
-  final List<Materia> materias;
-  final DateTime hoje;
-
-  const BarrasSemana(
-      {super.key,
-      required this.registros,
-      required this.materias,
-      required this.hoje});
+class BarrasSemana extends ConsumerWidget {
+  const BarrasSemana({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final inicio = StatsService.inicioDaSemana(hoje);
-    final porMateria =
-        StatsService.minutosPorMateria(registros, de: inicio, ate: hoje);
-    final materiasPorId = {for (final m in materias) m.id: m};
-
-    final linhas = porMateria.entries.where((e) => e.value > 0).toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+  Widget build(BuildContext context, WidgetRef ref) {
+    final linhas = ref.watch(barrasSemanaProvider);
+    final materiasPorId = {
+      for (final m in ref.watch(materiasDoAmbienteProvider)) m.id: m
+    };
 
     if (linhas.isEmpty) {
       return const SizedBox(
@@ -69,9 +58,17 @@ class BarrasSemana extends StatelessWidget {
     }
 
     final maxMinutos =
-        linhas.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+        linhas.map((e) => e.minutos).reduce((a, b) => a > b ? a : b);
 
-    return SizedBox(
+    final resumoA11y = linhas
+        .map((e) =>
+            '${materiasPorId[e.materiaId]?.nome ?? '—'} ${formatarMinutos(e.minutos)}')
+        .join(', ');
+
+    return Semantics(
+      container: true,
+      label: 'Horas da semana por matéria: $resumoA11y',
+      child: SizedBox(
       height: 200,
       child: BarChart(
         BarChartData(
@@ -100,7 +97,7 @@ class BarrasSemana extends StatelessWidget {
                 getTitlesWidget: (valor, meta) {
                   final i = valor.toInt();
                   if (i < 0 || i >= linhas.length) return const SizedBox();
-                  final materia = materiasPorId[linhas[i].key];
+                  final materia = materiasPorId[linhas[i].materiaId];
                   // Rótulo direto: nome + valor, identidade nunca só pela cor.
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -109,7 +106,7 @@ class BarrasSemana extends StatelessWidget {
                         Text(_abreviar(materia?.nome ?? '—'),
                             style: const TextStyle(
                                 color: VizColors.inkSecondary, fontSize: 11)),
-                        Text(formatarMinutos(linhas[i].value),
+                        Text(formatarMinutos(linhas[i].minutos),
                             style: const TextStyle(
                                 color: VizColors.muted, fontSize: 10)),
                       ],
@@ -125,10 +122,10 @@ class BarrasSemana extends StatelessWidget {
                 x: i,
                 barRods: [
                   BarChartRodData(
-                    toY: linhas[i].value.toDouble(),
+                    toY: linhas[i].minutos.toDouble(),
                     width: 18,
                     color: corDaSerie(
-                        materiasPorId[linhas[i].key]?.corSlot ?? 0),
+                        materiasPorId[linhas[i].materiaId]?.corSlot ?? 0),
                     borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(4)),
                   ),
@@ -137,24 +134,28 @@ class BarrasSemana extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }
 
-class LinhaEvolucao extends StatelessWidget {
-  final List<RegistroHora> registros;
-  final DateTime hoje;
-
-  const LinhaEvolucao({super.key, required this.registros, required this.hoje});
+class LinhaEvolucao extends ConsumerWidget {
+  const LinhaEvolucao({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final serie = StatsService.serieDiaria(registros, hoje, 14);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final serie = ref.watch(serieEvolucaoProvider);
     final horas = serie.map((p) => p.minutos / 60.0).toList();
     final maxHoras = horas.reduce((a, b) => a > b ? a : b);
     final tetoY = maxHoras < 1 ? 1.0 : maxHoras * 1.2;
+    final totalMinutos = serie.fold(0, (s, p) => s + p.minutos);
 
-    return SizedBox(
+    return Semantics(
+      container: true,
+      label: 'Evolução dos últimos 14 dias: '
+          '${formatarMinutos(totalMinutos)} no total, '
+          'pico de ${maxHoras.toStringAsFixed(1)} horas num dia',
+      child: SizedBox(
       height: 180,
       child: LineChart(
         LineChartData(
@@ -218,24 +219,21 @@ class LinhaEvolucao extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }
 
-class DonutDistribuicao extends StatelessWidget {
-  final List<RegistroHora> registros;
-  final List<Materia> materias;
-
-  const DonutDistribuicao(
-      {super.key, required this.registros, required this.materias});
+class DonutDistribuicao extends ConsumerWidget {
+  const DonutDistribuicao({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final porMateria = StatsService.minutosPorMateria(registros);
-    final materiasPorId = {for (final m in materias) m.id: m};
-    final linhas = porMateria.entries.where((e) => e.value > 0).toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final total = linhas.fold(0, (soma, e) => soma + e.value);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final linhas = ref.watch(donutProvider);
+    final materiasPorId = {
+      for (final m in ref.watch(materiasDoAmbienteProvider)) m.id: m
+    };
+    final total = linhas.fold(0, (soma, e) => soma + e.minutos);
 
     if (total == 0) {
       return const SizedBox(
@@ -245,9 +243,19 @@ class DonutDistribuicao extends StatelessWidget {
                   style: TextStyle(color: VizColors.muted))));
     }
 
+    final resumoA11y = linhas
+        .map((e) =>
+            '${materiasPorId[e.materiaId]?.nome ?? '—'} '
+            '${(e.minutos * 100 / total).toStringAsFixed(0)}%')
+        .join(', ');
+
     return Column(
       children: [
-        SizedBox(
+        Semantics(
+          container: true,
+          label: 'Distribuição total por matéria, '
+              '${formatarMinutos(total)}: $resumoA11y',
+          child: SizedBox(
           height: 180,
           child: Stack(
             alignment: Alignment.center,
@@ -259,9 +267,9 @@ class DonutDistribuicao extends StatelessWidget {
                   sections: [
                     for (final e in linhas)
                       PieChartSectionData(
-                        value: e.value.toDouble(),
+                        value: e.minutos.toDouble(),
                         color: corDaSerie(
-                            materiasPorId[e.key]?.corSlot ?? 0),
+                            materiasPorId[e.materiaId]?.corSlot ?? 0),
                         radius: 22,
                         showTitle: false,
                       ),
@@ -284,6 +292,7 @@ class DonutDistribuicao extends StatelessWidget {
             ],
           ),
         ),
+        ),
         const SizedBox(height: 12),
         // Legenda: identidade + valor em texto, nunca só cor.
         Wrap(
@@ -300,13 +309,13 @@ class DonutDistribuicao extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color:
-                          corDaSerie(materiasPorId[e.key]?.corSlot ?? 0),
+                          corDaSerie(materiasPorId[e.materiaId]?.corSlot ?? 0),
                     ),
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    '${materiasPorId[e.key]?.nome ?? '—'} · '
-                    '${(e.value * 100 / total).toStringAsFixed(0)}%',
+                    '${materiasPorId[e.materiaId]?.nome ?? '—'} · '
+                    '${(e.minutos * 100 / total).toStringAsFixed(0)}%',
                     style: const TextStyle(
                         color: VizColors.inkSecondary, fontSize: 12),
                   ),

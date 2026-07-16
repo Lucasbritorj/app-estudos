@@ -1,8 +1,8 @@
 import 'dart:math';
 
 import '../data/models/materia.dart';
-import '../data/models/registro_hora.dart';
 import 'dominio_service.dart';
+import 'parametros_ciclo.dart';
 import 'planejamento_service.dart';
 
 /// Projeção de prontidão para a data da prova — funções puras.
@@ -13,9 +13,10 @@ import 'planejamento_service.dart';
 /// com o plano por construção: se o usuário seguir o ciclo sugerido, chega
 /// no número projetado.
 class ProntidaoService {
-  /// Mesmos parâmetros de PlanejamentoService.distribuirPorUtilidade.
-  static const _blocoMinutos = 15;
-  static const _passoPorBloco = 0.02;
+  /// Mesmos parâmetros de PlanejamentoService.distribuirPorUtilidade —
+  /// garantido pelo compilador via ParametrosCiclo, não por convenção.
+  static const _blocoMinutos = ParametrosCiclo.blocoMinutos;
+  static const _passoPorBloco = ParametrosCiclo.passoPorBloco;
 
   /// Abaixo disso na projeção, a matéria entra na lista de risco.
   static const limiarRisco = 0.75;
@@ -37,13 +38,15 @@ class ProntidaoService {
   }
 
   /// Domínio atual por matéria: Elo confiável ou prior de intimidade —
-  /// mesma regra do ciclo (PlanejamentoService.dominioInicial).
+  /// mesma regra do ciclo (PlanejamentoService.dominioInicial). [medidos]
+  /// vem de DominioService.dominioPorMateria (uma passada, compartilhada
+  /// entre os consumidores) em vez de re-filtrar registros por matéria.
   static Map<String, double> dominiosAtuais(
-          List<Materia> materias, List<RegistroHora> registros) =>
+          List<Materia> materias, Map<String, MedicaoDominio?> medidos) =>
       {
         for (final m in materias)
-          m.id: PlanejamentoService.dominioInicial(m.intimidade,
-              DominioService.dominioDaMateria(registros, m.id)),
+          m.id: PlanejamentoService.dominioInicial(
+              m.intimidade, medidos[m.id]),
       };
 
   /// Projeta os domínios na data da prova simulando o ciclo semana a
@@ -93,11 +96,9 @@ class ProntidaoService {
   /// intimidade. Chamada de calibração (cold start): registrar 10+ questões
   /// troca o palpite por evidência.
   static List<Materia> semMedicao(
-          List<Materia> materias, List<RegistroHora> registros) =>
+          List<Materia> materias, Map<String, MedicaoDominio?> medidos) =>
       [
         for (final m in materias.where((m) => !m.arquivada))
-          if (!(DominioService.dominioDaMateria(registros, m.id)?.confiavel ??
-              false))
-            m,
+          if (!(medidos[m.id]?.confiavel ?? false)) m,
       ];
 }

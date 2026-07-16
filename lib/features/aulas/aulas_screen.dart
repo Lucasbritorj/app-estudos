@@ -7,9 +7,9 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/aula.dart';
 import '../../data/models/materia.dart';
 import '../../data/repositories/repositorios.dart';
+import '../../application/sessao_estudo_use_case.dart';
 import '../../domain/aula_service.dart';
 import '../registro/registro_form.dart';
-import '../revisoes/criar_revisoes.dart';
 
 /// Aulas (PDFs) de uma matéria: progresso de páginas, ritmo médio e
 /// conclusão — concluir uma aula dispara a cadeia de revisões.
@@ -94,8 +94,9 @@ class AulasScreen extends ConsumerWidget {
         aula, aula.paginasRestantes, DateTime.now());
     await ref.read(aulasProvider.notifier).salvar(resultado.aula);
     if (resultado.concluiuAgora) {
-      final primeira =
-          await criarCadeiaParaAula(ref, resultado.aula, materia.nome);
+      final primeira = await ref
+          .read(sessaoEstudoUseCaseProvider)
+          .criarCadeiaParaAula(resultado.aula, materia.nome);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(primeira == null

@@ -73,6 +73,16 @@ void main() {
     expect(terminaMal.dominio, lessThan(terminaBem.dominio));
   });
 
+  test('dado corrompido (acertos > questões) é clampado, não estoura', () {
+    // Import de CSV/JSON pode trazer acertos=50, questoes=10 — o clamp
+    // impede que contamine o rating acima de uma sessão perfeita.
+    final corrompido = DominioService.dominioDoTopico(
+        [sessao('r1', dia, questoes: 10, acertos: 50)], 't1')!;
+    final perfeito = DominioService.dominioDoTopico(
+        [sessao('r2', dia, questoes: 10, acertos: 10)], 't1')!;
+    expect(corrompido.dominio, perfeito.dominio);
+  });
+
   test('só registros do tópico entram na projeção', () {
     final registros = [
       sessao('r1', dia, questoes: 10, acertos: 10),

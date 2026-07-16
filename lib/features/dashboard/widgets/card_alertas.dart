@@ -2,48 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../data/models/revisao.dart';
 import '../../../data/repositories/ambiente_filtros.dart';
-import '../../../domain/planejamento_service.dart';
-import '../../../domain/stats_service.dart';
+import '../dashboard_providers.dart';
 
 /// Alertas dinâmicos: revisões atrasadas por matéria + falso domínio
 /// (intimidade alta × acerto baixo). Some quando não há nada a alertar.
 class CardAlertas extends ConsumerWidget {
-  final DateTime hoje;
-
-  const CardAlertas({super.key, required this.hoje});
+  const CardAlertas({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final revisoes = ref.watch(revisoesDoAmbienteProvider);
-    final registros = ref.watch(registrosDoAmbienteProvider);
-    final materias = ref
-        .watch(materiasDoAmbienteProvider)
-        .where((m) => !m.arquivada)
-        .toList();
-    final materiasPorId = {for (final m in materias) m.id: m};
-
-    final atrasadasPorMateria = <String, int>{};
-    for (final r in revisoes) {
-      if (r.statusEm(hoje) == RevisaoStatus.atrasada) {
-        atrasadasPorMateria[r.materiaId] =
-            (atrasadasPorMateria[r.materiaId] ?? 0) + 1;
-      }
-    }
-
-    final desempenho = StatsService.desempenhoPorMateria(registros);
-    final falsoDominio = materias.where((m) {
-      final d = desempenho[m.id];
-      final taxa =
-          d == null || d.questoes == 0 ? null : d.acertos / d.questoes;
-      return PlanejamentoService.diagnostico(m.intimidade, taxa) ==
-          DiagnosticoMateria.falsoDominio;
-    }).toList();
-
+    final dados = ref.watch(alertasProvider);
+    final atrasadasPorMateria = dados.atrasadasPorMateria;
+    final falsoDominio = dados.falsoDominio;
     if (atrasadasPorMateria.isEmpty && falsoDominio.isEmpty) {
       return const SizedBox.shrink();
     }
+    final materiasPorId = {
+      for (final m in ref.watch(materiasDoAmbienteProvider)) m.id: m
+    };
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),

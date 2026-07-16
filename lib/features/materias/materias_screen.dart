@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/materia_use_case.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/materia.dart';
@@ -117,7 +118,9 @@ class _MenuMateria extends ConsumerWidget {
             builder: (dialogContext) => AlertDialog(
               title: Text('Excluir ${materia.nome}?'),
               content: const Text(
-                  'Os registros de horas dela permanecem no histórico.'),
+                  'Tópicos, aulas e revisões pendentes desta matéria também '
+                  'serão excluídos. Os registros de horas permanecem no '
+                  'histórico.'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext, false),
@@ -131,7 +134,7 @@ class _MenuMateria extends ConsumerWidget {
             ),
           );
           if (confirmado == true) {
-            ref.read(materiasProvider.notifier).remover(materia.id);
+            await ref.read(materiaUseCaseProvider).excluirEmCascata(materia.id);
           }
         }
       },

@@ -1,8 +1,8 @@
 import 'package:app_estudos/data/models/leitura.dart';
-import 'package:app_estudos/data/models/materia.dart';
 import 'package:app_estudos/data/models/registro_hora.dart';
 import 'package:app_estudos/data/models/revisao.dart';
 import 'package:app_estudos/data/models/topico.dart';
+import 'package:app_estudos/domain/dominio_service.dart';
 import 'package:app_estudos/domain/leitura_service.dart';
 import 'package:app_estudos/domain/mapa_estudos_service.dart';
 import 'package:app_estudos/domain/planejamento_service.dart';
@@ -29,15 +29,6 @@ RegistroHora reg({
       acertos: acertos,
       paginaInicial: pagInicial,
       paginaFinal: pagFinal,
-    );
-
-Materia materia(String id, {int peso = 1, int intimidade = 3}) => Materia(
-      id: id,
-      nome: id,
-      corSlot: 0,
-      peso: peso,
-      intimidade: intimidade,
-      criadaEm: DateTime(2026, 1, 1),
     );
 
 void main() {
@@ -93,42 +84,41 @@ void main() {
     });
   });
 
-  group('diagnóstico intimidade × acerto', () {
-    test('intimidade alta + acerto baixo = falso domínio', () {
-      expect(PlanejamentoService.diagnostico(5, 0.6),
+  group('diagnóstico intimidade × domínio medido (Elo)', () {
+    MedicaoDominio medicao(double dominio, {bool confiavel = true}) =>
+        (dominio: dominio, questoes: confiavel ? 20 : 4, confiavel: confiavel);
+
+    test('intimidade alta + domínio medido baixo = falso domínio', () {
+      expect(PlanejamentoService.diagnostico(5, medicao(0.6)),
           DiagnosticoMateria.falsoDominio);
-      expect(PlanejamentoService.diagnostico(4, 0.74),
+      expect(PlanejamentoService.diagnostico(4, medicao(0.74)),
           DiagnosticoMateria.falsoDominio);
     });
 
-    test('intimidade 1 = teoria prioritária, mesmo sem questões', () {
+    test('intimidade 1 = teoria prioritária, mesmo com medição', () {
       expect(PlanejamentoService.diagnostico(1, null),
           DiagnosticoMateria.teoriaPrioritaria);
-      expect(PlanejamentoService.diagnostico(1, 0.9),
+      expect(PlanejamentoService.diagnostico(1, medicao(0.9)),
           DiagnosticoMateria.teoriaPrioritaria);
     });
 
-    test('sem questões registradas nunca vira falso domínio', () {
+    test('sem medição confiável nunca vira falso domínio nem dominada', () {
       expect(PlanejamentoService.diagnostico(5, null),
+          DiagnosticoMateria.regular);
+      // Amostra pequena (< 10 questões) = palpite, não veredito.
+      expect(
+          PlanejamentoService.diagnostico(
+              5, medicao(0.5, confiavel: false)),
+          DiagnosticoMateria.regular);
+      expect(
+          PlanejamentoService.diagnostico(
+              4, medicao(0.95, confiavel: false)),
           DiagnosticoMateria.regular);
     });
 
-    test('intimidade alta + acerto alto = dominada', () {
-      expect(PlanejamentoService.diagnostico(4, 0.9),
+    test('intimidade alta + domínio medido alto = dominada', () {
+      expect(PlanejamentoService.diagnostico(4, medicao(0.9)),
           DiagnosticoMateria.dominada);
-    });
-
-    test('ciclo ajustado dá mais carga ao falso domínio', () {
-      final materias = [
-        materia('falsa', peso: 1, intimidade: 5),
-        materia('normal', peso: 1, intimidade: 3),
-      ];
-      final ciclo = PlanejamentoService.distribuirAjustado(
-          600, materias, {'falsa': 0.5, 'normal': 0.8});
-      // Pesos efetivos 1.5 vs 1.0: 360 vs 240.
-      expect(ciclo['falsa'], 360);
-      expect(ciclo['normal'], 240);
-      expect(ciclo.values.fold(0, (a, b) => a + b), 600);
     });
   });
 
@@ -212,6 +202,49 @@ void main() {
           MapaEstudosService.taxaDoTopico(
               [reg(materia: 'm1', topico: 't1')], 't1'),
           isNull);
+    });
+  });
+
+  group('metricasPorTopico (uma passada por matéria)', () {
+    const base = Topico(id: 'base', materiaId: 'm1', nome: 'Base');
+    final avancado = const Topico(
+        id: 'avancado',
+        materiaId: 'm1',
+        nome: 'Avançado',
+        prerequisitos: ['base']);
+
+    test('status, minutos, taxa e bloqueio batem com os cálculos por tópico',
+        () {
+      final registros = [
+        reg(materia: 'm1', topico: 'base', minutos: 30, questoes: 10, acertos: 9),
+        reg(materia: 'm1', topico: 'base', minutos: 30),
+      ];
+      final metricas =
+          MapaEstudosService.metricasPorTopico([base, avancado], registros);
+
+      expect(metricas['base']!.status, StatusTopico.emEstudo);
+      expect(metricas['base']!.minutos, 60);
+      expect(metricas['base']!.taxa, 0.9);
+      expect(metricas['base']!.bloqueadoPor, isEmpty);
+      // base não é confiável (10 questões, mas domínio < 0.6 partindo do
+      // neutro com 90%): avançado segue bloqueado.
+      expect(metricas['avancado']!.status, StatusTopico.naoIniciado);
+      expect(
+          metricas['avancado']!.bloqueadoPor.map((t) => t.id), ['base']);
+    });
+
+    test('base concluída libera o dependente', () {
+      final metricas = MapaEstudosService.metricasPorTopico(
+          [base.copyWith(concluido: true), avancado], const []);
+      expect(metricas['base']!.status, StatusTopico.concluido);
+      expect(metricas['avancado']!.bloqueadoPor, isEmpty);
+    });
+
+    test('registro de tópico de outra matéria não contamina', () {
+      final metricas = MapaEstudosService.metricasPorTopico(
+          [base], [reg(materia: 'm1', topico: 'fantasma', minutos: 99)]);
+      expect(metricas['base']!.minutos, 0);
+      expect(metricas['base']!.status, StatusTopico.naoIniciado);
     });
   });
 }

@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../data/repositories/repositorios.dart';
-import '../../../domain/gamificacao_service.dart';
+import '../dashboard_providers.dart';
 
 const _iconesBadge = <String, IconData>{
   'primeira-sessao': Icons.flag,
@@ -17,19 +16,16 @@ const _iconesBadge = <String, IconData>{
 };
 
 class CardGamificacao extends ConsumerWidget {
-  final DateTime hoje;
-
-  const CardGamificacao({super.key, required this.hoje});
+  const CardGamificacao({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // XP/nível/badges são do USUÁRIO, não do ambiente — sempre globais,
     // senão trocar de ambiente "rebaixaria" o nível.
-    final registros = ref.watch(registrosProvider);
-    final revisoes = ref.watch(revisoesProvider);
-    final xp = GamificacaoService.xpDetalhado(registros, revisoes, hoje);
-    final progresso = GamificacaoService.progressoNivel(xp.total);
-    final badges = GamificacaoService.badges(registros, revisoes, hoje);
+    final dados = ref.watch(gamificacaoProvider);
+    final xp = dados.xp;
+    final progresso = dados.progresso;
+    final badges = dados.badges;
     const corConquista = LuminaColors.ouro;
 
     return Card(

@@ -3,6 +3,7 @@ import 'dart:math';
 import '../data/models/materia.dart';
 import '../data/models/registro_hora.dart';
 import 'dominio_service.dart';
+import 'parametros_ciclo.dart';
 
 /// Diagnóstico do cruzamento Intimidade (1-5) × taxa de acerto.
 enum DiagnosticoMateria {
@@ -21,43 +22,21 @@ enum DiagnosticoMateria {
 
 /// Cálculos puros do planejamento — geração de ciclo por peso do edital.
 class PlanejamentoService {
-  /// Cruza intimidade declarada com acerto medido. [taxaAcerto] null
-  /// (sem questões registradas) nunca gera falso domínio nem dominada —
-  /// diagnóstico exige evidência.
-  static DiagnosticoMateria diagnostico(int intimidade, double? taxaAcerto) {
+  /// Cruza intimidade declarada com o domínio MEDIDO (Elo, com recência e
+  /// amostra mínima) — mesma régua do ciclo e da prontidão, para o app
+  /// nunca se contradizer: a taxa acumulada carregava erro de meses atrás
+  /// para sempre. Sem medição confiável não há veredito: regular.
+  static DiagnosticoMateria diagnostico(
+      int intimidade, MedicaoDominio? medido) {
     if (intimidade <= 1) return DiagnosticoMateria.teoriaPrioritaria;
-    if (taxaAcerto == null) return DiagnosticoMateria.regular;
-    if (intimidade >= 4 && taxaAcerto < 0.75) {
+    if (medido == null || !medido.confiavel) return DiagnosticoMateria.regular;
+    if (intimidade >= 4 && medido.dominio < 0.75) {
       return DiagnosticoMateria.falsoDominio;
     }
-    if (intimidade >= 4 && taxaAcerto >= 0.85) {
+    if (intimidade >= 4 && medido.dominio >= 0.85) {
       return DiagnosticoMateria.dominada;
     }
     return DiagnosticoMateria.regular;
-  }
-
-  /// Multiplicador de carga horária no ciclo, por diagnóstico:
-  /// falso domínio +50% (revisão pesada), teoria +30% (base a construir),
-  /// dominada -30% (só manutenção), regular 1x.
-  static double fatorDeCarga(DiagnosticoMateria diagnostico) =>
-      switch (diagnostico) {
-        DiagnosticoMateria.falsoDominio => 1.5,
-        DiagnosticoMateria.teoriaPrioritaria => 1.3,
-        DiagnosticoMateria.dominada => 0.7,
-        DiagnosticoMateria.regular => 1.0,
-      };
-
-  /// Ciclo ajustado: peso do edital × fator do diagnóstico
-  /// (intimidade × acerto por matéria em [taxasPorMateria]).
-  static Map<String, int> distribuirAjustado(int minutosTotais,
-      List<Materia> materias, Map<String, double?> taxasPorMateria) {
-    final ativas = materias.where((m) => !m.arquivada).toList();
-    final pesos = <String, double>{
-      for (final m in ativas)
-        m.id: m.peso *
-            fatorDeCarga(diagnostico(m.intimidade, taxasPorMateria[m.id])),
-    };
-    return _distribuir(minutosTotais, pesos);
   }
 
   /// Domínio inicial da matéria para o ciclo: medição Elo confiável tem
@@ -73,25 +52,28 @@ class PlanejamentoService {
   /// NUNCA podem divergir): domínio Elo da matéria com prior de intimidade,
   /// distribuído por utilidade.
   static Map<String, int> cicloPorUtilidade(int minutosTotais,
-          List<Materia> materias, List<RegistroHora> registros) =>
-      distribuirPorUtilidade(minutosTotais, materias, {
-        for (final m in materias)
-          m.id: dominioInicial(m.intimidade,
-              DominioService.dominioDaMateria(registros, m.id)),
-      });
+      List<Materia> materias, List<RegistroHora> registros) {
+    final medidos = DominioService.dominioPorMateria(
+        registros, materias.map((m) => m.id));
+    return distribuirPorUtilidade(minutosTotais, materias, {
+      for (final m in materias)
+        m.id: dominioInicial(m.intimidade, medidos[m.id]),
+    });
+  }
 
   /// Ciclo por utilidade marginal decrescente (mochila gulosa): cada bloco
   /// de [blocoMinutos] vai para a matéria de maior peso × (1 − domínio
   /// efetivo); o domínio efetivo sobe [passoPorBloco] por bloco recebido,
   /// então matéria dominada rende pouco por hora extra e a alocação
-  /// intercala sozinha — a curva contínua substitui os fatores fixos de
-  /// [fatorDeCarga]. Soma distribuída bate exata com [minutosTotais].
+  /// intercala sozinha — a curva contínua substituiu os antigos fatores
+  /// fixos por diagnóstico. Soma distribuída bate exata com
+  /// [minutosTotais].
   static Map<String, int> distribuirPorUtilidade(
     int minutosTotais,
     List<Materia> materias,
     Map<String, double> dominioPorMateria, {
-    int blocoMinutos = 15,
-    double passoPorBloco = 0.02,
+    int blocoMinutos = ParametrosCiclo.blocoMinutos,
+    double passoPorBloco = ParametrosCiclo.passoPorBloco,
   }) {
     final ativas = materias.where((m) => !m.arquivada).toList()
       ..sort((a, b) {

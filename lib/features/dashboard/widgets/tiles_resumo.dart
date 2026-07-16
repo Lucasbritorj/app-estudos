@@ -1,33 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../data/models/registro_hora.dart';
-import '../../../domain/stats_service.dart';
+import '../dashboard_providers.dart';
 
 /// Tiles de números complementares. Hoje/Semana/Streak/Total moram no
 /// HeroGeral — aqui entra só o que NÃO está no hero, sem duplicar métrica.
-class TilesResumo extends StatelessWidget {
-  final List<RegistroHora> registros;
-  final DateTime hoje;
-
-  const TilesResumo({super.key, required this.registros, required this.hoje});
+class TilesResumo extends ConsumerWidget {
+  const TilesResumo({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final ontem = DateTime(hoje.year, hoje.month, hoje.day - 1);
-    final resumo = StatsService.resumoDiario(registros);
-    final ritmo = StatsService.paginasPorHoraGeral(registros);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dados = ref.watch(tilesResumoProvider);
+    final ritmo = dados.ritmo;
 
     final tiles = <(String, String)>[
-      ('Mês', formatarMinutos(StatsService.minutosNoMes(registros, hoje))),
-      (
-        'Ano',
-        formatarMinutos(StatsService.minutosNoAno(registros, hoje.year)),
-      ),
-      ('Ontem', formatarMinutos(StatsService.minutosNoDia(registros, ontem))),
-      ('Média/dia', formatarMinutos(resumo.media)),
-      ('Melhor dia', formatarMinutos(resumo.maximo)),
+      ('Mês', formatarMinutos(dados.mes)),
+      ('Ano', formatarMinutos(dados.ano)),
+      ('Ontem', formatarMinutos(dados.ontem)),
+      ('Média/dia', formatarMinutos(dados.media)),
+      ('Melhor dia', formatarMinutos(dados.maximo)),
       if (ritmo != null) ('Ritmo', '${ritmo.toStringAsFixed(1)} pág/h'),
     ];
 

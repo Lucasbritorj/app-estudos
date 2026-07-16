@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/utils/haptica.dart';
+import 'data/repositories/configuracoes_repositorio.dart';
 import 'features/ambientes/ambientes_screen.dart';
 import 'features/configuracoes/configuracoes_screen.dart';
 import 'features/cronometro/cronometro_screen.dart';
@@ -12,6 +13,7 @@ import 'features/leituras/leituras_screen.dart';
 import 'features/mais/mais_screen.dart';
 import 'features/mapa/mapa_estudos_screen.dart';
 import 'features/materias/materias_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'features/planejamento/planejamento_screen.dart';
 import 'features/resumos/resumos_screen.dart';
 import 'features/revisoes/revisoes_screen.dart';
@@ -66,6 +68,14 @@ class _HomeShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Tour de primeira execução antes de qualquer aba — mostrado uma vez
+    // (flag persistida); "Pular"/"Começar" liberam o app.
+    final onboardingConcluido =
+        ref.watch(configuracoesProvider.select((c) => c.onboardingConcluido));
+    if (!onboardingConcluido) {
+      return const OnboardingScreen();
+    }
+
     final aba = ref.watch(abaProvider);
     final conteudo = IndexedStack(
       index: aba,

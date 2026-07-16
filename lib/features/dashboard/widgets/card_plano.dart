@@ -3,72 +3,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../data/repositories/ambiente_filtros.dart';
-import '../../../data/repositories/configuracoes_repositorio.dart';
-import '../../../data/repositories/planejamento_repositorio.dart';
-import '../../../domain/planejamento_service.dart';
-import '../../../domain/stats_service.dart';
 import '../confete_leve.dart';
+import '../dashboard_providers.dart';
 
 /// Planejado vs feito vs restante em semana, mês e ano (aba "Visão Geral").
 /// Planejado vem do cronograma por dia da semana; sem cronograma, cai na
 /// meta semanal das configurações (30h padrão) escalada pelo período.
 class CardPlano extends ConsumerWidget {
-  final DateTime hoje;
-
-  const CardPlano({super.key, required this.hoje});
+  const CardPlano({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final plano = ref.watch(planejamentoProvider);
-    final config = ref.watch(configuracoesProvider);
-    final registros = ref.watch(registrosDoAmbienteProvider);
-    final temCronograma = PlanejamentoService.totalPlanejado(plano) > 0;
-
-    final inicioSemana = StatsService.inicioDaSemana(hoje);
-    final fimSemana = DateTime(
-        inicioSemana.year, inicioSemana.month, inicioSemana.day + 6);
-    final inicioMes = DateTime(hoje.year, hoje.month, 1);
-    final fimMes = DateTime(hoje.year, hoje.month + 1, 0);
-    final inicioAno = DateTime(hoje.year, 1, 1);
-    final fimAno = DateTime(hoje.year, 12, 31);
-
-    int planejadoEm(DateTime de, DateTime ate) {
-      if (temCronograma) {
-        return PlanejamentoService.planejadoEntre(plano, de, ate);
-      }
-      final dias = ate.difference(de).inDays + 1;
-      return (config.metaSemanalMinutos * dias / 7).round();
-    }
-
-    final linhas = [
-      (
-        rotulo: 'Semana',
-        planejado: planejadoEm(inicioSemana, fimSemana),
-        feito: StatsService.minutosNaSemana(registros, hoje),
-      ),
-      (
-        rotulo: 'Mês',
-        planejado: planejadoEm(inicioMes, fimMes),
-        feito: StatsService.minutosNoMes(registros, hoje),
-      ),
-      (
-        rotulo: 'Ano',
-        planejado: planejadoEm(inicioAno, fimAno),
-        feito: StatsService.minutosNoAno(registros, hoje.year),
-      ),
-    ];
+    final dados = ref.watch(planoProvider);
+    final temCronograma = dados.temCronograma;
+    final linhas = dados.linhas;
     if (linhas.every((l) => l.planejado == 0)) {
       return const SizedBox.shrink();
     }
 
-    final semana = linhas.first;
-    final metaSemanaBatida =
-        semana.planejado > 0 && semana.feito >= semana.planejado;
+    final metaSemanaBatida = dados.metaSemanaBatida;
 
     return ConfeteLeve(
       disparar: metaSemanaBatida,
-      chave: 'meta-semana-${inicioSemana.toIso8601String()}',
+      chave: 'meta-semana-${dados.inicioSemana.toIso8601String()}',
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -85,7 +42,7 @@ class CardPlano extends ConsumerWidget {
                   const Spacer(),
                   if (!temCronograma)
                     Text(
-                        'meta ${formatarMinutos(config.metaSemanalMinutos)}/sem',
+                        'meta ${formatarMinutos(dados.metaSemanalMinutos)}/sem',
                         style: const TextStyle(
                             color: VizColors.muted, fontSize: 11)),
                   if (metaSemanaBatida) ...[

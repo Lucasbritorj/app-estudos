@@ -2,28 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../data/repositories/ambiente_filtros.dart';
 import '../../../domain/insights_service.dart';
 import '../../registro/registro_form.dart';
+import '../dashboard_providers.dart';
 
 /// "O que melhorar hoje": recomendações acionáveis do InsightsService,
 /// no escopo ativo. Insight com matéria vira atalho de registro.
 class CardMelhorarHoje extends ConsumerWidget {
-  final DateTime hoje;
-
-  const CardMelhorarHoje({super.key, required this.hoje});
+  const CardMelhorarHoje({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final registros = ref.watch(registrosDoAmbienteProvider);
-    final materias = ref.watch(materiasDoAmbienteProvider);
-    final revisoes = ref.watch(revisoesDoAmbienteProvider);
-    final acoes = InsightsService.melhorarHoje(
-      registros: registros,
-      materias: materias,
-      revisoes: revisoes,
-      hoje: hoje,
-    );
+    final acoes = ref.watch(insightsProvider);
 
     (IconData, Color) visual(TipoInsight tipo) => switch (tipo) {
           TipoInsight.revisao => (Icons.event_repeat, StatusColors.critico),

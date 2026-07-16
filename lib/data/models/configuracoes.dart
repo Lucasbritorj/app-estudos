@@ -15,12 +15,17 @@ class Configuracoes {
   /// ("Todos os ambientes").
   final String? ambienteAtivoId;
 
+  /// Onboarding multi-passo já visto? Falso na primeira execução (e em
+  /// backups antigos, que não tinham o campo) — o gate mostra o tour uma vez.
+  final bool onboardingConcluido;
+
   const Configuracoes({
     this.intervalosRevisao = const [7, 15, 30],
     this.horaNotificacao = 9,
     this.metaSemanalMinutos = 30 * 60,
     this.horaLembreteEstudo,
     this.ambienteAtivoId,
+    this.onboardingConcluido = false,
   });
 
   Configuracoes copyWith(
@@ -30,7 +35,8 @@ class Configuracoes {
       int? horaLembreteEstudo,
       bool desligarLembreteEstudo = false,
       String? ambienteAtivoId,
-      bool limparAmbienteAtivo = false}) {
+      bool limparAmbienteAtivo = false,
+      bool? onboardingConcluido}) {
     return Configuracoes(
       intervalosRevisao: intervalosRevisao ?? this.intervalosRevisao,
       horaNotificacao: horaNotificacao ?? this.horaNotificacao,
@@ -41,6 +47,7 @@ class Configuracoes {
       ambienteAtivoId: limparAmbienteAtivo
           ? null
           : (ambienteAtivoId ?? this.ambienteAtivoId),
+      onboardingConcluido: onboardingConcluido ?? this.onboardingConcluido,
     );
   }
 
@@ -50,6 +57,7 @@ class Configuracoes {
         'metaSemanalMinutos': metaSemanalMinutos,
         'horaLembreteEstudo': horaLembreteEstudo,
         'ambienteAtivoId': ambienteAtivoId,
+        'onboardingConcluido': onboardingConcluido,
       };
 
   factory Configuracoes.fromJson(Map<String, dynamic> json) => Configuracoes(
@@ -62,5 +70,6 @@ class Configuracoes {
             (json['metaSemanalMinutos'] as num?)?.toInt() ?? 30 * 60,
         horaLembreteEstudo: (json['horaLembreteEstudo'] as num?)?.toInt(),
         ambienteAtivoId: json['ambienteAtivoId'] as String?,
+        onboardingConcluido: json['onboardingConcluido'] as bool? ?? false,
       );
 }

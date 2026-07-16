@@ -33,16 +33,25 @@ class RevisaoService {
     return null;
   }
 
-  /// Taxa de acerto acumulada do tópico (ou da matéria, quando a revisão
-  /// não tem tópico); null sem questões registradas.
+  /// Taxa de acerto das últimas [ultimasSessoes] sessões com questões do
+  /// tópico (ou da matéria, quando a revisão não tem tópico); null sem
+  /// questões registradas. A janela de recência decide o passo da revisão
+  /// pelo desempenho ATUAL — na taxa acumulada, um período ruim de meses
+  /// atrás segurava o intervalo para sempre, mesmo recuperado.
   static double? taxaAcertoDe(List<RegistroHora> registros,
-      {required String materiaId, String? topicoId}) {
+      {required String materiaId, String? topicoId, int ultimasSessoes = 10}) {
+    final sessoes = [
+      for (final r in registros)
+        if ((topicoId != null
+                ? r.topicoId == topicoId
+                : r.materiaId == materiaId) &&
+            (r.questoes ?? 0) > 0)
+          r,
+    ]..sort((a, b) => b.data.compareTo(a.data));
+
     var questoes = 0;
     var acertos = 0;
-    for (final r in registros) {
-      final pertence =
-          topicoId != null ? r.topicoId == topicoId : r.materiaId == materiaId;
-      if (!pertence || r.questoes == null || r.questoes! <= 0) continue;
+    for (final r in sessoes.take(ultimasSessoes)) {
       questoes += r.questoes!;
       acertos += r.acertos ?? 0;
     }

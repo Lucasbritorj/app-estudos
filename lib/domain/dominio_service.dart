@@ -2,6 +2,10 @@ import 'dart:math';
 
 import '../data/models/registro_hora.dart';
 
+/// Medição Elo de um escopo (tópico/matéria): domínio em [0,1], amostra e
+/// se a amostra basta para a medição ser confiável.
+typedef MedicaoDominio = ({double dominio, int questoes, bool confiavel});
+
 /// Estimativa de domínio por tópico via rating estilo Elo — projeção pura
 /// sobre os registros (nada é gravado; tudo deriva dos eventos).
 ///
@@ -37,7 +41,24 @@ class DominioService {
           List<RegistroHora> registros, String materiaId) =>
       _projetar(registros.where((r) => r.materiaId == materiaId));
 
-  static ({double dominio, int questoes, bool confiavel})? _projetar(
+  /// Projeção Elo de todas as matérias numa passada só: agrupa os registros
+  /// por matéria (O(registros)) e projeta cada grupo — substitui o padrão
+  /// de re-filtrar a lista inteira por matéria (O(matérias × registros)).
+  static Map<String, MedicaoDominio?> dominioPorMateria(
+      List<RegistroHora> registros, Iterable<String> materiaIds) {
+    final porMateria = <String, List<RegistroHora>>{};
+    for (final r in registros) {
+      (porMateria[r.materiaId] ??= []).add(r);
+    }
+    return {
+      for (final id in materiaIds) id: dominioDe(porMateria[id] ?? const []),
+    };
+  }
+
+  /// Projeção Elo sobre um conjunto de sessões já filtrado — público para
+  /// quem agrupa registros uma vez e projeta cada grupo (ex.: métricas do
+  /// mapa por matéria) em vez de re-filtrar a lista inteira por tópico.
+  static ({double dominio, int questoes, bool confiavel})? dominioDe(
       Iterable<RegistroHora> candidatos) {
     final sessoes = candidatos.where((r) => (r.questoes ?? 0) > 0).toList()
       ..sort((a, b) => a.data.compareTo(b.data));
@@ -46,7 +67,9 @@ class DominioService {
     var rating = 0.0;
     var totalQuestoes = 0;
     for (final s in sessoes) {
-      final observado = (s.acertos ?? 0) / s.questoes!;
+      // Clamp defensivo: dado importado com acertos > questões não pode
+      // empurrar o rating acima do que uma sessão perfeita empurraria.
+      final observado = ((s.acertos ?? 0) / s.questoes!).clamp(0.0, 1.0);
       final esperado = _sigmoide(rating);
       final peso =
           min(s.questoes!, questoesPorPassoCheio) / questoesPorPassoCheio;
@@ -59,6 +82,10 @@ class DominioService {
       confiavel: totalQuestoes >= amostraMinima,
     );
   }
+
+  static ({double dominio, int questoes, bool confiavel})? _projetar(
+          Iterable<RegistroHora> candidatos) =>
+      dominioDe(candidatos);
 
   static double _sigmoide(double x) => 1 / (1 + exp(-x));
 }

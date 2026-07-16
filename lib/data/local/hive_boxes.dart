@@ -1,8 +1,13 @@
 import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../catalogo/catalogo_materias.dart';
 import '../models/ambiente.dart';
+import '../models/aula.dart';
+import '../models/configuracoes.dart';
 import '../models/resumo.dart';
+import '../models/revisao.dart';
+import '../../domain/revisao_service.dart';
 
 /// Boxes Hive: cada registro é um Map JSON — sem codegen de adapters.
 class HiveBoxes {
@@ -18,6 +23,10 @@ class HiveBoxes {
   static const simulados = 'simulados';
   static const resumos = 'resumos';
 
+  /// Sessão de cronômetro em andamento — persistida para sobreviver a
+  /// reload da aba/kill do app (relógio de parede, não Stopwatch em memória).
+  static const cronometro = 'cronometro';
+
   static Future<void> openAll() async {
     await Future.wait([
       Hive.openBox<Map>(ambientes),
@@ -31,6 +40,7 @@ class HiveBoxes {
       Hive.openBox<Map>(leituras),
       Hive.openBox<Map>(simulados),
       Hive.openBox<Map>(resumos),
+      Hive.openBox<Map>(cronometro),
     ]);
   }
 
@@ -45,6 +55,70 @@ class HiveBoxes {
         m.sigla,
         Resumo(sigla: m.sigla, nome: m.nome, doCatalogo: true).toJson(),
       );
+    }
+  }
+
+  /// Versão de schema atual. Cada incremento corresponde a um passo em
+  /// [migrar]; a versão gravada evita repagar migrações a cada boot.
+  static const schemaVersion = 2;
+  static const _chaveSchema = 'schemaVersion';
+
+  /// Pipeline de migração versionado: roda só os passos pendentes uma vez.
+  /// Boot normal (versão em dia) tem custo O(1) — sem varrer box nenhum.
+  /// A ordem é explícita e cada passo é idempotente por segurança.
+  static Future<void> migrar() async {
+    final boxConfig = Hive.box<Map>(config);
+    final versao = (boxConfig.get(_chaveSchema)?['v'] as num?)?.toInt() ?? 0;
+    if (versao >= schemaVersion) return;
+
+    if (versao < 1) await migrarAmbientes();
+    if (versao < 2) await repararOrfaos();
+
+    await boxConfig.put(_chaveSchema, {'v': schemaVersion});
+  }
+
+  /// Religa invariantes quebradas por crash entre escritas multi-box (Hive
+  /// não tem transação): aula concluída que não gerou NENHUMA revisão de
+  /// cadeia recebe a Revisão 1 retroativa. Conservador — só recria quando
+  /// não há revisão alguma referenciando a aula, então cadeia legítima
+  /// (mesmo toda concluída) nunca é duplicada.
+  static Future<void> repararOrfaos() async {
+    final boxRevisoes = Hive.box<Map>(revisoes);
+    final aulasComRevisao = <String>{};
+    for (final raw in boxRevisoes.values) {
+      final aulaId = raw['aulaId'] as String?;
+      if (aulaId != null) aulasComRevisao.add(aulaId);
+    }
+
+    final rawConfig = Hive.box<Map>(config).get('config');
+    final intervalos = rawConfig == null
+        ? const Configuracoes().intervalosRevisao
+        : Configuracoes.fromJson(Map<String, dynamic>.from(rawConfig))
+            .intervalosRevisao;
+    final primeiro = RevisaoService.proximoIntervalo(intervalos, 0);
+    if (primeiro == null) return;
+
+    final boxMaterias = Hive.box<Map>(materias);
+    String nomeMateria(String id) {
+      final raw = boxMaterias.get(id);
+      return raw == null ? 'Estudo' : (raw['nome'] as String? ?? 'Estudo');
+    }
+
+    for (final raw in Hive.box<Map>(aulas).values) {
+      final aula = Aula.fromJson(Map<String, dynamic>.from(raw));
+      if (!aula.concluida || aula.dataConclusao == null) continue;
+      if (aulasComRevisao.contains(aula.id)) continue;
+
+      final base = aula.dataConclusao!;
+      final revisao = Revisao(
+        id: const Uuid().v4(),
+        materiaId: aula.materiaId,
+        aulaId: aula.id,
+        titulo: '${nomeMateria(aula.materiaId)} — ${aula.nome} (${primeiro}d)',
+        dataAgendada: DateTime(base.year, base.month, base.day + primeiro),
+        intervaloDias: primeiro,
+      );
+      await boxRevisoes.put(revisao.id, revisao.toJson());
     }
   }
 

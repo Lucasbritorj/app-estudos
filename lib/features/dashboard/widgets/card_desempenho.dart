@@ -1,25 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/materia.dart';
-import '../../../data/models/registro_hora.dart';
-import '../../../domain/stats_service.dart';
+import '../../../data/repositories/ambiente_filtros.dart';
+import '../dashboard_providers.dart';
 
 /// Desempenho acumulado em questões por matéria, com barra e status
 /// (regra Nexus: <75% reforçar, 75-84% evoluindo, >=85% dominado).
-class CardDesempenho extends StatelessWidget {
-  final List<RegistroHora> registros;
-  final List<Materia> materias;
-
-  const CardDesempenho(
-      {super.key, required this.registros, required this.materias});
+class CardDesempenho extends ConsumerWidget {
+  const CardDesempenho({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final desempenho = StatsService.desempenhoPorMateria(registros);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final desempenho = ref.watch(desempenhoPorMateriaProvider);
     if (desempenho.isEmpty) return const SizedBox.shrink();
+    final materias = ref.watch(materiasDoAmbienteProvider);
     final materiasPorId = {for (final m in materias) m.id: m};
-    final geral = StatsService.taxaAcertoGeral(registros);
+    final geral = ref.watch(taxaAcertoGeralProvider);
 
     return Card(
       child: Padding(

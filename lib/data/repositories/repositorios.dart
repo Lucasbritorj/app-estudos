@@ -34,14 +34,27 @@ abstract class _HiveRepositorio<T> extends Notifier<List<T>> {
     return itens;
   }
 
+  // Escritas pontuais atualizam a projeção em memória de forma incremental:
+  // o box é a fonte persistida, mas re-deserializar/reordenar a coleção
+  // inteira a cada salvar custava O(box) por escrita. _carregar() fica para
+  // o build() e para restaurações completas.
+
   Future<void> salvar(T item) async {
     await _box.put(idDe(item), toJson(item));
-    state = _carregar();
+    final id = idDe(item);
+    state = [
+      for (final e in state)
+        if (idDe(e) != id) e,
+      item,
+    ]..sort(comparar);
   }
 
   Future<void> remover(String id) async {
     await _box.delete(id);
-    state = _carregar();
+    state = [
+      for (final e in state)
+        if (idDe(e) != id) e,
+    ];
   }
 
   /// Restaura backup: apaga tudo e grava a coleção importada.
@@ -55,7 +68,21 @@ abstract class _HiveRepositorio<T> extends Notifier<List<T>> {
   Future<void> mesclar(List<T> itens) async {
     if (itens.isEmpty) return;
     await _box.putAll({for (final item in itens) idDe(item): toJson(item)});
-    state = _carregar();
+    final novos = {for (final item in itens) idDe(item): item};
+    state = [
+      for (final e in state)
+        if (!novos.containsKey(idDe(e))) e,
+      ...novos.values,
+    ]..sort(comparar);
+  }
+
+  /// Remoção em lote por predicado (cascatas): um deleteAll, uma recarga.
+  Future<void> removerOnde(bool Function(T) teste) async {
+    final ids = [for (final e in state) if (teste(e)) idDe(e)];
+    if (ids.isEmpty) return;
+    await _box.deleteAll(ids);
+    final removidos = ids.toSet();
+    state = [for (final e in state) if (!removidos.contains(idDe(e))) e];
   }
 }
 

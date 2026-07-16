@@ -4,48 +4,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../data/models/revisao.dart';
-import '../../../data/repositories/ambiente_filtros.dart';
-import '../../../data/repositories/configuracoes_repositorio.dart';
-import '../../../data/repositories/planejamento_repositorio.dart';
-import '../../../domain/planejamento_service.dart';
-import '../../../domain/stats_service.dart';
 import '../../registro/registro_form.dart';
+import '../dashboard_providers.dart';
 
 /// "Geralzão": o dia inteiro de relance no topo — números, meta da semana
 /// e atalhos. Tudo clicável (navega pelas abas via abaProvider).
 class HeroGeral extends ConsumerWidget {
-  final DateTime hoje;
-
-  const HeroGeral({super.key, required this.hoje});
+  const HeroGeral({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final registros = ref.watch(registrosDoAmbienteProvider);
-    final revisoes = ref.watch(revisoesDoAmbienteProvider);
-    final materias = ref.watch(materiasDoAmbienteProvider);
-    final plano = ref.watch(planejamentoProvider);
-    final config = ref.watch(configuracoesProvider);
-
-    final minutosHoje = StatsService.minutosNoDia(registros, hoje);
-    final minutosSemana = StatsService.minutosNaSemana(registros, hoje);
-    final streak = StatsService.streakAtual(registros, hoje);
-    final total = registros.fold(0, (soma, r) => soma + r.minutos);
-
-    final metaSemana = PlanejamentoService.totalPlanejado(plano) > 0
-        ? PlanejamentoService.totalPlanejado(plano)
-        : config.metaSemanalMinutos;
-    final progressoMeta = metaSemana == 0
-        ? 0.0
-        : (minutosSemana / metaSemana).clamp(0.0, 1.0);
-
-    var pendentes = 0;
-    var atrasadas = 0;
-    for (final r in revisoes) {
-      final status = r.statusEm(hoje);
-      if (status == RevisaoStatus.atrasada) atrasadas++;
-      if (status != RevisaoStatus.feita) pendentes++;
-    }
+    final resumo = ref.watch(resumoGeralProvider);
+    final minutosHoje = resumo.minutosHoje;
+    final minutosSemana = resumo.minutosSemana;
+    final streak = resumo.streak;
+    final total = resumo.total;
+    final metaSemana = resumo.metaSemana;
+    final progressoMeta = resumo.progressoMeta;
+    final pendentes = resumo.pendentes;
+    final atrasadas = resumo.atrasadas;
 
     void irPara(int aba) => ref.read(abaProvider.notifier).ir(aba);
 
@@ -172,7 +149,7 @@ class HeroGeral extends ConsumerWidget {
                   ),
                   stat(
                     'Matérias',
-                    '${materias.length}',
+                    '${resumo.qtdMaterias}',
                     seriesColors[6],
                     onTap: () => irPara(Abas.materias),
                   ),

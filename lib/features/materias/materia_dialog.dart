@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/widgets/notas_editor.dart';
+import '../../data/catalogo/catalogo_materias.dart';
 import '../../data/models/ambiente.dart';
 import '../../data/models/materia.dart';
 import '../../data/repositories/ambiente_filtros.dart';
@@ -54,12 +55,34 @@ Future<void> mostrarDialogoMateria(BuildContext context, WidgetRef ref,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-            TextFormField(
-              controller: nome,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Nome *'),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
+            // Catálogo é SÓ sugestão: o campo aceita texto livre (o usuário
+            // nomeia a matéria como quiser). O controller externo `nome`
+            // segue como fonte da verdade no salvar; o campo do Autocomplete
+            // espelha nele a cada digitação/seleção.
+            Autocomplete<String>(
+              initialValue: TextEditingValue(text: existente?.nome ?? ''),
+              optionsBuilder: (value) {
+                final q = value.text.trim().toLowerCase();
+                final nomes = catalogoMaterias.map((m) => m.nome);
+                if (q.isEmpty) return nomes;
+                return nomes.where((n) => n.toLowerCase().contains(q));
+              },
+              onSelected: (v) => nome.text = v,
+              fieldViewBuilder:
+                  (context, fieldController, focusNode, onSubmitted) {
+                return TextFormField(
+                  controller: fieldController,
+                  focusNode: focusNode,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Nome *',
+                    helperText: 'Escolha do catálogo ou digite livremente',
+                  ),
+                  onChanged: (v) => nome.text = v,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
+                );
+              },
             ),
             if (ambientes.length > 1) ...[
               const SizedBox(height: 8),
