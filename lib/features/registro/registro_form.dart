@@ -206,12 +206,15 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
     } else {
       Haptica.leve();
     }
+    // Messenger resolvido ANTES do pop — depois dele o context deste sheet
+    // está desativado e o lookup de ancestral falha.
+    final messenger = ScaffoldMessenger.of(context);
     Navigator.pop(context, true);
     final sufixo = [
       ?avisoAula,
       if (reagendadas > 0) '$reagendadas revisões reancoradas',
     ].map((s) => ' · $s').join();
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
           content: Text(
               'Registro salvo: ${formatarMinutos(registro.minutos)}$sufixo')),

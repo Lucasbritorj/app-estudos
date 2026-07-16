@@ -1,4 +1,8 @@
+import 'dart:math';
+
 import '../data/models/materia.dart';
+import '../data/models/registro_hora.dart';
+import 'dominio_service.dart';
 
 /// Diagnóstico do cruzamento Intimidade (1-5) × taxa de acerto.
 enum DiagnosticoMateria {
@@ -54,6 +58,74 @@ class PlanejamentoService {
             fatorDeCarga(diagnostico(m.intimidade, taxasPorMateria[m.id])),
     };
     return _distribuir(minutosTotais, pesos);
+  }
+
+  /// Domínio inicial da matéria para o ciclo: medição Elo confiável tem
+  /// precedência; sem ela, prior pela intimidade declarada
+  /// (1..5 -> 0.2..0.8). Medição com pouca amostra não substitui o prior.
+  static double dominioInicial(int intimidade,
+      ({double dominio, int questoes, bool confiavel})? medido) {
+    if (medido != null && medido.confiavel) return medido.dominio;
+    return 0.2 + 0.15 * (intimidade.clamp(1, 5) - 1);
+  }
+
+  /// Ponto único do ciclo para as telas (Planejamento e Sugestão de hoje
+  /// NUNCA podem divergir): domínio Elo da matéria com prior de intimidade,
+  /// distribuído por utilidade.
+  static Map<String, int> cicloPorUtilidade(int minutosTotais,
+          List<Materia> materias, List<RegistroHora> registros) =>
+      distribuirPorUtilidade(minutosTotais, materias, {
+        for (final m in materias)
+          m.id: dominioInicial(m.intimidade,
+              DominioService.dominioDaMateria(registros, m.id)),
+      });
+
+  /// Ciclo por utilidade marginal decrescente (mochila gulosa): cada bloco
+  /// de [blocoMinutos] vai para a matéria de maior peso × (1 − domínio
+  /// efetivo); o domínio efetivo sobe [passoPorBloco] por bloco recebido,
+  /// então matéria dominada rende pouco por hora extra e a alocação
+  /// intercala sozinha — a curva contínua substitui os fatores fixos de
+  /// [fatorDeCarga]. Soma distribuída bate exata com [minutosTotais].
+  static Map<String, int> distribuirPorUtilidade(
+    int minutosTotais,
+    List<Materia> materias,
+    Map<String, double> dominioPorMateria, {
+    int blocoMinutos = 15,
+    double passoPorBloco = 0.02,
+  }) {
+    final ativas = materias.where((m) => !m.arquivada).toList()
+      ..sort((a, b) {
+        final porPeso = b.peso.compareTo(a.peso);
+        if (porPeso != 0) return porPeso;
+        return a.nome.toLowerCase().compareTo(b.nome.toLowerCase());
+      });
+    if (minutosTotais <= 0 || ativas.isEmpty || blocoMinutos <= 0) return {};
+
+    final dominioEfetivo = <String, double>{
+      for (final m in ativas)
+        m.id: (dominioPorMateria[m.id] ?? 0.5).clamp(0.0, 1.0).toDouble(),
+    };
+    final resultado = <String, int>{for (final m in ativas) m.id: 0};
+    var restante = minutosTotais;
+    while (restante > 0) {
+      // Lista pré-ordenada + comparação estrita: empate de utilidade cai
+      // na matéria de maior peso (depois nome) — determinístico.
+      var escolhida = ativas.first;
+      var melhor = double.negativeInfinity;
+      for (final m in ativas) {
+        final utilidade = m.peso * (1 - dominioEfetivo[m.id]!);
+        if (utilidade > melhor) {
+          melhor = utilidade;
+          escolhida = m;
+        }
+      }
+      final bloco = min(blocoMinutos, restante);
+      resultado[escolhida.id] = resultado[escolhida.id]! + bloco;
+      dominioEfetivo[escolhida.id] = min(1.0,
+          dominioEfetivo[escolhida.id]! + passoPorBloco * bloco / blocoMinutos);
+      restante -= bloco;
+    }
+    return resultado;
   }
   static int totalPlanejado(Map<int, int> minutosPorDiaDaSemana) =>
       minutosPorDiaDaSemana.values.fold(0, (a, b) => a + b);

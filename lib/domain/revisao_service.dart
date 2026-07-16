@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../data/models/registro_hora.dart';
 import '../data/models/revisao.dart';
 
@@ -64,5 +66,92 @@ class RevisaoService {
     final proximo = proximoIntervalo(intervalosConfigurados, atual);
     if (proximo == null) return null;
     return (dias: proximo, intervalo: proximo, reforco: false);
+  }
+
+  // --- FSRS-lite -----------------------------------------------------------
+  // Curva de potência do FSRS: R(t) = 1 / (1 + t / (9S)). Em t = S a
+  // retrievabilidade é 90% — o intervalo com retenção alvo de 90% é a
+  // própria estabilidade, então o próximo intervalo = nova estabilidade.
+
+  static const _dificuldadeInicial = 5.0;
+
+  /// Semente de estabilidade para revisão manual (intervalo 0) sem estado.
+  static const _sementeManualDias = 3.0;
+
+  /// Crescimento em condição neutra (dificuldade 5, revisada em dia):
+  /// multiplica a estabilidade por ~2.1 — reproduz a progressão 7→15→30
+  /// da cadeia clássica quando o desempenho é bom.
+  static const _crescimentoBase = 0.9;
+
+  /// Intervalo acima disso encerra a cadeia: memória consolidada, tópico
+  /// fica só na manutenção do mapa.
+  static const tetoDiasFsrs = 120;
+
+  /// Passo adaptativo FSRS-lite ao concluir uma revisão. O estado
+  /// (estabilidade em dias, dificuldade 1-10) viaja gravado na própria
+  /// revisão; revisão sem estado (antiga ou início de cadeia) usa
+  /// [intervaloAtual] como semente — migração transparente.
+  ///
+  /// Mesma régua de desempenho da cadeia clássica:
+  /// - < 75%: lapso — estabilidade cai para 40% (mínimo 1d), reforço curto;
+  /// - 75-84%: cresce na metade do ritmo e a dificuldade sobe;
+  /// - >= 85% ou sem questões: cresce pleno; revisar perto do esquecimento
+  ///   (retrievabilidade baixa) consolida mais — efeito de espaçamento.
+  /// null = intervalo estourou [tetoDiasFsrs]: cadeia encerra.
+  static ({
+    int dias,
+    int intervalo,
+    bool reforco,
+    double estabilidade,
+    double dificuldade,
+  })? proximoPassoFsrs({
+    double? estabilidade,
+    double? dificuldade,
+    required int intervaloAtual,
+    int diasDeAtraso = 0,
+    required double? taxaAcerto,
+  }) {
+    final s = estabilidade ??
+        (intervaloAtual > 0 ? intervaloAtual.toDouble() : _sementeManualDias);
+    final d =
+        ((dificuldade ?? _dificuldadeInicial).clamp(1.0, 10.0)).toDouble();
+
+    // Dias efetivamente decorridos desde o estudo que ancorou a revisão.
+    final base = intervaloAtual > 0 ? intervaloAtual : s.round();
+    final decorrido = max(1, base + max(0, diasDeAtraso));
+    final r = 1 / (1 + decorrido / (9 * s));
+
+    final errou = taxaAcerto != null && taxaAcerto < 0.75;
+    final dificil =
+        taxaAcerto != null && taxaAcerto >= 0.75 && taxaAcerto < 0.85;
+
+    final double novaS;
+    final double novaD;
+    if (errou) {
+      novaS = max(1.0, s * 0.4);
+      novaD = min(10.0, d + 1.0);
+    } else {
+      final bonusEsquecimento = 1 + 2.0 * (1 - r);
+      final fatorFacilidade = (11 - d) / 6; // dificuldade 5 -> 1.0
+      var crescimento = _crescimentoBase * fatorFacilidade * bonusEsquecimento;
+      if (dificil) {
+        crescimento *= 0.5;
+        novaD = min(10.0, d + 0.5);
+      } else {
+        novaD = max(1.0, d - 0.3);
+      }
+      novaS = s * (1 + crescimento);
+    }
+
+    final diasCalculados = novaS.round();
+    if (!errou && diasCalculados > tetoDiasFsrs) return null;
+    final dias = diasCalculados.clamp(1, tetoDiasFsrs);
+    return (
+      dias: dias,
+      intervalo: dias,
+      reforco: errou,
+      estabilidade: novaS,
+      dificuldade: novaD,
+    );
   }
 }

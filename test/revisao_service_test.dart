@@ -107,4 +107,86 @@ void main() {
       expect(passo.reforco, true);
     });
   });
+
+  group('proximoPassoFsrs', () {
+    test('em dia com bom desempenho ~dobra o intervalo (7 vira 15)', () {
+      final passo = RevisaoService.proximoPassoFsrs(
+          intervaloAtual: 7, taxaAcerto: 0.9)!;
+      // R(7, S=7) = 0.9; crescimento = 0.9 * 1.0 * 1.2 -> S' = 14.56
+      expect(passo.dias, 15);
+      expect(passo.reforco, false);
+      expect(passo.estabilidade, closeTo(14.56, 0.01));
+      expect(passo.dificuldade, closeTo(4.7, 0.001));
+    });
+
+    test('errou (<75%): estabilidade despenca, reforço curto', () {
+      final passo = RevisaoService.proximoPassoFsrs(
+          intervaloAtual: 7, taxaAcerto: 0.6)!;
+      expect(passo.dias, 3); // 7 * 0.4 = 2.8
+      expect(passo.reforco, true);
+      expect(passo.dificuldade, closeTo(6.0, 0.001));
+    });
+
+    test('difícil (75-84%): cresce na metade do ritmo', () {
+      final passo = RevisaoService.proximoPassoFsrs(
+          intervaloAtual: 7, taxaAcerto: 0.8)!;
+      expect(passo.dias, 11); // 7 * 1.54 = 10.78
+      expect(passo.reforco, false);
+      expect(passo.dificuldade, closeTo(5.5, 0.001));
+    });
+
+    test('sem questões (taxa null): cresce pleno como a cadeia clássica', () {
+      final passo = RevisaoService.proximoPassoFsrs(
+          intervaloAtual: 7, taxaAcerto: null)!;
+      expect(passo.dias, 15);
+      expect(passo.reforco, false);
+    });
+
+    test('revisada atrasada com sucesso consolida mais (espaçamento)', () {
+      final emDia = RevisaoService.proximoPassoFsrs(
+          intervaloAtual: 7, taxaAcerto: 0.9)!;
+      final atrasada = RevisaoService.proximoPassoFsrs(
+          intervaloAtual: 7, diasDeAtraso: 7, taxaAcerto: 0.9)!;
+      expect(atrasada.dias, greaterThan(emDia.dias));
+    });
+
+    test('estado gravado tem precedência sobre a semente do intervalo', () {
+      final passo = RevisaoService.proximoPassoFsrs(
+          estabilidade: 30,
+          dificuldade: 5,
+          intervaloAtual: 7,
+          taxaAcerto: 0.9)!;
+      expect(passo.dias, greaterThan(30)); // cresceu da estabilidade 30
+    });
+
+    test('dificuldade acumulada trava o crescimento', () {
+      final duro = RevisaoService.proximoPassoFsrs(
+          estabilidade: 7,
+          dificuldade: 10,
+          intervaloAtual: 7,
+          taxaAcerto: 0.9)!;
+      expect(duro.dias, lessThan(15)); // fator (11-10)/6 encolhe o ganho
+    });
+
+    test('revisão manual (intervalo 0) usa semente curta', () {
+      final passo = RevisaoService.proximoPassoFsrs(
+          intervaloAtual: 0, taxaAcerto: null)!;
+      expect(passo.dias, 6); // semente 3d * 2.08
+      expect(passo.reforco, false);
+    });
+
+    test('intervalo além do teto encerra a cadeia (null)', () {
+      expect(
+          RevisaoService.proximoPassoFsrs(
+              estabilidade: 100, intervaloAtual: 100, taxaAcerto: 0.95),
+          isNull);
+    });
+
+    test('errou nunca encerra a cadeia, mesmo com estabilidade alta', () {
+      final passo = RevisaoService.proximoPassoFsrs(
+          estabilidade: 100, intervaloAtual: 100, taxaAcerto: 0.5)!;
+      expect(passo.reforco, true);
+      expect(passo.dias, 40); // 100 * 0.4
+    });
+  });
 }

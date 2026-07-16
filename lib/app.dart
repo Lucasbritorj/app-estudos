@@ -13,6 +13,7 @@ import 'features/mais/mais_screen.dart';
 import 'features/mapa/mapa_estudos_screen.dart';
 import 'features/materias/materias_screen.dart';
 import 'features/planejamento/planejamento_screen.dart';
+import 'features/resumos/resumos_screen.dart';
 import 'features/revisoes/revisoes_screen.dart';
 import 'features/simulados/simulados_screen.dart';
 
@@ -97,29 +98,33 @@ class _HomeShell extends ConsumerWidget {
           body: conteudo,
           bottomNavigationBar: NavigationBar(
             selectedIndex: aba,
-            onDestinationSelected: (i) =>
-                ref.read(abaProvider.notifier).ir(i),
+            onDestinationSelected: (i) => ref.read(abaProvider.notifier).ir(i),
             destinations: const [
               NavigationDestination(
-                  icon: Icon(Icons.insights_outlined),
-                  selectedIcon: Icon(Icons.insights),
-                  label: 'Dashboard'),
+                icon: Icon(Icons.insights_outlined),
+                selectedIcon: Icon(Icons.insights),
+                label: 'Dashboard',
+              ),
               NavigationDestination(
-                  icon: Icon(Icons.timer_outlined),
-                  selectedIcon: Icon(Icons.timer),
-                  label: 'Cronômetro'),
+                icon: Icon(Icons.timer_outlined),
+                selectedIcon: Icon(Icons.timer),
+                label: 'Cronômetro',
+              ),
               NavigationDestination(
-                  icon: Icon(Icons.library_books_outlined),
-                  selectedIcon: Icon(Icons.library_books),
-                  label: 'Matérias'),
+                icon: Icon(Icons.library_books_outlined),
+                selectedIcon: Icon(Icons.library_books),
+                label: 'Matérias',
+              ),
               NavigationDestination(
-                  icon: Icon(Icons.event_repeat_outlined),
-                  selectedIcon: Icon(Icons.event_repeat),
-                  label: 'Revisões'),
+                icon: Icon(Icons.event_repeat_outlined),
+                selectedIcon: Icon(Icons.event_repeat),
+                label: 'Revisões',
+              ),
               NavigationDestination(
-                  icon: Icon(Icons.more_horiz),
-                  selectedIcon: Icon(Icons.more_horiz),
-                  label: 'Mais'),
+                icon: Icon(Icons.more_horiz),
+                selectedIcon: Icon(Icons.more_horiz),
+                label: 'Mais',
+              ),
             ],
           ),
         );
@@ -138,15 +143,14 @@ class _Sidebar extends ConsumerWidget {
     final aba = ref.watch(abaProvider);
 
     void abrir(Widget tela) {
-      Navigator.push(
-          context, MaterialPageRoute(builder: (_) => tela));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => tela));
     }
 
     return Container(
       width: 240,
       decoration: const BoxDecoration(
-        color: Color(0xF2121620),
-        border: Border(right: BorderSide(color: Color(0x1FFFFFFF))),
+        color: VizColors.chromeSidebar,
+        border: Border(right: BorderSide(color: VizColors.bordaSutil)),
       ),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(12, 20, 12, 20),
@@ -162,20 +166,26 @@ class _Sidebar extends ConsumerWidget {
                     color: LuminaColors.safira.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(9),
                     border: Border.all(
-                        color:
-                            LuminaColors.safiraClara.withValues(alpha: 0.5)),
+                      color: LuminaColors.safiraClara.withValues(alpha: 0.5),
+                    ),
                   ),
-                  child: const Icon(Icons.auto_stories,
-                      size: 18, color: Colors.white),
+                  child: const Icon(
+                    Icons.auto_stories,
+                    size: 18,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 const Expanded(
-                  child: Text('Meu Caminho\nAprovado',
-                      style: TextStyle(
-                          color: VizColors.inkPrimary,
-                          fontSize: 13,
-                          height: 1.2,
-                          fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Meu Caminho\nAprovado',
+                    style: TextStyle(
+                      color: VizColors.inkPrimary,
+                      fontSize: 13,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -194,8 +204,7 @@ class _Sidebar extends ConsumerWidget {
             iconeAtivo: Icons.timer,
             rotulo: 'Cronômetro',
             ativo: aba == Abas.cronometro,
-            onTap: () =>
-                ref.read(abaProvider.notifier).ir(Abas.cronometro),
+            onTap: () => ref.read(abaProvider.notifier).ir(Abas.cronometro),
           ),
           _ItemSidebar(
             icone: Icons.library_books_outlined,
@@ -227,6 +236,11 @@ class _Sidebar extends ConsumerWidget {
             icone: Icons.fact_check_outlined,
             rotulo: 'Simulados & Provas',
             onTap: () => abrir(const SimuladosScreen()),
+          ),
+          _ItemSidebar(
+            icone: Icons.tag,
+            rotulo: 'Resumos',
+            onTap: () => abrir(const ResumosScreen()),
           ),
           _ItemSidebar(
             icone: Icons.menu_book_outlined,
@@ -263,12 +277,7 @@ class _RotuloSecao extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-      child: Text(texto.toUpperCase(),
-          style: const TextStyle(
-              color: VizColors.muted,
-              fontSize: 10,
-              letterSpacing: 0.8,
-              fontWeight: FontWeight.w600)),
+      child: Text(texto.toUpperCase(), style: LuminaText.rotuloUppercase),
     );
   }
 }
@@ -292,41 +301,50 @@ class _ItemSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
-      child: Material(
-        color: ativo
-            ? LuminaColors.safiraClara.withValues(alpha: 0.18)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
+      // Glow safira discreto no item ativo (banco Asimov, glass-effect2):
+      // reforça onde o usuário está sem competir com o conteúdo.
+      child: DecoratedBox(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          onTap: () {
-            Haptica.selecao();
-            onTap();
-          },
-          child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-            child: Row(
-              children: [
-                Icon(ativo ? (iconeAtivo ?? icone) : icone,
+          boxShadow: ativo
+              ? LuminaElevation.glow(LuminaColors.safiraClara, alpha: 0.18)
+              : null,
+        ),
+        child: Material(
+          color: ativo
+              ? LuminaColors.safiraClara.withValues(alpha: 0.18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              Haptica.selecao();
+              onTap();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              child: Row(
+                children: [
+                  Icon(
+                    ativo ? (iconeAtivo ?? icone) : icone,
                     size: 19,
-                    color: ativo
-                        ? Colors.white
-                        : VizColors.inkSecondary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(rotulo,
+                    color: ativo ? Colors.white : VizColors.inkSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      rotulo,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: 13,
-                          fontWeight:
-                              ativo ? FontWeight.w600 : FontWeight.w400,
-                          color: ativo
-                              ? Colors.white
-                              : VizColors.inkSecondary)),
-                ),
-              ],
+                        fontSize: 13,
+                        fontWeight: ativo ? FontWeight.w600 : FontWeight.w400,
+                        color: ativo ? Colors.white : VizColors.inkSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

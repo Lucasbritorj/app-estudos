@@ -12,6 +12,7 @@ Future<void> main() async {
   await Hive.initFlutter();
   await HiveBoxes.openAll();
   await HiveBoxes.migrarAmbientes();
+  await HiveBoxes.seedResumos();
   await NotificacoesService.inicializar();
   // Reagenda o lembrete diário no boot (idempotente) — notificação
   // repetida não sobrevive a reinstalação/limpeza sem isso.

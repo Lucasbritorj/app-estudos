@@ -27,6 +27,63 @@ class LuminaColors {
   static const safiraClara = Color(0xFF3D7BD9);
 }
 
+/// Cores de status semânticas (bom/atenção/crítico) — canal exclusivo de
+/// estado, nunca decoração; sempre acompanhadas de ícone/rótulo (nunca só
+/// cor). Regra Nexus: <75% crítico, 75-84% atenção, >=85% bom.
+class StatusColors {
+  static const bom = Color(0xFF0CA30C);
+  static const atencao = Color(0xFFFAB219);
+  static const critico = Color(0xFFD03B3B);
+}
+
+/// Elevação Lumina (minerada do banco Asimov, componente glass-pricing):
+/// sombra em camadas progressivas em vez de uma única sombra grande —
+/// profundidade realista sem BackdropFilter (custo de GPU ~zero na web).
+/// Original tinha 6 camadas até 100px; 4 bastam sobre fundo escuro.
+class LuminaElevation {
+  static const cardEmCamadas = <BoxShadow>[
+    BoxShadow(
+      color: Color(0x0A000000),
+      offset: Offset(0, 2.8),
+      blurRadius: 2.2,
+    ),
+    BoxShadow(
+      color: Color(0x0F000000),
+      offset: Offset(0, 6.7),
+      blurRadius: 5.3,
+    ),
+    BoxShadow(
+      color: Color(0x14000000),
+      offset: Offset(0, 12.5),
+      blurRadius: 10,
+    ),
+    BoxShadow(
+      color: Color(0x1F000000),
+      offset: Offset(0, 22.3),
+      blurRadius: 17.9,
+    ),
+  ];
+
+  /// Glow de acento (glass-effect2): brilho suave da cor em volta do elemento
+  /// ativo/celebrado. Usar com parcimônia — no máximo 1 por região visível,
+  /// senão vira ruído e o destaque morre.
+  static List<BoxShadow> glow(Color cor, {double alpha = 0.35}) => [
+    BoxShadow(color: cor.withValues(alpha: alpha), blurRadius: 15),
+  ];
+}
+
+/// Tokens de texto fora da TextTheme (estilos utilitários Lumina).
+class LuminaText {
+  /// Rótulo de seção uppercase (banco Asimov: 12px tracking widest — aqui
+  /// 10px porque a densidade do app é maior que a de landing page).
+  static const rotuloUppercase = TextStyle(
+    color: VizColors.muted,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    fontWeight: FontWeight.w600,
+  );
+}
+
 /// Chrome do gráfico (superfícies e tintas do modo escuro).
 /// Superfícies mais claras que o fundo de propósito — feedback do Lucas:
 /// a primeira versão ficou "fúnebre" (tudo no mesmo preto).
@@ -38,6 +95,12 @@ class VizColors {
   static const muted = Color(0xFF98A0AE);
   static const gridline = Color(0xFF2C3345);
   static const baseline = Color(0xFF3A4256);
+
+  /// Segunda camada neutra (chrome de navegação): um tom abaixo do conteúdo,
+  /// translúcida sobre o gradiente Lumina.
+  static const chromeNav = Color(0xF2161B27);
+  static const chromeSidebar = Color(0xF2121620);
+  static const bordaSutil = Color(0x1FFFFFFF);
 }
 
 ThemeData buildDarkTheme() {
@@ -49,6 +112,31 @@ ThemeData buildDarkTheme() {
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
+    // Escala tipográfica minerada do banco Asimov (lumina-video): título
+    // grande = tracking negativo + linha justa; corpo = mais respiro de
+    // linha; hierarquia vem de peso/tracking, não só de tamanho. Estilos
+    // parciais (sem cor) — o ThemeData mescla com os defaults M3.
+    textTheme: const TextTheme(
+      headlineLarge: TextStyle(
+        letterSpacing: -1.0,
+        fontWeight: FontWeight.w600,
+        height: 1.05,
+      ),
+      headlineMedium: TextStyle(
+        letterSpacing: -0.75,
+        fontWeight: FontWeight.w600,
+        height: 1.05,
+      ),
+      headlineSmall: TextStyle(
+        letterSpacing: -0.5,
+        fontWeight: FontWeight.w600,
+        height: 1.1,
+      ),
+      titleLarge: TextStyle(letterSpacing: -0.25, fontWeight: FontWeight.w600),
+      bodyLarge: TextStyle(height: 1.55),
+      bodyMedium: TextStyle(height: 1.45),
+      labelSmall: TextStyle(letterSpacing: 1.2, fontWeight: FontWeight.w600),
+    ),
     // Transparente: o gradiente Lumina é pintado atrás do Navigator
     // (LuminaBackground no builder do MaterialApp).
     scaffoldBackgroundColor: Colors.transparent,
@@ -67,7 +155,7 @@ ThemeData buildDarkTheme() {
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: const Color(0xF2161B27),
+      backgroundColor: VizColors.chromeNav,
       indicatorColor: LuminaColors.safiraClara.withValues(alpha: 0.28),
     ),
   );

@@ -54,8 +54,14 @@ class NotasEditor extends StatefulWidget {
   final TextEditingController controller;
   final String rotulo;
 
+  /// Altura do campo em linhas (páginas de resumo usam área maior).
+  final int linhas;
+
   const NotasEditor(
-      {super.key, required this.controller, this.rotulo = 'Notas'});
+      {super.key,
+      required this.controller,
+      this.rotulo = 'Notas',
+      this.linhas = 4});
 
   @override
   State<NotasEditor> createState() => _NotasEditorState();
@@ -160,8 +166,8 @@ class _NotasEditorState extends State<NotasEditor> {
         else
           TextField(
             controller: widget.controller,
-            maxLines: 4,
-            minLines: 3,
+            maxLines: widget.linhas,
+            minLines: widget.linhas < 3 ? widget.linhas : 3,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               hintText: '**negrito** · ==destaque== · "- " para lista',

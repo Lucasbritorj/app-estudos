@@ -164,7 +164,7 @@ class AulasScreen extends ConsumerWidget {
                         ? Icons.check_circle
                         : Icons.menu_book_outlined,
                     color: aula.concluida
-                        ? const Color(0xFF0CA30C)
+                        ? StatusColors.bom
                         : VizColors.muted,
                   ),
                   title: Text(aula.nome),
@@ -182,7 +182,7 @@ class AulasScreen extends ConsumerWidget {
                           minHeight: 6,
                           backgroundColor: VizColors.gridline,
                           color: aula.concluida
-                              ? const Color(0xFF0CA30C)
+                              ? StatusColors.bom
                               : seriesColors[0],
                         ),
                       ),

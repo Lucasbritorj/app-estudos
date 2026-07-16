@@ -121,46 +121,90 @@ class AmbientesScreen extends ConsumerWidget {
       {Ambiente? existente}) async {
     final nome = TextEditingController(text: existente?.nome ?? '');
     final formKey = GlobalKey<FormState>();
+    DateTime? dataProva = existente?.dataProva;
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title:
-            Text(existente == null ? 'Novo ambiente' : 'Editar ambiente'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: nome,
-            autofocus: true,
-            decoration: const InputDecoration(
-                labelText: 'Nome *',
-                hintText: 'Ex.: Concurso SEFAZ-RN 2026'),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setStateDialog) => AlertDialog(
+          title:
+              Text(existente == null ? 'Novo ambiente' : 'Editar ambiente'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nome,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                      labelText: 'Nome *',
+                      hintText: 'Ex.: Concurso SEFAZ-RN 2026'),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final escolhida = await showDatePicker(
+                      context: dialogContext,
+                      initialDate: dataProva ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                    );
+                    if (escolhida != null) {
+                      setStateDialog(() => dataProva = escolhida);
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Data da prova (opcional)',
+                      helperText: 'Habilita a projeção de prontidão',
+                      suffixIcon: dataProva == null
+                          ? const Icon(Icons.event, size: 18)
+                          : IconButton(
+                              tooltip: 'Limpar data',
+                              icon: const Icon(Icons.close, size: 18),
+                              onPressed: () =>
+                                  setStateDialog(() => dataProva = null),
+                            ),
+                    ),
+                    child: Text(dataProva == null
+                        ? 'Sem data marcada'
+                        : formatarData(dataProva!)),
+                  ),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                final repositorio = ref.read(ambientesProvider.notifier);
+                final ambiente = existente == null
+                    ? Ambiente(
+                        id: const Uuid().v4(),
+                        nome: nome.text.trim(),
+                        corSlot: repositorio.proximoCorSlot(),
+                        criadoEm: DateTime.now(),
+                        dataProva: dataProva,
+                      )
+                    : existente.copyWith(
+                        nome: nome.text.trim(),
+                        dataProva: dataProva,
+                        limparDataProva: dataProva == null,
+                      );
+                repositorio.salvar(ambiente);
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (!formKey.currentState!.validate()) return;
-              final repositorio = ref.read(ambientesProvider.notifier);
-              final ambiente = existente == null
-                  ? Ambiente(
-                      id: const Uuid().v4(),
-                      nome: nome.text.trim(),
-                      corSlot: repositorio.proximoCorSlot(),
-                      criadoEm: DateTime.now(),
-                    )
-                  : existente.copyWith(nome: nome.text.trim());
-              repositorio.salvar(ambiente);
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Salvar'),
-          ),
-        ],
       ),
     );
   }

@@ -1,6 +1,8 @@
 import 'package:hive_ce_flutter/hive_flutter.dart';
 
+import '../catalogo/catalogo_materias.dart';
 import '../models/ambiente.dart';
+import '../models/resumo.dart';
 
 /// Boxes Hive: cada registro é um Map JSON — sem codegen de adapters.
 class HiveBoxes {
@@ -14,6 +16,7 @@ class HiveBoxes {
   static const planejamento = 'planejamento';
   static const leituras = 'leituras';
   static const simulados = 'simulados';
+  static const resumos = 'resumos';
 
   static Future<void> openAll() async {
     await Future.wait([
@@ -27,7 +30,22 @@ class HiveBoxes {
       Hive.openBox<Map>(planejamento),
       Hive.openBox<Map>(leituras),
       Hive.openBox<Map>(simulados),
+      Hive.openBox<Map>(resumos),
     ]);
+  }
+
+  /// Seed das páginas de resumo (idempotente, por chave): matéria do
+  /// catálogo sem página ganha uma vazia; página existente NUNCA é tocada —
+  /// texto do usuário sobrevive a qualquer boot/atualização do catálogo.
+  static Future<void> seedResumos() async {
+    final box = Hive.box<Map>(resumos);
+    for (final m in catalogoMaterias) {
+      if (box.containsKey(m.sigla)) continue;
+      await box.put(
+        m.sigla,
+        Resumo(sigla: m.sigla, nome: m.nome, doCatalogo: true).toJson(),
+      );
+    }
   }
 
   /// Migração de boot (idempotente): garante o ambiente "Geral" quando o box

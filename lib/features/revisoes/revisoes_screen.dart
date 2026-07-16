@@ -11,12 +11,6 @@ import '../../data/repositories/configuracoes_repositorio.dart';
 import '../../data/repositories/repositorios.dart';
 import '../../domain/revisao_service.dart';
 
-/// Cores de status reservadas (paleta de status, nunca reutilizada em séries).
-/// Sempre acompanhadas de ícone + rótulo — cor nunca carrega o significado sozinha.
-const _corAtrasada = Color(0xFFD03B3B);
-const _corAFazer = Color(0xFFFAB219);
-const _corFeita = Color(0xFF0CA30C);
-
 class RevisoesScreen extends ConsumerStatefulWidget {
   const RevisoesScreen({super.key});
 
@@ -114,9 +108,11 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
     );
   }
 
-  /// Conclui e emenda a próxima revisão — adaptativa pelo desempenho do
-  /// tópico: <75% de acerto agenda reforço em 3d sem avançar a cadeia;
-  /// 75-84% repete o intervalo; >=85% (ou sem questões) segue 7->15->30->60.
+  /// Conclui e emenda a próxima revisão — FSRS-lite adaptativo pelo
+  /// desempenho do tópico: <75% de acerto derruba a estabilidade e agenda
+  /// reforço curto; 75-84% cresce devagar; >=85% (ou sem questões) espaça
+  /// pleno (~7->15->32->70), com bônus quando revisada perto do
+  /// esquecimento. Intervalo além do teto encerra a cadeia.
   Future<void> _concluir(Revisao revisao) async {
     final agora = DateTime.now();
     await ref
@@ -130,8 +126,15 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
       materiaId: revisao.materiaId,
       topicoId: revisao.topicoId,
     );
-    final passo = RevisaoService.proximoPasso(
-        config.intervalosRevisao, revisao.intervaloDias, taxa);
+    final agendada = DateTime(revisao.dataAgendada.year,
+        revisao.dataAgendada.month, revisao.dataAgendada.day);
+    final passo = RevisaoService.proximoPassoFsrs(
+      estabilidade: revisao.estabilidade,
+      dificuldade: revisao.dificuldade,
+      intervaloAtual: revisao.intervaloDias,
+      diasDeAtraso: agora.difference(agendada).inDays,
+      taxaAcerto: taxa,
+    );
     if (passo == null) return;
 
     final tituloBase =
@@ -145,6 +148,8 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
       dataAgendada:
           DateTime(agora.year, agora.month, agora.day + passo.dias),
       intervaloDias: passo.intervalo,
+      estabilidade: passo.estabilidade,
+      dificuldade: passo.dificuldade,
     );
     await ref.read(revisoesProvider.notifier).salvar(proxima);
     await NotificacoesService.agendarRevisao(
@@ -226,17 +231,17 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
                       final materia = materiasPorId[revisao.materiaId];
                       final (corStatus, icone, rotulo) = switch (status) {
                         RevisaoStatus.atrasada => (
-                            _corAtrasada,
+                            StatusColors.critico,
                             Icons.error_outline,
                             'Atrasada'
                           ),
                         RevisaoStatus.aFazer => (
-                            _corAFazer,
+                            StatusColors.atencao,
                             Icons.schedule,
                             'A fazer'
                           ),
                         RevisaoStatus.feita => (
-                            _corFeita,
+                            StatusColors.bom,
                             Icons.check_circle_outline,
                             'Feita'
                           ),
@@ -288,7 +293,7 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
                                   IconButton(
                                     tooltip: 'Concluir',
                                     icon: const Icon(Icons.check_circle,
-                                        color: _corFeita),
+                                        color: StatusColors.bom),
                                     onPressed: () => _concluir(revisao),
                                   ),
                                 ],

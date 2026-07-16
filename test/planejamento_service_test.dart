@@ -37,6 +37,81 @@ void main() {
     expect(PlanejamentoService.distribuirPorPeso(100, []), {});
   });
 
+  group('dominioInicial', () {
+    test('medição confiável tem precedência sobre a intimidade', () {
+      expect(
+          PlanejamentoService.dominioInicial(
+              5, (dominio: 0.3, questoes: 20, confiavel: true)),
+          0.3);
+    });
+
+    test('medição com pouca amostra cai no prior de intimidade', () {
+      expect(
+          PlanejamentoService.dominioInicial(
+              5, (dominio: 0.3, questoes: 4, confiavel: false)),
+          closeTo(0.8, 0.001));
+    });
+
+    test('prior linear: intimidade 1=0.2, 3=0.5, 5=0.8', () {
+      expect(PlanejamentoService.dominioInicial(1, null), closeTo(0.2, 0.001));
+      expect(PlanejamentoService.dominioInicial(3, null), closeTo(0.5, 0.001));
+      expect(PlanejamentoService.dominioInicial(5, null), closeTo(0.8, 0.001));
+    });
+  });
+
+  group('distribuirPorUtilidade', () {
+    test('soma distribuída bate exata, inclusive com resto de bloco', () {
+      final resultado = PlanejamentoService.distribuirPorUtilidade(
+          50, [materia('a', 1), materia('b', 1)], {'a': 0.5, 'b': 0.5});
+      expect(resultado.values.fold(0, (x, y) => x + y), 50);
+    });
+
+    test('déficit de domínio grande leva tudo enquanto a utilidade domina',
+        () {
+      final resultado = PlanejamentoService.distribuirPorUtilidade(
+          120,
+          [materia('fraca', 1), materia('dominada', 1)],
+          {'fraca': 0.2, 'dominada': 0.8});
+      expect(resultado['fraca'], 120);
+      expect(resultado['dominada'], 0);
+    });
+
+    test('domínios iguais: retorno decrescente intercala meio a meio', () {
+      final resultado = PlanejamentoService.distribuirPorUtilidade(
+          120, [materia('a', 1), materia('b', 1)], {'a': 0.5, 'b': 0.5});
+      expect(resultado['a'], 60);
+      expect(resultado['b'], 60);
+    });
+
+    test('peso do edital multiplica a utilidade', () {
+      final resultado = PlanejamentoService.distribuirPorUtilidade(
+          60,
+          [materia('pesada', 5), materia('leve', 1)],
+          {'pesada': 0.5, 'leve': 0.5});
+      expect(resultado['pesada'], 60);
+      expect(resultado['leve'], 0);
+    });
+
+    test('matéria sem domínio informado assume neutro 0.5', () {
+      final resultado = PlanejamentoService.distribuirPorUtilidade(
+          30, [materia('a', 1), materia('b', 1)], {'a': 0.9});
+      expect(resultado['b'], 30); // 0.5 efetivo perde só para déficit maior
+    });
+
+    test('arquivada fora; sem minutos ou sem matérias retorna vazio', () {
+      expect(
+          PlanejamentoService.distribuirPorUtilidade(
+              60,
+              [materia('a', 1), materia('x', 9, arquivada: true)],
+              {'a': 0.5, 'x': 0.0}),
+          {'a': 60});
+      expect(
+          PlanejamentoService.distribuirPorUtilidade(0, [materia('a', 1)], {}),
+          {});
+      expect(PlanejamentoService.distribuirPorUtilidade(100, [], {}), {});
+    });
+  });
+
   test('totalPlanejado soma os dias', () {
     expect(PlanejamentoService.totalPlanejado({1: 120, 3: 60}), 180);
     expect(PlanejamentoService.totalPlanejado({}), 0);

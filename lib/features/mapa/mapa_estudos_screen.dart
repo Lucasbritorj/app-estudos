@@ -16,16 +16,11 @@ import '../../domain/planejamento_service.dart';
 import '../../domain/stats_service.dart';
 import '../registro/registro_form.dart';
 
-/// Cores de status (sempre com ícone/rótulo junto, nunca só a cor).
-const _corBom = Color(0xFF0CA30C);
-const _corAtencao = Color(0xFFFAB219);
-const _corCritico = Color(0xFFD03B3B);
-
 Color _corDaTaxa(double? taxa) {
   if (taxa == null) return VizColors.muted;
-  if (taxa >= 0.85) return _corBom;
-  if (taxa >= 0.75) return _corAtencao;
-  return _corCritico;
+  if (taxa >= 0.85) return StatusColors.bom;
+  if (taxa >= 0.75) return StatusColors.atencao;
+  return StatusColors.critico;
 }
 
 /// Mapa de Estudos: o edital como árvore expansível, com status por tópico
@@ -144,17 +139,17 @@ class _MateriaTile extends ConsumerWidget {
           if (diagnostico == DiagnosticoMateria.falsoDominio)
             const _ChipDiagnostico(
                 icone: Icons.warning_amber,
-                cor: _corCritico,
+                cor: StatusColors.critico,
                 texto: 'Falso domínio — reforce revisão e questões'),
           if (diagnostico == DiagnosticoMateria.teoriaPrioritaria)
             const _ChipDiagnostico(
                 icone: Icons.menu_book_outlined,
-                cor: _corAtencao,
+                cor: StatusColors.atencao,
                 texto: 'Iniciante — priorize leitura/teoria'),
           if (diagnostico == DiagnosticoMateria.dominada)
             const _ChipDiagnostico(
                 icone: Icons.verified_outlined,
-                cor: _corBom,
+                cor: StatusColors.bom,
                 texto: 'Dominada — só manutenção'),
         ],
       ),
@@ -232,7 +227,7 @@ class _AulaLinha extends ConsumerWidget {
       leading: Icon(
         aula.concluida ? Icons.check_circle : Icons.menu_book_outlined,
         size: 20,
-        color: aula.concluida ? _corBom : seriesColors[0],
+        color: aula.concluida ? StatusColors.bom : seriesColors[0],
       ),
       title: Text(aula.nome, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Column(
@@ -247,7 +242,7 @@ class _AulaLinha extends ConsumerWidget {
               value: aula.progresso,
               minHeight: 5,
               backgroundColor: VizColors.gridline,
-              color: aula.concluida ? _corBom : seriesColors[0],
+              color: aula.concluida ? StatusColors.bom : seriesColors[0],
             ),
           ),
         ],
@@ -295,15 +290,90 @@ class _TopicoLinha extends ConsumerWidget {
     );
   }
 
+  /// Editor de pré-requisitos: escolhe tópicos da mesma matéria que devem
+  /// estar dominados/concluídos antes deste. Opção que criaria ciclo fica
+  /// desabilitada — o grafo permanece um DAG.
+  Future<void> _editarPrerequisitos(
+      BuildContext context, WidgetRef ref, List<Topico> todos) async {
+    final candidatos = todos
+        .where((t) => t.materiaId == topico.materiaId && t.id != topico.id)
+        .toList()
+      ..sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
+    if (candidatos.isEmpty) return;
+
+    final selecionados = {...topico.prerequisitos};
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setStateDialog) => AlertDialog(
+          title: Text('Pré-requisitos — ${topico.nome}'),
+          content: SizedBox(
+            width: 380,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final c in candidatos)
+                  CheckboxListTile(
+                    dense: true,
+                    value: selecionados.contains(c.id),
+                    title: Text(c.nome,
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                    subtitle: !selecionados.contains(c.id) &&
+                            MapaEstudosService.criariaCiclo(
+                                todos, topico.id, c.id)
+                        ? const Text('criaria ciclo',
+                            style: TextStyle(
+                                color: StatusColors.critico, fontSize: 11))
+                        : null,
+                    onChanged: !selecionados.contains(c.id) &&
+                            MapaEstudosService.criariaCiclo(
+                                todos, topico.id, c.id)
+                        ? null
+                        : (v) => setStateDialog(() => v == true
+                            ? selecionados.add(c.id)
+                            : selecionados.remove(c.id)),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                ref.read(topicosProvider.notifier).salvar(
+                    topico.copyWith(prerequisitos: selecionados.toList()));
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final registros = ref.watch(registrosProvider);
+    final todosTopicos = ref.watch(topicosProvider);
     final status = MapaEstudosService.statusDe(topico, registros);
     final taxa = MapaEstudosService.taxaDoTopico(registros, topico.id);
+    final dominio = MapaEstudosService.dominioDoTopico(registros, topico.id);
     final minutos =
         MapaEstudosService.minutosDoTopico(registros, topico.id);
+    final bloqueios =
+        MapaEstudosService.bloqueadoPor(topico, todosTopicos, registros);
 
-    final (icone, cor, rotulo) = switch (status) {
+    // Cor pela estimativa de domínio (evidência recente pesa mais) quando a
+    // amostra é confiável; senão pela taxa acumulada, como antes.
+    final corDesempenho = dominio != null && dominio.confiavel
+        ? _corDaTaxa(dominio.dominio)
+        : _corDaTaxa(taxa);
+
+    var (icone, cor, rotulo) = switch (status) {
       StatusTopico.naoIniciado => (
           Icons.radio_button_unchecked,
           VizColors.muted,
@@ -316,22 +386,34 @@ class _TopicoLinha extends ConsumerWidget {
         ),
       StatusTopico.concluido => (
           Icons.check_circle,
-          _corDaTaxa(taxa),
+          corDesempenho,
           taxa == null
               ? 'Concluído · sem questões'
               : 'Concluído · ${(taxa * 100).toStringAsFixed(0)}% de acerto'
         ),
     };
+    if (status != StatusTopico.concluido && bloqueios.isNotEmpty) {
+      icone = Icons.lock_outline;
+      rotulo = 'Bloqueado · requer '
+          '${bloqueios.map((b) => b.nome).join(', ')}';
+    }
+
+    final sufixoDominio = dominio == null
+        ? ''
+        : ' · domínio ${(dominio.dominio * 100).toStringAsFixed(0)}%'
+            '${dominio.confiavel ? '' : ' (pouca amostra)'}';
 
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.only(left: 24.0 + nivel * 20, right: 8),
       leading: Icon(icone, size: 20, color: cor),
       title: Text(topico.nome, maxLines: 2, overflow: TextOverflow.ellipsis),
+      onTap: () => _editarPrerequisitos(context, ref, todosTopicos),
       subtitle: Text(
-        taxa != null && status == StatusTopico.emEstudo
-            ? '$rotulo · ${(taxa * 100).toStringAsFixed(0)}% de acerto'
-            : rotulo,
+        (taxa != null && status == StatusTopico.emEstudo
+                ? '$rotulo · ${(taxa * 100).toStringAsFixed(0)}% de acerto'
+                : rotulo) +
+            sufixoDominio,
         style: TextStyle(color: cor, fontSize: 12),
       ),
       trailing: Row(

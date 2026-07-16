@@ -9,6 +9,7 @@ import '../exportar/exportar_screen.dart';
 import '../leituras/leituras_screen.dart';
 import '../mapa/mapa_estudos_screen.dart';
 import '../planejamento/planejamento_screen.dart';
+import '../resumos/resumos_screen.dart';
 import '../simulados/simulados_screen.dart';
 
 class MaisScreen extends ConsumerWidget {
@@ -58,6 +59,13 @@ class MaisScreen extends ConsumerWidget {
             title: const Text('Planejamento semanal'),
             subtitle: const Text('Horas por dia e ciclo sugerido por peso'),
             onTap: () => _abrir(context, const PlanejamentoScreen()),
+          ),
+          ListTile(
+            leading: const Icon(Icons.tag),
+            title: const Text('Resumos por matéria'),
+            subtitle: const Text(
+                'Página única por matéria com tags #sigla e data de edição'),
+            onTap: () => _abrir(context, const ResumosScreen()),
           ),
           ListTile(
             leading: const Icon(Icons.menu_book_outlined),

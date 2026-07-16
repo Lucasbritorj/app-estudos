@@ -15,6 +15,12 @@ class Revisao {
   final bool feita;
   final DateTime? dataConclusao;
 
+  /// Estado FSRS-lite herdado da conclusão anterior da cadeia. Null em
+  /// revisões antigas ou recém-criadas: a primeira conclusão semeia a
+  /// estabilidade a partir de [intervaloDias].
+  final double? estabilidade;
+  final double? dificuldade;
+
   const Revisao({
     required this.id,
     required this.materiaId,
@@ -25,6 +31,8 @@ class Revisao {
     required this.intervaloDias,
     this.feita = false,
     this.dataConclusao,
+    this.estabilidade,
+    this.dificuldade,
   });
 
   RevisaoStatus statusEm(DateTime hoje) {
@@ -46,6 +54,8 @@ class Revisao {
         intervaloDias: intervaloDias,
         feita: feita ?? this.feita,
         dataConclusao: dataConclusao ?? this.dataConclusao,
+        estabilidade: estabilidade,
+        dificuldade: dificuldade,
       );
 
   Map<String, dynamic> toJson() => {
@@ -58,6 +68,8 @@ class Revisao {
         'intervaloDias': intervaloDias,
         'feita': feita,
         'dataConclusao': dataConclusao?.toIso8601String(),
+        'estabilidade': estabilidade,
+        'dificuldade': dificuldade,
       };
 
   factory Revisao.fromJson(Map<String, dynamic> json) => Revisao(
@@ -72,5 +84,7 @@ class Revisao {
         dataConclusao: json['dataConclusao'] == null
             ? null
             : DateTime.parse(json['dataConclusao'] as String),
+        estabilidade: (json['estabilidade'] as num?)?.toDouble(),
+        dificuldade: (json['dificuldade'] as num?)?.toDouble(),
       );
 }

@@ -14,21 +14,32 @@ class Ambiente {
   final bool arquivado;
   final DateTime criadoEm;
 
+  /// Data da prova do concurso — habilita a projeção de prontidão no
+  /// dashboard. Null = ambiente sem prova marcada (curso livre etc.).
+  final DateTime? dataProva;
+
   const Ambiente({
     required this.id,
     required this.nome,
     this.corSlot = 0,
     this.arquivado = false,
     required this.criadoEm,
+    this.dataProva,
   });
 
-  Ambiente copyWith({String? nome, int? corSlot, bool? arquivado}) {
+  Ambiente copyWith(
+      {String? nome,
+      int? corSlot,
+      bool? arquivado,
+      DateTime? dataProva,
+      bool limparDataProva = false}) {
     return Ambiente(
       id: id,
       nome: nome ?? this.nome,
       corSlot: corSlot ?? this.corSlot,
       arquivado: arquivado ?? this.arquivado,
       criadoEm: criadoEm,
+      dataProva: limparDataProva ? null : (dataProva ?? this.dataProva),
     );
   }
 
@@ -38,6 +49,7 @@ class Ambiente {
         'corSlot': corSlot,
         'arquivado': arquivado,
         'criadoEm': criadoEm.toIso8601String(),
+        'dataProva': dataProva?.toIso8601String(),
       };
 
   factory Ambiente.fromJson(Map<String, dynamic> json) => Ambiente(
@@ -46,5 +58,8 @@ class Ambiente {
         corSlot: (json['corSlot'] as num?)?.toInt() ?? 0,
         arquivado: json['arquivado'] as bool? ?? false,
         criadoEm: DateTime.parse(json['criadoEm'] as String),
+        dataProva: json['dataProva'] == null
+            ? null
+            : DateTime.parse(json['dataProva'] as String),
       );
 }

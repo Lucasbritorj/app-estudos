@@ -68,8 +68,10 @@ class PlanejamentoScreen extends ConsumerWidget {
     final planejado = PlanejamentoService.totalPlanejado(plano);
     final feito = StatsService.minutosNaSemana(registros, hoje);
     final restante = (planejado - feito).clamp(0, planejado);
+    // Ciclo por utilidade: peso × déficit de domínio (Elo medido ou prior
+    // de intimidade), com retorno decrescente por bloco alocado.
     final alvoPorMateria =
-        PlanejamentoService.distribuirPorPeso(planejado, materias);
+        PlanejamentoService.cicloPorUtilidade(planejado, materias, registros);
     final feitoPorMateria = StatsService.minutosPorMateria(registros,
         de: StatsService.inicioDaSemana(hoje), ate: hoje);
 
@@ -283,7 +285,7 @@ class _CardFilaDeEstudo extends ConsumerWidget {
                                 : Icons.schedule),
                         size: 16,
                         color: fila[i].concluida
-                            ? const Color(0xFF0CA30C)
+                            ? StatusColors.bom
                             : (i == emAndamento
                                 ? LuminaColors.safiraClara
                                 : VizColors.muted),

@@ -10,6 +10,11 @@ class Topico {
   /// Notas livres do usuário (texto simples).
   final String notas;
 
+  /// Arestas de dependência do grafo de conhecimento: ids de tópicos que
+  /// precisam estar dominados/concluídos antes deste. O grafo deve ser um
+  /// DAG — validar com MapaEstudosService.criariaCiclo antes de adicionar.
+  final List<String> prerequisitos;
+
   const Topico({
     required this.id,
     required this.materiaId,
@@ -18,6 +23,7 @@ class Topico {
     this.peso = 1,
     this.concluido = false,
     this.notas = '',
+    this.prerequisitos = const [],
   });
 
   Topico copyWith(
@@ -25,7 +31,8 @@ class Topico {
       int? peso,
       bool? concluido,
       String? parentId,
-      String? notas}) {
+      String? notas,
+      List<String>? prerequisitos}) {
     return Topico(
       id: id,
       materiaId: materiaId,
@@ -34,6 +41,7 @@ class Topico {
       peso: peso ?? this.peso,
       concluido: concluido ?? this.concluido,
       notas: notas ?? this.notas,
+      prerequisitos: prerequisitos ?? this.prerequisitos,
     );
   }
 
@@ -45,6 +53,7 @@ class Topico {
         'peso': peso,
         'concluido': concluido,
         'notas': notas,
+        'prerequisitos': prerequisitos,
       };
 
   factory Topico.fromJson(Map<String, dynamic> json) => Topico(
@@ -55,5 +64,9 @@ class Topico {
         peso: (json['peso'] as num?)?.toInt() ?? 1,
         concluido: json['concluido'] as bool? ?? false,
         notas: json['notas'] as String? ?? '',
+        prerequisitos: [
+          for (final id in json['prerequisitos'] as List? ?? const [])
+            id as String,
+        ],
       );
 }

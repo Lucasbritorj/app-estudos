@@ -39,5 +39,26 @@ void main() {
     expect(copia.dataAgendada, original.dataAgendada);
     expect(copia.intervaloDias, 7);
     expect(copia.feita, false);
+    expect(copia.estabilidade, isNull); // revisão antiga: sem estado FSRS
+  });
+
+  test('estado FSRS persiste no json e sobrevive ao copyWith', () {
+    final comEstado = Revisao(
+      id: 'r2',
+      materiaId: 'm1',
+      titulo: 'Revisão AFO (15d)',
+      dataAgendada: DateTime(2026, 7, 24),
+      intervaloDias: 15,
+      estabilidade: 14.56,
+      dificuldade: 4.7,
+    );
+    final daPersistencia = Revisao.fromJson(comEstado.toJson());
+    expect(daPersistencia.estabilidade, 14.56);
+    expect(daPersistencia.dificuldade, 4.7);
+
+    final concluida =
+        comEstado.copyWith(feita: true, dataConclusao: DateTime(2026, 7, 24));
+    expect(concluida.estabilidade, 14.56);
+    expect(concluida.dificuldade, 4.7);
   });
 }

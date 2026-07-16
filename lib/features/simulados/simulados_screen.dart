@@ -10,12 +10,9 @@ import '../../data/models/simulado.dart';
 import '../../data/repositories/ambiente_filtros.dart';
 import '../../data/repositories/repositorios.dart';
 
-const _statusBom = Color(0xFF0CA30C);
-const _statusAtencao = Color(0xFFFAB219);
-const _statusCritico = Color(0xFFD03B3B);
-
-Color _corTaxa(double taxa) =>
-    taxa < 0.75 ? _statusCritico : (taxa < 0.85 ? _statusAtencao : _statusBom);
+Color _corTaxa(double taxa) => taxa < 0.75
+    ? StatusColors.critico
+    : (taxa < 0.85 ? StatusColors.atencao : StatusColors.bom);
 
 /// Simulados e provas reais: usuário informa tempo/questões/acertos por
 /// matéria; taxa, erros e min/questão o app deriva.

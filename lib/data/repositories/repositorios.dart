@@ -7,6 +7,7 @@ import '../models/aula.dart';
 import '../models/leitura.dart';
 import '../models/materia.dart';
 import '../models/registro_hora.dart';
+import '../models/resumo.dart';
 import '../models/revisao.dart';
 import '../models/simulado.dart';
 import '../models/topico.dart';
@@ -192,6 +193,27 @@ class SimuladosRepositorio extends _HiveRepositorio<Simulado> {
   @override
   int comparar(Simulado a, Simulado b) => b.data.compareTo(a.data);
 }
+
+class ResumosRepositorio extends _HiveRepositorio<Resumo> {
+  @override
+  String get boxName => HiveBoxes.resumos;
+  @override
+  Resumo fromJson(Map<String, dynamic> json) => Resumo.fromJson(json);
+  @override
+  Map<String, dynamic> toJson(Resumo item) => item.toJson();
+  @override
+  String idDe(Resumo item) => item.sigla;
+  @override
+  int comparar(Resumo a, Resumo b) =>
+      a.nome.toLowerCase().compareTo(b.nome.toLowerCase());
+
+  /// Grava o texto da página carimbando a data de edição.
+  Future<void> salvarTexto(Resumo pagina, String texto) => salvar(
+      pagina.copyWith(texto: texto, atualizadoEm: DateTime.now()));
+}
+
+final resumosProvider = NotifierProvider<ResumosRepositorio, List<Resumo>>(
+    ResumosRepositorio.new);
 
 final simuladosProvider =
     NotifierProvider<SimuladosRepositorio, List<Simulado>>(
