@@ -68,6 +68,26 @@ void main() {
       final xp = GamificacaoService.xpDetalhado([], [], hoje);
       expect(xp.total, 0);
     });
+
+    test('peso da matéria multiplica o XP base (teto ×1.5)', () {
+      final registros = [reg(hoje, 100)];
+      expect(GamificacaoService.xpPonderado(registros, {'m1': 1}), 100);
+      expect(GamificacaoService.xpPonderado(registros, {'m1': 3}), 120);
+      expect(GamificacaoService.xpPonderado(registros, {'m1': 10}), 150);
+      // Matéria fora do mapa degrada para 1 XP/min.
+      expect(GamificacaoService.xpPonderado(registros, {'outra': 5}), 100);
+    });
+
+    test('recuperação 24h entra no bônus de streak', () {
+      // Run de 4 dias, buraco ontem (sem proteção), voltou hoje:
+      // streak 1 + metade do run perdido (2) = 3 dias de bônus.
+      final registros = [
+        reg(hoje, 60), // 9/7; 8/7 = buraco
+        for (var d = 4; d <= 7; d++) reg(DateTime(2026, 7, d), 30),
+      ];
+      final xp = GamificacaoService.xpDetalhado(registros, [], hoje);
+      expect(xp.bonusStreak, 30);
+    });
   });
 
   group('badges', () {

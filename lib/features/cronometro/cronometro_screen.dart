@@ -39,6 +39,22 @@ class _CronometroScreenState extends ConsumerState<CronometroScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Deep-link da Missão de hoje: aplica a pré-seleção uma vez e limpa.
+    // Pós-frame porque setState + escrita em provider não podem rodar
+    // durante o build (a tela vive num IndexedStack, initState não basta).
+    final pre = ref.watch(preSelecaoCronometroProvider);
+    if (pre != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _materiaId = pre.materiaId;
+          _topicoId = pre.topicoId;
+          _aulaId = null;
+        });
+        ref.read(preSelecaoCronometroProvider.notifier).consumir();
+      });
+    }
+
     final estado = ref.watch(cronometroProvider);
     final controller = ref.read(cronometroProvider.notifier);
     final rodando = estado.status == CronometroStatus.rodando;

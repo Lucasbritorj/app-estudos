@@ -123,3 +123,21 @@ class CronometroController extends Notifier<CronometroState> {
 final cronometroProvider =
     NotifierProvider<CronometroController, CronometroState>(
         CronometroController.new);
+
+typedef PreSelecaoCronometro = ({String? materiaId, String? topicoId});
+
+/// Payload do deep-link "Estudar agora" (Missão de hoje → Cronômetro):
+/// a tela do cronômetro consome uma vez e limpa.
+class PreSelecaoCronometroNotifier extends Notifier<PreSelecaoCronometro?> {
+  @override
+  PreSelecaoCronometro? build() => null;
+
+  void definir({String? materiaId, String? topicoId}) =>
+      state = (materiaId: materiaId, topicoId: topicoId);
+
+  void consumir() => state = null;
+}
+
+final preSelecaoCronometroProvider =
+    NotifierProvider<PreSelecaoCronometroNotifier, PreSelecaoCronometro?>(
+        PreSelecaoCronometroNotifier.new);

@@ -14,6 +14,7 @@ import '../../domain/insights_service.dart';
 import '../../domain/mapa_estudos_service.dart';
 import '../../domain/planejamento_service.dart';
 import '../../domain/prontidao_service.dart';
+import '../../domain/quests_service.dart';
 import '../../domain/stats_service.dart';
 
 /// Camada de agregados derivados do dashboard (item 2 da auditoria).
@@ -48,6 +49,8 @@ typedef ResumoGeral = ({
   int minutosSemana,
   int total,
   int streak,
+  int streakCongelados,
+  bool streakEmRisco,
   int metaSemana,
   double progressoMeta,
   int pendentes,
@@ -78,11 +81,15 @@ final resumoGeralProvider = Provider<ResumoGeral>((ref) {
     if (status != RevisaoStatus.feita) pendentes++;
   }
 
+  final streak = StatsService.streakDetalhado(registros, hoje);
+
   return (
     minutosHoje: StatsService.minutosNoDia(registros, hoje),
     minutosSemana: minutosSemana,
     total: registros.fold(0, (soma, r) => soma + r.minutos),
-    streak: StatsService.streakAtual(registros, hoje),
+    streak: streak.dias,
+    streakCongelados: streak.congelados,
+    streakEmRisco: streak.emRisco,
     metaSemana: metaSemana,
     progressoMeta: metaSemana == 0
         ? 0.0
@@ -434,11 +441,44 @@ final gamificacaoProvider = Provider<GamificacaoResumo>((ref) {
   final registros = ref.watch(registrosProvider);
   final revisoes = ref.watch(revisoesProvider);
   final hoje = ref.watch(hojeProvider);
-  final xp = GamificacaoService.xpDetalhado(registros, revisoes, hoje);
+  // Peso do edital vira multiplicador de dificuldade do XP (teto ×1.5).
+  final pesoPorMateria = {
+    for (final m in ref.watch(materiasProvider)) m.id: m.peso,
+  };
+  final xp = GamificacaoService.xpDetalhado(registros, revisoes, hoje,
+      pesoPorMateria: pesoPorMateria);
   return (
     xp: xp,
     progresso: GamificacaoService.progressoNivel(xp.total),
     badges: GamificacaoService.badges(registros, revisoes, hoje),
+  );
+});
+
+/// Badges já vistas nesta execução — base da celebração de conquista NOVA
+/// (as pré-existentes não celebram ao abrir o app). Null = ainda não
+/// inicializado pelo primeiro build do card.
+class BadgesVistasNotifier extends Notifier<Set<String>?> {
+  @override
+  Set<String>? build() => null;
+
+  void registrar(Set<String> ids) => state = {...ids};
+}
+
+final badgesVistasProvider =
+    NotifierProvider<BadgesVistasNotifier, Set<String>?>(
+        BadgesVistasNotifier.new);
+
+/// Quests do dia derivadas do planejador (matéria em déficit, revisões
+/// pendentes, mapa) — escopo do ambiente ativo, igual à sugestão de hoje.
+final questsDoDiaProvider = Provider<List<QuestDia>>((ref) {
+  final sugestao = ref.watch(sugestaoHojeProvider);
+  return QuestsService.questsDoDia(
+    hoje: ref.watch(hojeProvider),
+    registros: ref.watch(registrosDoAmbienteProvider),
+    revisoes: ref.watch(revisoesDoAmbienteProvider),
+    materiaDeficitId: sugestao?.materia.id,
+    materiaDeficitNome: sugestao?.materia.nome,
+    temTopicos: ref.watch(topicosProvider).isNotEmpty,
   );
 });
 

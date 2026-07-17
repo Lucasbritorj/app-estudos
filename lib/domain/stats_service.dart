@@ -98,6 +98,87 @@ class StatsService {
     return streak;
   }
 
+  /// Dias de estudo exigidos na semana ANTERIOR para ganhar 1 congelamento.
+  static const metaDiasParaCongelamento = 5;
+
+  /// Streak com congelamento e recuperação — 100% derivado, como o resto.
+  ///
+  /// Regras (punição suave, retorno rápido):
+  /// - Congelamento: um dia sem estudo NÃO quebra o streak se a semana
+  ///   anterior (seg-dom) teve >= [metaDiasSemana] dias de estudo. Máximo de
+  ///   1 congelamento por semana-calendário; dia congelado não soma [dias].
+  /// - Recuperação 24h: quebrou por exatamente 1 dia (não congelável) e
+  ///   voltou no dia seguinte → metade do streak perdido vira [recuperados]
+  ///   (bônus de XP; o contador exibido recomeça mesmo).
+  /// - [emRisco]: streak vivo mas hoje ainda sem registro — a chama treme.
+  static ({int dias, int congelados, int recuperados, bool emRisco})
+      streakDetalhado(List<RegistroHora> registros, DateTime hoje,
+          {int metaDiasSemana = metaDiasParaCongelamento}) {
+    final dias = registros.map((r) => dataSemHora(r.data)).toSet();
+    final h = dataSemHora(hoje);
+    final temHoje = dias.contains(h);
+
+    DateTime anterior(DateTime d) => DateTime(d.year, d.month, d.day - 1);
+
+    int diasNaSemana(DateTime inicioSemana) {
+      var c = 0;
+      for (var i = 0; i < 7; i++) {
+        final d = DateTime(
+            inicioSemana.year, inicioSemana.month, inicioSemana.day + i);
+        if (dias.contains(d)) c++;
+      }
+      return c;
+    }
+
+    var d = temHoje ? h : anterior(h);
+    var streak = 0;
+    var congelados = 0;
+    final congeladoNaSemana = <DateTime>{};
+
+    while (true) {
+      if (dias.contains(d)) {
+        streak++;
+        d = anterior(d);
+        continue;
+      }
+      final semana = inicioDaSemana(d);
+      final semanaAnterior =
+          DateTime(semana.year, semana.month, semana.day - 7);
+      final podeCongelar = !congeladoNaSemana.contains(semana) &&
+          diasNaSemana(semanaAnterior) >= metaDiasSemana;
+      if (podeCongelar) {
+        congeladoNaSemana.add(semana);
+        congelados++;
+        d = anterior(d);
+        continue;
+      }
+      break;
+    }
+
+    // Recuperação: o dia que quebrou (d) é único — logo antes dele havia
+    // um run anterior. Metade dele volta como bônus, estável entre dias.
+    var recuperados = 0;
+    if (streak > 0) {
+      final antesDoGap = anterior(d);
+      if (dias.contains(antesDoGap)) {
+        var runAnterior = 0;
+        var p = antesDoGap;
+        while (dias.contains(p)) {
+          runAnterior++;
+          p = anterior(p);
+        }
+        recuperados = runAnterior ~/ 2;
+      }
+    }
+
+    return (
+      dias: streak,
+      congelados: congelados,
+      recuperados: recuperados,
+      emRisco: streak > 0 && !temHoje,
+    );
+  }
+
   /// Média/máximo/mínimo de minutos considerando apenas dias COM registro.
   static ({int media, int maximo, int minimo}) resumoDiario(
       List<RegistroHora> registros) {

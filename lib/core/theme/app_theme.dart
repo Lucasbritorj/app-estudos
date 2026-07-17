@@ -25,6 +25,10 @@ class LuminaColors {
 
   /// Safira legível sobre grafite (a #0F52BA pura some no escuro).
   static const safiraClara = Color(0xFF3D7BD9);
+
+  /// Canal exclusivo do streak (mesma tinta do laranja da série categórica).
+  /// Não usar em decoração nem status — a chama só significa ritmo.
+  static const chama = Color(0xFFD95926);
 }
 
 /// Cores de status semânticas (bom/atenção/crítico) — canal exclusivo de

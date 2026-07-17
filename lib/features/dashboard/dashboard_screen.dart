@@ -16,11 +16,12 @@ import 'widgets/card_gamificacao.dart';
 import 'widgets/card_melhorar_hoje.dart';
 import 'widgets/card_plano.dart';
 import 'widgets/card_prontidao.dart';
+import 'widgets/card_quests.dart';
 import 'widgets/card_rankings.dart';
 import 'widgets/card_simulados.dart';
-import 'widgets/card_sugestao_hoje.dart';
 import 'widgets/graficos.dart';
 import 'widgets/hero_geral.dart';
+import 'widgets/hero_missao_hoje.dart';
 import 'widgets/tiles_resumo.dart';
 
 /// Tela-índice do dashboard: só composição e layout — cada card mora em
@@ -66,6 +67,9 @@ class DashboardScreen extends ConsumerWidget {
                                 fontStyle: FontStyle.italic),
                       ),
                     ),
+                    // Próximo passo primeiro: a missão responde "o que
+                    // estudar agora" antes de qualquer estatística.
+                    const HeroMissaoHoje(),
                     // Geralzão: tudo de relance, clicável, sem rolar.
                     const HeroGeral(),
                     const SizedBox(height: 10),
@@ -94,7 +98,7 @@ class DashboardScreen extends ConsumerWidget {
                       const CardAmbientes(),
                       const SizedBox(height: 10),
                     ],
-                    const CardSugestaoHoje(),
+                    const CardQuests(),
                     const SizedBox(height: 10),
                     const CardSimulados(),
                     const SizedBox(height: 10),

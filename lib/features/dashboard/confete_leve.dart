@@ -17,12 +17,25 @@ class ConfeteLeve extends StatefulWidget {
   /// Identidade da conquista (ex.: 'semana-2026-07-06').
   final String chave;
 
+  /// Paleta dos flocos; null = série categórica. Conquistas raras (badge)
+  /// usam a paleta dourada [ConfeteLeve.coresOuro].
+  final List<Color>? cores;
+
   const ConfeteLeve({
     super.key,
     required this.child,
     required this.disparar,
     required this.chave,
+    this.cores,
   });
+
+  /// Ouro→âmbar: reservada a badges, mesmo canal semântico do dourado.
+  static const coresOuro = <Color>[
+    LuminaColors.ouro,
+    Color(0xFFE8C96A),
+    Color(0xFFB8860B),
+    Color(0xFFF0E1A6),
+  ];
 
   /// Chaves já celebradas nesta execução (efêmero de propósito).
   static final celebradas = <String>{};
@@ -71,7 +84,9 @@ class _ConfeteLeveState extends State<ConfeteLeve>
             child: AnimatedBuilder(
               animation: _controller,
               builder: (context, _) => _controller.isAnimating
-                  ? CustomPaint(painter: _ConfetePainter(_controller.value))
+                  ? CustomPaint(
+                      painter: _ConfetePainter(_controller.value,
+                          widget.cores ?? seriesColors))
                   : const SizedBox.shrink(),
             ),
           ),
@@ -83,8 +98,9 @@ class _ConfeteLeveState extends State<ConfeteLeve>
 
 class _ConfetePainter extends CustomPainter {
   final double t;
+  final List<Color> cores;
 
-  _ConfetePainter(this.t);
+  _ConfetePainter(this.t, this.cores);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -98,8 +114,8 @@ class _ConfetePainter extends CustomPainter {
       final progresso = ((t - atraso) / (1 - atraso)).clamp(0.0, 1.0);
       if (progresso == 0) continue;
 
-      tinta.color = seriesColors[i % seriesColors.length]
-          .withValues(alpha: 0.9 * (1 - progresso));
+      tinta.color =
+          cores[i % cores.length].withValues(alpha: 0.9 * (1 - progresso));
       canvas.save();
       canvas.translate(
           x * size.width, progresso * (size.height + 20) - 10);

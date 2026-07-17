@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../registro/registro_form.dart';
 import '../dashboard_providers.dart';
+import 'chama_streak.dart';
 
 /// "Geralzão": o dia inteiro de relance no topo — números, meta da semana
 /// e atalhos. Tudo clicável (navega pelas abas via abaProvider).
@@ -26,13 +27,17 @@ class HeroGeral extends ConsumerWidget {
 
     void irPara(int aba) => ref.read(abaProvider.notifier).ir(aba);
 
+    final corRevisoes = atrasadas > 0
+        ? StatusColors.critico
+        : (pendentes > 0 ? StatusColors.atencao : StatusColors.bom);
+
     // Tile tintado (pastel adaptado ao escuro): cor identifica a métrica,
     // texto continua branco por contraste.
     Widget stat(
       String rotulo,
       String valor,
       Color tinta, {
-      IconData? icone,
+      Widget? icone,
       VoidCallback? onTap,
     }) {
       return Material(
@@ -55,7 +60,7 @@ class HeroGeral extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (icone != null) ...[
-                      Icon(icone, size: 13, color: tinta),
+                      icone,
                       const SizedBox(width: 4),
                     ],
                     Text(
@@ -128,10 +133,16 @@ class HeroGeral extends ConsumerWidget {
                     onTap: () => irPara(Abas.cronometro),
                   ),
                   stat(
-                    'Streak',
+                    // Em risco fala primeiro; congelamento informa depois.
+                    resumo.streakEmRisco
+                        ? 'Streak — estude hoje'
+                        : (resumo.streakCongelados > 0
+                            ? 'Streak · ${resumo.streakCongelados} '
+                                'protegido${resumo.streakCongelados == 1 ? '' : 's'}'
+                            : 'Streak'),
                     '$streak ${streak == 1 ? 'dia' : 'dias'}',
-                    LuminaColors.ouro,
-                    icone: Icons.local_fire_department,
+                    LuminaColors.chama,
+                    icone: ChamaAnimada(emRisco: resumo.streakEmRisco),
                   ),
                   stat('Total', formatarMinutos(total), seriesColors[4]),
                   stat(
@@ -139,12 +150,9 @@ class HeroGeral extends ConsumerWidget {
                     pendentes == 0
                         ? 'em dia'
                         : '$pendentes${atrasadas > 0 ? ' ($atrasadas atrasadas)' : ''}',
-                    atrasadas > 0
-                        ? StatusColors.critico
-                        : (pendentes > 0
-                              ? StatusColors.atencao
-                              : StatusColors.bom),
-                    icone: Icons.event_repeat,
+                    corRevisoes,
+                    icone: Icon(Icons.event_repeat,
+                        size: 13, color: corRevisoes),
                     onTap: () => irPara(Abas.revisoes),
                   ),
                   stat(

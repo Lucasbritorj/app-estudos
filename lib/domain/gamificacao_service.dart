@@ -26,16 +26,35 @@ class GamificacaoService {
   static int xpTotal(List<RegistroHora> registros) =>
       registros.fold(0, (soma, r) => soma + r.minutos);
 
-  /// XP global com bônus: minutos + 50 por revisão concluída + 10 por dia
-  /// do streak atual. Tudo derivado, recalculado a cada leitura.
+  /// Multiplicador de dificuldade: peso 1 do edital = ×1.0, cada ponto de
+  /// peso soma 10%, teto ×1.5. Matéria difícil rende mais XP por minuto.
+  static double multiplicadorPeso(int peso) =>
+      (1 + 0.1 * (peso - 1)).clamp(1.0, 1.5);
+
+  /// XP base ponderado pelo peso da matéria de cada registro. Sem mapa de
+  /// pesos (ou matéria desconhecida) degrada para 1 XP/minuto.
+  static int xpPonderado(
+      List<RegistroHora> registros, Map<String, int> pesoPorMateria) {
+    var total = 0.0;
+    for (final r in registros) {
+      total += r.minutos * multiplicadorPeso(pesoPorMateria[r.materiaId] ?? 1);
+    }
+    return total.round();
+  }
+
+  /// XP global com bônus: minutos ponderados por peso + 50 por revisão
+  /// concluída + 10 por dia de streak (dias contados + recuperados pela
+  /// regra 24h). Tudo derivado, recalculado a cada leitura.
   static ({int base, int bonusRevisoes, int bonusStreak, int total})
       xpDetalhado(List<RegistroHora> registros, List<Revisao> revisoes,
-          DateTime hoje) {
-    final base = xpTotal(registros);
+          DateTime hoje,
+          {Map<String, int> pesoPorMateria = const {}}) {
+    final base = xpPonderado(registros, pesoPorMateria);
     final bonusRevisoes =
         revisoes.where((r) => r.feita).length * xpPorRevisaoFeita;
+    final streak = StatsService.streakDetalhado(registros, hoje);
     final bonusStreak =
-        StatsService.streakAtual(registros, hoje) * xpPorDiaDeStreak;
+        (streak.dias + streak.recuperados) * xpPorDiaDeStreak;
     return (
       base: base,
       bonusRevisoes: bonusRevisoes,
@@ -64,7 +83,8 @@ class GamificacaoService {
   static List<BadgeStatus> badges(
       List<RegistroHora> registros, List<Revisao> revisoes, DateTime hoje) {
     final totalMinutos = xpTotal(registros);
-    final streak = StatsService.streakAtual(registros, hoje);
+    // Streak com congelamento: badge não cai por 1 dia protegido.
+    final streak = StatsService.streakDetalhado(registros, hoje).dias;
     final temRevisoes = revisoes.isNotEmpty;
     final nenhumaAtrasada = revisoes
         .where((r) => r.statusEm(hoje) == RevisaoStatus.atrasada)
