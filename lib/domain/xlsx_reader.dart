@@ -83,14 +83,35 @@ class XlsxReader {
   }
 
   /// Descomprime uma parte do zip abortando assim que os bytes REAIS passam
-  /// do teto — a inflação do `archive` escreve bloco a bloco no
-  /// [_SaidaLimitada], então um zip bomb (header mentindo tamanho pequeno,
-  /// conteúdo expandindo para GBs) é cortado sem materializar o payload.
+  /// do teto — defesa contra zip bomb (header mente tamanho pequeno, conteúdo
+  /// expande para GBs).
+  ///
+  /// Inflaciona chamando `Inflate.stream(..., output: _SaidaLimitada)`
+  /// DIRETAMENTE, em vez de `f.decompress`/`f.content`. Isso é deliberado:
+  /// o wrapper padrão de descompressão da plataforma web
+  /// (`_zlib_decoder_web.dart`) materializa a parte inteira em memória
+  /// (`Inflate.stream(input).getBytes()`) ANTES de escrever no output — o
+  /// teto só agiria tarde demais, sem limitar o pico. O `Inflate` (Dart puro,
+  /// idêntico em todas as plataformas) escreve bloco a bloco no stream, então
+  /// o corte acontece antes de o payload ser materializado, inclusive no
+  /// alvo de deploy web. Entradas de zip usam deflate cru (raw), que é
+  /// exatamente o que `Inflate` espera.
   static String _descomprimirLimitado(
       ArchiveFile f, String caminho, int maxBytes) {
     final saida = _SaidaLimitada(maxBytes);
+    final raw = f.rawContent;
     try {
-      f.decompress(saida);
+      if (raw == null) {
+        return '';
+      }
+      if (f.compression == CompressionType.none) {
+        // Armazenado sem compressão: sem inflar; capa o tamanho real e copia.
+        final bruto = raw.getStream(decompress: false);
+        saida.writeStream(bruto);
+      } else {
+        // Deflate (padrão do .xlsx): inflação incremental para o teto.
+        Inflate.stream(raw.getStream(decompress: false), output: saida);
+      }
     } on _LimiteExcedido {
       throw FormatException(
           'Parte "$caminho" excede ${maxBytes ~/ (1024 * 1024)} MB '
