@@ -11,6 +11,12 @@ import 'package:xml/xml.dart';
 /// Limitação assumida: datas chegam como número serial do Excel (a conversão
 /// fica no serviço de import, que conhece quais colunas são datas).
 class XlsxReader {
+  /// Limites reais do Excel. Refs `r` vêm do arquivo (não confiável) e ditam
+  /// alocação de linhas/células — sem teto, um .xlsx hostil trava o app.
+  static const _maxLinhas = 1048576;
+  static const _maxColunas = 16384;
+  static const _maxBytesParteXml = 50 * 1024 * 1024;
+
   /// Nome da aba -> linhas -> células como texto ('' para célula vazia).
   /// Linhas preservam a numeração original (linhas puladas viram vazias).
   /// Qualquer conteúdo corrompido vira FormatException com contexto —
@@ -28,6 +34,12 @@ class XlsxReader {
     String? conteudo(String caminho) {
       for (final f in zip.files) {
         if (f.name == caminho) {
+          if (f.size > _maxBytesParteXml) {
+            throw FormatException(
+                'Parte "$caminho" excede '
+                '${_maxBytesParteXml ~/ (1024 * 1024)} MB descomprimida — '
+                'arquivo rejeitado por segurança.');
+          }
           return utf8.decode(f.content as List<int>, allowMalformed: true);
         }
       }
@@ -111,12 +123,22 @@ class XlsxReader {
     for (final row in XmlDocument.parse(xml).findAllElements('row')) {
       final numeroLinha =
           int.tryParse(row.getAttribute('r') ?? '') ?? (linhas.length + 1);
+      if (numeroLinha > _maxLinhas) {
+        throw FormatException(
+            'Linha $numeroLinha além do máximo do Excel ($_maxLinhas) — '
+            'arquivo rejeitado por segurança.');
+      }
       while (linhas.length < numeroLinha - 1) {
         linhas.add(const []);
       }
       final celulas = <String>[];
       for (final c in row.findElements('c')) {
         final coluna = _colunaDe(c.getAttribute('r') ?? '');
+        if (coluna >= _maxColunas) {
+          throw FormatException(
+              'Célula além da coluna máxima do Excel (XFD) na linha '
+              '$numeroLinha — arquivo rejeitado por segurança.');
+        }
         while (celulas.length < coluna) {
           celulas.add('');
         }

@@ -12,8 +12,8 @@
 
 ## Baseline funcional (Fase 0)
 
-- **Testes existentes:** 277
-- **Passam:** 277  |  **Já falham (pré-existentes):** 0
+- **Testes existentes:** 293 (contagem canônica via reporter expanded; o "+277" do primeiro run compacto era artefato de `\r` no output persistido)
+- **Passam:** 293  |  **Já falham (pré-existentes):** 0
 - **Build baseline:** verde (`flutter build web --release` OK, 284s)
 - **Lint baseline:** `flutter analyze` → `No issues found!`
 - **Nota:** working tree carrega modificações não commitadas do dono do repo (feature em andamento). A auditoria commita **apenas** os arquivos que toca; arquivos-alvo são checados por status antes do commit.
@@ -78,7 +78,7 @@ Fronteiras de confiança: (1) arquivo xlsx de origem externa; (2) JSON/edital co
 
 | ID | Fase | Classe | Severidade | Conf. | Estado | Commit | Evidência (Red → Green) |
 |---|---|---|---|---|---|---|---|
-| A-001 | 2 | CWE-400/CWE-1284, STRIDE-D | Alto | CONFIRMADO | ABERTO | – | `xlsx_reader.dart:112-125` loops de alocação dirigidos por `r` |
+| A-001 | 2 | CWE-400/CWE-1284, STRIDE-D | Alto | CONFIRMADO | CORRIGIDO | (commit A-001) | Red: `xlsx_reader_seguranca_test.dart` — parser devolveu 2M linhas / 18.278 células ditadas por `r` hostil. Green: tetos `_maxLinhas`/`_maxColunas`/`_maxBytesParteXml` + FormatException; 296/296 verdes (293 baseline + 3 novos) |
 | A-002 | 2 | CWE-1236 | Médio | CONFIRMADO | ABERTO | – | `export_service.dart:_campo/_campoBi` não neutralizam `=`,`+`,`-`,`@` |
 | A-003 | 2 | CWE-755/CWE-20 | Médio | CONFIRMADO | ABERTO | – | `import_service.dart:90` `(v as num)` fora do wrapper; UI captura só FormatException (`exportar_screen.dart:367,437`) |
 | A-004 | 3 | CWE-20 | Baixo | CONFIRMADO | ABERTO | – | `materia.dart:95-98` sem clamp de `peso`; páginas negativas em `registro_hora.dart:157-158` |
