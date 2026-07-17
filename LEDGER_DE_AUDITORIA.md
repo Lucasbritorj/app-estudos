@@ -68,7 +68,7 @@ Fronteiras de confiança: (1) arquivo xlsx de origem externa; (2) JSON/edital co
 
 ## Fila priorizada por risco (probabilidade × impacto)
 
-1. **A-001** — XlsxReader: exaustão de memória por refs `r` sem teto (CWE-400/CWE-1284, STRIDE-D). Arquivo hostil trava/derruba o app. **Alto**
+1. **A-001** — XlsxReader: exaustão de memória por refs `r` sem teto e por zip bomb (CWE-400/CWE-1284, STRIDE-D). Arquivo hostil trava/derruba o app. Severidade rebaixada de Alto→**Médio** na verificação final: app local single-user, arquivo escolhido pelo próprio usuário no file picker; pior caso é OOM do próprio app (sem perda de dado — crash antes do merge; sem impacto cross-user, sem escalada). DoS local, não High.
 2. **A-002** — ExportService: CSV/formula injection (CWE-1236, OWASP A03-adjacent). Dado vindo de xlsx/edital de terceiro executa fórmula no Excel da vítima. **Médio**
 3. **A-003** — ImportService: `(v as num)` em `planejamento` lança TypeError que fura o `on FormatException` da UI (CWE-755/CWE-20). **Médio**
 4. **A-004** — Modelos: `peso`/`corSlot`/páginas sem clamp no `fromJson` (integridade; `corDaSerie` usa `%`, sem crash). **Baixo**
@@ -82,7 +82,7 @@ Fronteiras de confiança: (1) arquivo xlsx de origem externa; (2) JSON/edital co
 
 | ID | Fase | Classe | Severidade | Conf. | Estado | Commit | Evidência (Red → Green) |
 |---|---|---|---|---|---|---|---|
-| A-001 | 2 | CWE-400/CWE-1284, STRIDE-D | Alto | CONFIRMADO | CORRIGIDO | (commit A-001) | Red: `xlsx_reader_seguranca_test.dart` — parser devolveu 2M linhas / 18.278 células ditadas por `r` hostil. Green: tetos `_maxLinhas`/`_maxColunas`/`_maxBytesParteXml` + FormatException; 296/296 verdes (293 baseline + 3 novos) |
+| A-001 | 2 | CWE-400/CWE-1284, STRIDE-D | Médio | CONFIRMADO | CORRIGIDO | (commits A-001, A-001b) | v1 (50e6168): tetos de linha/coluna por ref `r`. **Juiz reprovou v1**: teto de tamanho usava `f.size` (header do zip, controlado pelo atacante) → bypass de zip bomb provado (366KB→80MB). v2 (A-001b): descompressão limitada por bytes REAIS (`_SaidaLimitada` aborta a inflação incremental) + teto no arquivo de entrada. Red provado por script: lógica antiga materializou 65730 bytes reais apesar de teto 4096 e header mentindo 1000. Green: 312/312 verdes |
 | A-002 | 2 | CWE-1236 | Médio | CONFIRMADO | CORRIGIDO | (commit A-002) | Red: `export_csv_injection_test.dart` — `=HYPERLINK`/`+SOMA`/`@`/`-` cruas na célula (aspas NÃO neutralizam fórmula). Green: `_semFormula` prefixa apóstrofo nos gatilhos `= + - @ tab CR`; 298/298 verdes |
 | A-003 | 2 | CWE-755/CWE-20 | Médio | CONFIRMADO | CORRIGIDO | (commit A-003) | Red: `import_service_seguranca_test.dart` — valor string em `planejamento` lançava TypeError (fura o `on FormatException` da UI); negativo entrava cru. Green: validação `is! num` → FormatException + clamp ≥0; 302/302 verdes |
 | A-004 | 3 | CWE-20 | Baixo | CONFIRMADO | CORRIGIDO | (commit A-004) | Red: `modelos_seguranca_test.dart` — peso ≤0 aceito via fromJson (envenena média ponderada); intervalo de páginas invertido/negativo gerava contagem negativa. Green: clamp peso ≥1 (Materia/Topico), páginas negativas → null, intervalo invertido → null; 309/309 verdes |
@@ -90,7 +90,11 @@ Fronteiras de confiança: (1) arquivo xlsx de origem externa; (2) JSON/edital co
 
 ## Itens ESCALADO (aguardando decisão humana)
 
-- **A-005 — Hive sem cifra em repouso (web/desktop).** Problema: dados de estudo legíveis por quem tem acesso ao perfil do SO/navegador. Opções: (a) aceitar o risco e documentar (app local-first single-user, cifra com chave armazenada localmente não resiste ao mesmo atacante — segurança teatral); (b) `HiveAesCipher` com chave derivada de PIN do usuário — mudança arquitetural (UX de PIN, recuperação, migração de dados). **Recomendação: (a)** — o modelo de ameaça real (atacante com acesso ao perfil local) já implica comprometimento total da máquina; documentar no README. Dado não é sensível (horas de estudo), LGPD-wise é dado pessoal trivial local que nunca sai do dispositivo.
+- **A-005 — Hive sem cifra em repouso (web/desktop).** Problema: dados de estudo legíveis por quem lê o perfil do SO/navegador. Dois modelos de ameaça distintos (separados após a verificação do juiz):
+  - **(M1) Atacante com sessão interativa na máquina desbloqueada.** Aqui qualquer cifra com chave também local é decorativa — o atacante lê a chave junto do dado. Cifra não mitiga.
+  - **(M2) Disco/backup a frio: laptop roubado/apreendido, backup exfiltrado, malware que só lê arquivos sem sessão.** Aqui uma chave derivada de PIN do usuário (não gravada em claro no disco) **mitigaria** — o dado seria ilegível sem o PIN. Este cenário NÃO é teatro; a v1 do ledger errou ao descartá-lo.
+  - Opções: (a) aceitar o risco e documentar; (b) `HiveAesCipher` com chave derivada de PIN — mudança arquitetural (UX de PIN, recuperação/reset, migração de dados existentes).
+  - **Recomendação: (a), por proporcionalidade aos dados, não por (M2) ser teatro.** O conteúdo é horas de estudo, notas livres e progresso — sem financeiro, saúde, credencial ou PII sensível; nunca sai do dispositivo. O custo de UX de (b) (PIN, fluxo de recuperação, risco de perda total dos dados se o usuário esquece o PIN) supera o ganho para esse tipo de dado. Decisão do dono; se o público-alvo mudar (ex.: dados sensíveis), reabrir com (b). **Escalado — não fechado unilateralmente.**
 
 ## Itens REQUER-VERIFICAÇÃO-HUMANA (fora do alcance do repo)
 

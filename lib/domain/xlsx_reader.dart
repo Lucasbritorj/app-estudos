@@ -15,13 +15,34 @@ class XlsxReader {
   /// alocação de linhas/células — sem teto, um .xlsx hostil trava o app.
   static const _maxLinhas = 1048576;
   static const _maxColunas = 16384;
+
+  /// Teto de bytes REAIS descomprimidos por parte XML. Medido durante a
+  /// inflação (não pelo `size` do header do zip, que o atacante controla):
+  /// defesa contra zip bomb (CWE-400). Uma parte de planilha real fica
+  /// muito abaixo disso.
   static const _maxBytesParteXml = 50 * 1024 * 1024;
+
+  /// Teto do arquivo .xlsx inteiro (bytes comprimidos reais recebidos).
+  /// Rejeição barata antes de descomprimir qualquer coisa.
+  static const _maxBytesArquivo = 64 * 1024 * 1024;
 
   /// Nome da aba -> linhas -> células como texto ('' para célula vazia).
   /// Linhas preservam a numeração original (linhas puladas viram vazias).
   /// Qualquer conteúdo corrompido vira FormatException com contexto —
   /// nunca exceção crua de zip/XML vazando para a UI.
-  static Map<String, List<List<String>>> lerAbas(Uint8List bytes) {
+  ///
+  /// [maxBytesParte] e [maxBytesArquivo] são costuras de teste; produção usa
+  /// os tetos padrão.
+  static Map<String, List<List<String>>> lerAbas(
+    Uint8List bytes, {
+    int maxBytesParte = _maxBytesParteXml,
+    int maxBytesArquivo = _maxBytesArquivo,
+  }) {
+    if (bytes.length > maxBytesArquivo) {
+      throw FormatException(
+          'Arquivo .xlsx excede ${maxBytesArquivo ~/ (1024 * 1024)} MB — '
+          'rejeitado por segurança antes de abrir.');
+    }
     final Archive zip;
     try {
       zip = ZipDecoder().decodeBytes(bytes);
@@ -34,13 +55,7 @@ class XlsxReader {
     String? conteudo(String caminho) {
       for (final f in zip.files) {
         if (f.name == caminho) {
-          if (f.size > _maxBytesParteXml) {
-            throw FormatException(
-                'Parte "$caminho" excede '
-                '${_maxBytesParteXml ~/ (1024 * 1024)} MB descomprimida — '
-                'arquivo rejeitado por segurança.');
-          }
-          return utf8.decode(f.content as List<int>, allowMalformed: true);
+          return _descomprimirLimitado(f, caminho, maxBytesParte);
         }
       }
       return null;
@@ -65,6 +80,23 @@ class XlsxReader {
           'Nenhuma aba encontrada — o arquivo é mesmo um .xlsx?');
     }
     return resultado;
+  }
+
+  /// Descomprime uma parte do zip abortando assim que os bytes REAIS passam
+  /// do teto — a inflação do `archive` escreve bloco a bloco no
+  /// [_SaidaLimitada], então um zip bomb (header mentindo tamanho pequeno,
+  /// conteúdo expandindo para GBs) é cortado sem materializar o payload.
+  static String _descomprimirLimitado(
+      ArchiveFile f, String caminho, int maxBytes) {
+    final saida = _SaidaLimitada(maxBytes);
+    try {
+      f.decompress(saida);
+    } on _LimiteExcedido {
+      throw FormatException(
+          'Parte "$caminho" excede ${maxBytes ~/ (1024 * 1024)} MB '
+          'descomprimida — arquivo rejeitado por segurança.');
+    }
+    return utf8.decode(saida.getBytes(), allowMalformed: true);
   }
 
   /// Converte falha de XML/estrutura em FormatException com contexto.
@@ -180,5 +212,40 @@ class XlsxReader {
       }
     }
     return coluna == 0 ? 0 : coluna - 1;
+  }
+}
+
+/// Sinaliza que a descompressão passou do teto de bytes reais.
+class _LimiteExcedido implements Exception {
+  const _LimiteExcedido();
+}
+
+/// Buffer de saída que aborta a inflação assim que os bytes escritos passam
+/// de [maxBytes]. Como o `archive` inflaciona incrementalmente para este
+/// stream, o corte acontece antes de o payload de um zip bomb ser
+/// materializado — a checagem é sobre bytes REAIS, não sobre o `size`
+/// declarado no header (que o atacante controla).
+class _SaidaLimitada extends OutputMemoryStream {
+  _SaidaLimitada(this.maxBytes);
+  final int maxBytes;
+
+  @override
+  void writeByte(int value) {
+    if (length + 1 > maxBytes) throw const _LimiteExcedido();
+    super.writeByte(value);
+  }
+
+  @override
+  void writeBytes(List<int> bytes, {int? length}) {
+    if (this.length + (length ?? bytes.length) > maxBytes) {
+      throw const _LimiteExcedido();
+    }
+    super.writeBytes(bytes, length: length);
+  }
+
+  @override
+  void writeStream(InputStream stream) {
+    if (length + stream.length > maxBytes) throw const _LimiteExcedido();
+    super.writeStream(stream);
   }
 }
