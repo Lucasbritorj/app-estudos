@@ -86,9 +86,15 @@ class ImportService {
     if (planoBruto is Map) {
       planoBruto.forEach((k, v) {
         final dia = int.tryParse(k.toString());
-        if (dia != null && dia >= 1 && dia <= 7) {
-          planejamento[dia] = (v as num).toInt();
+        if (dia == null || dia < 1 || dia > 7) return;
+        // Contrato do parser: entrada inválida vira FormatException — um
+        // `as num` aqui lançaria TypeError e furaria o catch da UI.
+        if (v is! num) {
+          throw FormatException(
+              'Valor de planejamento inválido para o dia $dia: "$v"');
         }
+        final minutos = v.toInt();
+        planejamento[dia] = minutos < 0 ? 0 : minutos;
       });
     }
 
