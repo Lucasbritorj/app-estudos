@@ -88,12 +88,17 @@ class Materia {
         'notas': notas,
       };
 
-  factory Materia.fromJson(Map<String, dynamic> json) => Materia(
+  factory Materia.fromJson(Map<String, dynamic> json) {
+    // Peso >= 1 é invariante do domínio (média ponderada da prontidão e
+    // fila do planejamento) — o dialog impõe na UI; backup adulterado não
+    // pode rebaixá-lo.
+    final peso = (json['peso'] as num?)?.toInt() ?? 1;
+    return Materia(
         id: json['id'] as String,
         nome: json['nome'] as String,
         ambienteId: json['ambienteId'] as String? ?? Ambiente.geralId,
         corSlot: (json['corSlot'] as num?)?.toInt() ?? 0,
-        peso: (json['peso'] as num?)?.toInt() ?? 1,
+        peso: peso < 1 ? 1 : peso,
         questoes: (json['questoes'] as num?)?.toInt(),
         minimo: (json['minimo'] as num?)?.toInt(),
         intimidade:
@@ -101,6 +106,6 @@ class Materia {
         minutosAlvo: (json['minutosAlvo'] as num?)?.toInt(),
         arquivada: json['arquivada'] as bool? ?? false,
         criadaEm: DateTime.parse(json['criadaEm'] as String),
-        notas: json['notas'] as String? ?? '',
-      );
+        notas: json['notas'] as String? ?? '');
+  }
 }

@@ -56,17 +56,20 @@ class Topico {
         'prerequisitos': prerequisitos,
       };
 
-  factory Topico.fromJson(Map<String, dynamic> json) => Topico(
+  factory Topico.fromJson(Map<String, dynamic> json) {
+    // Peso >= 1: mesma invariante de Materia — backup não rebaixa.
+    final peso = (json['peso'] as num?)?.toInt() ?? 1;
+    return Topico(
         id: json['id'] as String,
         materiaId: json['materiaId'] as String,
         parentId: json['parentId'] as String?,
         nome: json['nome'] as String,
-        peso: (json['peso'] as num?)?.toInt() ?? 1,
+        peso: peso < 1 ? 1 : peso,
         concluido: json['concluido'] as bool? ?? false,
         notas: json['notas'] as String? ?? '',
         prerequisitos: [
           for (final id in json['prerequisitos'] as List? ?? const [])
             id as String,
-        ],
-      );
+        ]);
+  }
 }

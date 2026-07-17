@@ -85,8 +85,12 @@ class RegistroHora {
       tipo: tipo,
       tarefa: tarefa,
       minutos: minutos < 0 ? 0 : minutos,
-      paginaInicial: paginaInicial,
-      paginaFinal: paginaFinal,
+      // Página negativa não existe — vira null para não contaminar
+      // paginasLidas/ritmo.
+      paginaInicial:
+          (paginaInicial != null && paginaInicial < 0) ? null : paginaInicial,
+      paginaFinal:
+          (paginaFinal != null && paginaFinal < 0) ? null : paginaFinal,
       paginasLidasManual: paginasLidasManual == null
           ? null
           : (paginasLidasManual < 0 ? 0 : paginasLidasManual),
@@ -98,7 +102,10 @@ class RegistroHora {
 
   int? get paginasLidas {
     if (paginasLidasManual != null) return paginasLidasManual;
-    if (paginaInicial != null && paginaFinal != null) {
+    // Intervalo invertido não é contagem — null (sem dado), nunca negativo.
+    if (paginaInicial != null &&
+        paginaFinal != null &&
+        paginaFinal! >= paginaInicial!) {
       return paginaFinal! - paginaInicial! + 1;
     }
     return null;

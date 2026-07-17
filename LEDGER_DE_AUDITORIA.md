@@ -85,7 +85,7 @@ Fronteiras de confiança: (1) arquivo xlsx de origem externa; (2) JSON/edital co
 | A-001 | 2 | CWE-400/CWE-1284, STRIDE-D | Alto | CONFIRMADO | CORRIGIDO | (commit A-001) | Red: `xlsx_reader_seguranca_test.dart` — parser devolveu 2M linhas / 18.278 células ditadas por `r` hostil. Green: tetos `_maxLinhas`/`_maxColunas`/`_maxBytesParteXml` + FormatException; 296/296 verdes (293 baseline + 3 novos) |
 | A-002 | 2 | CWE-1236 | Médio | CONFIRMADO | CORRIGIDO | (commit A-002) | Red: `export_csv_injection_test.dart` — `=HYPERLINK`/`+SOMA`/`@`/`-` cruas na célula (aspas NÃO neutralizam fórmula). Green: `_semFormula` prefixa apóstrofo nos gatilhos `= + - @ tab CR`; 298/298 verdes |
 | A-003 | 2 | CWE-755/CWE-20 | Médio | CONFIRMADO | CORRIGIDO | (commit A-003) | Red: `import_service_seguranca_test.dart` — valor string em `planejamento` lançava TypeError (fura o `on FormatException` da UI); negativo entrava cru. Green: validação `is! num` → FormatException + clamp ≥0; 302/302 verdes |
-| A-004 | 3 | CWE-20 | Baixo | CONFIRMADO | ABERTO | – | `materia.dart:95-98` sem clamp de `peso`; páginas negativas em `registro_hora.dart:157-158` |
+| A-004 | 3 | CWE-20 | Baixo | CONFIRMADO | CORRIGIDO | (commit A-004) | Red: `modelos_seguranca_test.dart` — peso ≤0 aceito via fromJson (envenena média ponderada); intervalo de páginas invertido/negativo gerava contagem negativa. Green: clamp peso ≥1 (Materia/Topico), páginas negativas → null, intervalo invertido → null; 309/309 verdes |
 | A-005 | 3 | STRIDE-I | Baixo | CONFIRMADO | ESCALADO | – | Hive/IndexedDB sem cifra; ver Itens ESCALADO |
 
 ## Itens ESCALADO (aguardando decisão humana)
