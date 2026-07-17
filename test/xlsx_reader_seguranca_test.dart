@@ -81,11 +81,11 @@ void main() {
   <Relationship Id="rId1" Type="w" Target="worksheets/sheet1.xml"/>
 </Relationships>''';
       // Conteúdo altamente compressível (comprime muito, expande no acesso).
+      final recheio = 'A' * bytesReais;
       final grande = '<?xml version="1.0" encoding="UTF-8"?>'
-              '<worksheet $ns><sheetData><row r="1">'
-              '<c r="A1" t="inlineStr"><is><t>' +
-          ('A' * bytesReais) +
-          '</t></is></c></row></sheetData></worksheet>';
+          '<worksheet $ns><sheetData><row r="1">'
+          '<c r="A1" t="inlineStr"><is><t>$recheio</t></is></c>'
+          '</row></sheetData></worksheet>';
       final parteBomba =
           ArchiveFile.string('xl/worksheets/sheet1.xml', grande);
       // MENTIRA: o header passa a declarar um tamanho pequeno, embora o
@@ -119,6 +119,32 @@ void main() {
       final bytes = xlsxComSheet(
           '<row r="1"><c r="A1" t="inlineStr"><is><t>x</t></is></c></row>');
       expect(() => XlsxReader.lerAbas(bytes, maxBytesArquivo: 10),
+          throwsA(isA<FormatException>()));
+    });
+
+    test('método de compressão não suportado (ex.: bzip2) é rejeitado '
+        'explícito, sem inflar lixo', () {
+      const ns =
+          'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
+      const workbook = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<workbook $ns xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="Plan1" sheetId="1" r:id="rId1"/></sheets>
+</workbook>''';
+      const rels = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="w" Target="worksheets/sheet1.xml"/>
+</Relationships>''';
+      final sheet = ArchiveFile.string('xl/worksheets/sheet1.xml',
+          '<?xml version="1.0"?><worksheet $ns><sheetData/></worksheet>')
+        ..compression = CompressionType.bzip2;
+      final zip = Archive()
+        ..addFile(ArchiveFile.string('xl/workbook.xml', workbook))
+        ..addFile(ArchiveFile.string('xl/_rels/workbook.xml.rels', rels))
+        ..addFile(sheet);
+      final bytes = Uint8List.fromList(ZipEncoder().encode(zip));
+      expect(() => XlsxReader.lerAbas(bytes),
           throwsA(isA<FormatException>()));
     });
   });

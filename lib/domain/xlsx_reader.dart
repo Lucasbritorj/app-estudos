@@ -108,9 +108,16 @@ class XlsxReader {
         // Armazenado sem compressão: sem inflar; capa o tamanho real e copia.
         final bruto = raw.getStream(decompress: false);
         saida.writeStream(bruto);
-      } else {
+      } else if (f.compression == CompressionType.deflate) {
         // Deflate (padrão do .xlsx): inflação incremental para o teto.
         Inflate.stream(raw.getStream(decompress: false), output: saida);
+      } else {
+        // OOXML só usa deflate/stored. Método diferente (ex.: bzip2) não é
+        // inflável por `Inflate` — rejeita explícito em vez de inflar dado
+        // que não é deflate e produzir lixo em silêncio.
+        throw FormatException(
+            'Parte "$caminho" usa compressão não suportada '
+            '(${f.compression?.name}) — esperado .xlsx padrão.');
       }
     } on _LimiteExcedido {
       throw FormatException(

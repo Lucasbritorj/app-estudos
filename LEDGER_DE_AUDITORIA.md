@@ -88,6 +88,12 @@ Fronteiras de confiança: (1) arquivo xlsx de origem externa; (2) JSON/edital co
 | A-004 | 3 | CWE-20 | Baixo | CONFIRMADO | CORRIGIDO | (commit A-004) | Red: `modelos_seguranca_test.dart` — peso ≤0 aceito via fromJson (envenena média ponderada); intervalo de páginas invertido/negativo gerava contagem negativa. Green: clamp peso ≥1 (Materia/Topico), páginas negativas → null, intervalo invertido → null; 309/309 verdes |
 | A-005 | 3 | STRIDE-I | Baixo | CONFIRMADO | ESCALADO | – | Hive/IndexedDB sem cifra; ver Itens ESCALADO |
 
+## Verificação final (juiz em contexto limpo, subagente)
+
+Três rodadas sobre A-001 (VOLTA-AO-CICLO → VOLTA-AO-CICLO → **PASS** em 279b29e), validadas pelo juiz com PoC empírico próprio (payload real de 300 MB comprimido genuinamente → RSS +2 MB, rejeitado em 48 ms: corte durante a inflação confirmado por terceiro). A-002/A-003/A-004 PASS na primeira rodada. A-005 escalado corretamente.
+
+- **Regressão pontual encontrada pelo juiz e corrigida (A-001d):** o `else` da v3 mandava qualquer compressão ≠ `none` (incl. `bzip2`) para `Inflate.stream` (só deflate), produzindo lixo em silêncio — o código pré-auditoria tratava bzip2 via `BZip2Decoder`. .xlsx real nunca usa bzip2, mas violava "não piorar" (silent failure). Corrigido: branch explícito `deflate` + `FormatException` para método não suportado. Teste adicionado. 313/313 verdes, analyze limpo.
+
 ## Itens ESCALADO (aguardando decisão humana)
 
 - **A-005 — Hive sem cifra em repouso (web/desktop).** Problema: dados de estudo legíveis por quem lê o perfil do SO/navegador. Dois modelos de ameaça distintos (separados após a verificação do juiz):
