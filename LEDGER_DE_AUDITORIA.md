@@ -79,7 +79,7 @@ Fronteiras de confiança: (1) arquivo xlsx de origem externa; (2) JSON/edital co
 | ID | Fase | Classe | Severidade | Conf. | Estado | Commit | Evidência (Red → Green) |
 |---|---|---|---|---|---|---|---|
 | A-001 | 2 | CWE-400/CWE-1284, STRIDE-D | Alto | CONFIRMADO | CORRIGIDO | (commit A-001) | Red: `xlsx_reader_seguranca_test.dart` — parser devolveu 2M linhas / 18.278 células ditadas por `r` hostil. Green: tetos `_maxLinhas`/`_maxColunas`/`_maxBytesParteXml` + FormatException; 296/296 verdes (293 baseline + 3 novos) |
-| A-002 | 2 | CWE-1236 | Médio | CONFIRMADO | ABERTO | – | `export_service.dart:_campo/_campoBi` não neutralizam `=`,`+`,`-`,`@` |
+| A-002 | 2 | CWE-1236 | Médio | CONFIRMADO | CORRIGIDO | (commit A-002) | Red: `export_csv_injection_test.dart` — `=HYPERLINK`/`+SOMA`/`@`/`-` cruas na célula (aspas NÃO neutralizam fórmula). Green: `_semFormula` prefixa apóstrofo nos gatilhos `= + - @ tab CR`; 298/298 verdes |
 | A-003 | 2 | CWE-755/CWE-20 | Médio | CONFIRMADO | ABERTO | – | `import_service.dart:90` `(v as num)` fora do wrapper; UI captura só FormatException (`exportar_screen.dart:367,437`) |
 | A-004 | 3 | CWE-20 | Baixo | CONFIRMADO | ABERTO | – | `materia.dart:95-98` sem clamp de `peso`; páginas negativas em `registro_hora.dart:157-158` |
 | A-005 | 3 | STRIDE-I | Baixo | CONFIRMADO | ESCALADO | – | Hive/IndexedDB sem cifra; ver Itens ESCALADO |

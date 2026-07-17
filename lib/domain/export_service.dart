@@ -83,13 +83,24 @@ class ExportService {
   /// Campo CSV de BI (separador vírgula): aspas quando contém , aspas ou
   /// quebra de linha.
   static String _campoBi(String valor) {
-    if (valor.contains(',') ||
-        valor.contains('"') ||
-        valor.contains('\n') ||
-        valor.contains('\r')) {
-      return '"${valor.replaceAll('"', '""')}"';
+    final texto = _semFormula(valor);
+    if (texto.contains(',') ||
+        texto.contains('"') ||
+        texto.contains('\n') ||
+        texto.contains('\r')) {
+      return '"${texto.replaceAll('"', '""')}"';
     }
-    return valor;
+    return texto;
+  }
+
+  /// Neutraliza início de fórmula (CSV injection, CWE-1236): o Excel executa
+  /// células iniciadas em = + - @ tab CR mesmo entre aspas — dado vindo de
+  /// planilha/edital/backup de terceiro rodaria no Excel de quem abre o
+  /// export. O apóstrofo força texto sem alterar o conteúdo exibido.
+  static String _semFormula(String valor) {
+    if (valor.isEmpty) return valor;
+    const gatilhos = ['=', '+', '-', '@', '\t', '\r'];
+    return gatilhos.contains(valor[0]) ? "'$valor" : valor;
   }
 
   /// Dump completo para backup/re-import futuro. `ambientes` é campo
@@ -155,12 +166,13 @@ class ExportService {
 
   /// Campo CSV: envolve em aspas quando contém ; aspas ou quebra de linha.
   static String _campo(String valor) {
-    if (valor.contains(';') ||
-        valor.contains('"') ||
-        valor.contains('\n') ||
-        valor.contains('\r')) {
-      return '"${valor.replaceAll('"', '""')}"';
+    final texto = _semFormula(valor);
+    if (texto.contains(';') ||
+        texto.contains('"') ||
+        texto.contains('\n') ||
+        texto.contains('\r')) {
+      return '"${texto.replaceAll('"', '""')}"';
     }
-    return valor;
+    return texto;
   }
 }
