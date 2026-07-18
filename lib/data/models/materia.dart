@@ -25,10 +25,18 @@ class Materia {
   final bool arquivada;
   final DateTime criadaEm;
 
+  /// Última modificação do registro (metadado de sincronização futura:
+  /// resolução last-write-wins). Dados antigos herdam `criadaEm`.
+  final DateTime atualizadaEm;
+
+  /// Tombstone: quando não-nulo, a matéria foi excluída — o registro fica
+  /// no box para um sync futuro propagar a exclusão, mas some do app.
+  final DateTime? excluidaEm;
+
   /// Notas livres do usuário (texto simples).
   final String notas;
 
-  const Materia({
+  Materia({
     required this.id,
     required this.nome,
     this.ambienteId = Ambiente.geralId,
@@ -40,8 +48,10 @@ class Materia {
     this.minutosAlvo,
     this.arquivada = false,
     required this.criadaEm,
+    DateTime? atualizadaEm,
+    this.excluidaEm,
     this.notas = '',
-  });
+  }) : atualizadaEm = atualizadaEm ?? criadaEm;
 
   Materia copyWith({
     String? nome,
@@ -65,28 +75,57 @@ class Materia {
       questoes: questoes ?? this.questoes,
       minimo: minimo ?? this.minimo,
       intimidade: intimidade ?? this.intimidade,
-      minutosAlvo:
-          limparMinutosAlvo ? null : (minutosAlvo ?? this.minutosAlvo),
+      minutosAlvo: limparMinutosAlvo ? null : (minutosAlvo ?? this.minutosAlvo),
       arquivada: arquivada ?? this.arquivada,
       criadaEm: criadaEm,
+      atualizadaEm: atualizadaEm,
+      excluidaEm: excluidaEm,
       notas: notas ?? this.notas,
     );
   }
 
+  /// Cópia com carimbo de modificação — usada pelo repositório ao salvar.
+  Materia comAtualizacao(DateTime agora) => _clone(atualizadaEm: agora);
+
+  /// Cópia marcada como excluída (tombstone) — usada pelo repositório.
+  Materia comExclusao(DateTime agora) =>
+      _clone(atualizadaEm: agora, excluidaEm: agora);
+
+  Materia _clone({required DateTime atualizadaEm, DateTime? excluidaEm}) {
+    return Materia(
+      id: id,
+      nome: nome,
+      ambienteId: ambienteId,
+      corSlot: corSlot,
+      peso: peso,
+      questoes: questoes,
+      minimo: minimo,
+      intimidade: intimidade,
+      minutosAlvo: minutosAlvo,
+      arquivada: arquivada,
+      criadaEm: criadaEm,
+      atualizadaEm: atualizadaEm,
+      excluidaEm: excluidaEm ?? this.excluidaEm,
+      notas: notas,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'nome': nome,
-        'ambienteId': ambienteId,
-        'corSlot': corSlot,
-        'peso': peso,
-        'questoes': questoes,
-        'minimo': minimo,
-        'intimidade': intimidade,
-        'minutosAlvo': minutosAlvo,
-        'arquivada': arquivada,
-        'criadaEm': criadaEm.toIso8601String(),
-        'notas': notas,
-      };
+    'id': id,
+    'nome': nome,
+    'ambienteId': ambienteId,
+    'corSlot': corSlot,
+    'peso': peso,
+    'questoes': questoes,
+    'minimo': minimo,
+    'intimidade': intimidade,
+    'minutosAlvo': minutosAlvo,
+    'arquivada': arquivada,
+    'criadaEm': criadaEm.toIso8601String(),
+    'atualizadaEm': atualizadaEm.toIso8601String(),
+    'excluidaEm': excluidaEm?.toIso8601String(),
+    'notas': notas,
+  };
 
   factory Materia.fromJson(Map<String, dynamic> json) {
     // Peso >= 1 é invariante do domínio (média ponderada da prontidão e
@@ -94,18 +133,20 @@ class Materia {
     // pode rebaixá-lo.
     final peso = (json['peso'] as num?)?.toInt() ?? 1;
     return Materia(
-        id: json['id'] as String,
-        nome: json['nome'] as String,
-        ambienteId: json['ambienteId'] as String? ?? Ambiente.geralId,
-        corSlot: (json['corSlot'] as num?)?.toInt() ?? 0,
-        peso: peso < 1 ? 1 : peso,
-        questoes: (json['questoes'] as num?)?.toInt(),
-        minimo: (json['minimo'] as num?)?.toInt(),
-        intimidade:
-            ((json['intimidade'] as num?)?.toInt() ?? 3).clamp(1, 5),
-        minutosAlvo: (json['minutosAlvo'] as num?)?.toInt(),
-        arquivada: json['arquivada'] as bool? ?? false,
-        criadaEm: DateTime.parse(json['criadaEm'] as String),
-        notas: json['notas'] as String? ?? '');
+      id: json['id'] as String,
+      nome: json['nome'] as String,
+      ambienteId: json['ambienteId'] as String? ?? Ambiente.geralId,
+      corSlot: (json['corSlot'] as num?)?.toInt() ?? 0,
+      peso: peso < 1 ? 1 : peso,
+      questoes: (json['questoes'] as num?)?.toInt(),
+      minimo: (json['minimo'] as num?)?.toInt(),
+      intimidade: ((json['intimidade'] as num?)?.toInt() ?? 3).clamp(1, 5),
+      minutosAlvo: (json['minutosAlvo'] as num?)?.toInt(),
+      arquivada: json['arquivada'] as bool? ?? false,
+      criadaEm: DateTime.parse(json['criadaEm'] as String),
+      atualizadaEm: DateTime.tryParse(json['atualizadaEm'] as String? ?? ''),
+      excluidaEm: DateTime.tryParse(json['excluidaEm'] as String? ?? ''),
+      notas: json['notas'] as String? ?? '',
+    );
   }
 }

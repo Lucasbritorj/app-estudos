@@ -22,18 +22,28 @@ class PlanejamentoRepositorio extends Notifier<Map<int, int>> {
 
   @override
   Map<int, int> build() {
-    final ambienteId =
-        ref.watch(configuracoesProvider.select((c) => c.ambienteAtivoId));
+    final ambienteId = ref.watch(
+      configuracoesProvider.select((c) => c.ambienteAtivoId),
+    );
     final raw = _box.get(_chave(ambienteId)) ?? _box.get(_chaveGlobal);
     if (raw == null) return {};
-    return raw.map(
-        (k, v) => MapEntry(int.parse(k as String), (v as num).toInt()));
+    // Formato novo: {'dias': {...}, 'atualizadoEm': iso} (metadado de
+    // sincronização futura). Formato legado: o mapa de dias direto —
+    // leitura tolerante, a próxima gravação migra sozinha.
+    final dias = raw.containsKey('dias')
+        ? Map<dynamic, dynamic>.from(raw['dias'] as Map)
+        : raw;
+    return dias.map(
+      (k, v) => MapEntry(int.parse(k as String), (v as num).toInt()),
+    );
   }
 
   Future<void> _gravar(Map<int, int> novo) async {
     final ambienteId = ref.read(configuracoesProvider).ambienteAtivoId;
-    await _box.put(
-        _chave(ambienteId), novo.map((k, v) => MapEntry(k.toString(), v)));
+    await _box.put(_chave(ambienteId), {
+      'dias': novo.map((k, v) => MapEntry(k.toString(), v)),
+      'atualizadoEm': DateTime.now().toIso8601String(),
+    });
     state = novo;
   }
 
@@ -52,4 +62,5 @@ class PlanejamentoRepositorio extends Notifier<Map<int, int>> {
 
 final planejamentoProvider =
     NotifierProvider<PlanejamentoRepositorio, Map<int, int>>(
-        PlanejamentoRepositorio.new);
+      PlanejamentoRepositorio.new,
+    );

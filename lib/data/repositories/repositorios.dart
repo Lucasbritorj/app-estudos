@@ -21,6 +21,16 @@ abstract class _HiveRepositorio<T> extends Notifier<List<T>> {
   String idDe(T item);
   int comparar(T a, T b);
 
+  // Metadados de sincronização futura. Repositórios de entidades
+  // sincronizáveis sobrescrevem os três: salvar passa a carimbar a última
+  // modificação e remover vira tombstone (o registro fica no box com marca
+  // de exclusão — um sync futuro precisa propagar deletes — mas some do
+  // state). O default preserva o comportamento clássico: sem carimbo,
+  // hard delete.
+  T Function(T item, DateTime agora)? get carimbarAtualizacao => null;
+  T Function(T item, DateTime agora)? get marcarExclusao => null;
+  bool estaExcluido(T item) => false;
+
   Box<Map> get _box => Hive.box<Map>(boxName);
 
   @override
@@ -29,6 +39,7 @@ abstract class _HiveRepositorio<T> extends Notifier<List<T>> {
   List<T> _carregar() {
     final itens = _box.values
         .map((raw) => fromJson(Map<String, dynamic>.from(raw)))
+        .where((item) => !estaExcluido(item))
         .toList();
     itens.sort(comparar);
     return itens;
@@ -40,17 +51,30 @@ abstract class _HiveRepositorio<T> extends Notifier<List<T>> {
   // o build() e para restaurações completas.
 
   Future<void> salvar(T item) async {
-    await _box.put(idDe(item), toJson(item));
-    final id = idDe(item);
+    final carimbar = carimbarAtualizacao;
+    final gravado = carimbar == null ? item : carimbar(item, DateTime.now());
+    await _box.put(idDe(gravado), toJson(gravado));
+    final id = idDe(gravado);
     state = [
       for (final e in state)
         if (idDe(e) != id) e,
-      item,
+      gravado,
     ]..sort(comparar);
   }
 
   Future<void> remover(String id) async {
-    await _box.delete(id);
+    final marcar = marcarExclusao;
+    if (marcar == null) {
+      await _box.delete(id);
+    } else {
+      // Tombstone: regrava o registro marcado em vez de apagar.
+      final vivos = state.where((e) => idDe(e) == id).toList();
+      if (vivos.isNotEmpty) {
+        await _box.put(id, toJson(marcar(vivos.first, DateTime.now())));
+      } else {
+        await _box.delete(id);
+      }
+    }
     state = [
       for (final e in state)
         if (idDe(e) != id) e,
@@ -76,13 +100,28 @@ abstract class _HiveRepositorio<T> extends Notifier<List<T>> {
     ]..sort(comparar);
   }
 
-  /// Remoção em lote por predicado (cascatas): um deleteAll, uma recarga.
+  /// Remoção em lote por predicado (cascatas): um deleteAll/putAll, uma
+  /// atualização de state. Entidades com tombstone marcam em vez de apagar.
   Future<void> removerOnde(bool Function(T) teste) async {
-    final ids = [for (final e in state) if (teste(e)) idDe(e)];
-    if (ids.isEmpty) return;
-    await _box.deleteAll(ids);
-    final removidos = ids.toSet();
-    state = [for (final e in state) if (!removidos.contains(idDe(e))) e];
+    final alvos = [
+      for (final e in state)
+        if (teste(e)) e,
+    ];
+    if (alvos.isEmpty) return;
+    final marcar = marcarExclusao;
+    if (marcar == null) {
+      await _box.deleteAll([for (final e in alvos) idDe(e)]);
+    } else {
+      final agora = DateTime.now();
+      await _box.putAll({
+        for (final e in alvos) idDe(e): toJson(marcar(e, agora)),
+      });
+    }
+    final removidos = {for (final e in alvos) idDe(e)};
+    state = [
+      for (final e in state)
+        if (!removidos.contains(idDe(e))) e,
+    ];
   }
 }
 
@@ -120,6 +159,15 @@ class MateriasRepositorio extends _HiveRepositorio<Materia> {
   @override
   int comparar(Materia a, Materia b) =>
       a.nome.toLowerCase().compareTo(b.nome.toLowerCase());
+
+  @override
+  Materia Function(Materia, DateTime) get carimbarAtualizacao =>
+      (m, agora) => m.comAtualizacao(agora);
+  @override
+  Materia Function(Materia, DateTime) get marcarExclusao =>
+      (m, agora) => m.comExclusao(agora);
+  @override
+  bool estaExcluido(Materia item) => item.excluidaEm != null;
 
   /// Próximo slot de cor livre na ordem fixa da paleta (0-7, com repetição
   /// se passar de 8 matérias).
@@ -178,6 +226,15 @@ class RegistrosRepositorio extends _HiveRepositorio<RegistroHora> {
   String idDe(RegistroHora item) => item.id;
   @override
   int comparar(RegistroHora a, RegistroHora b) => b.data.compareTo(a.data);
+
+  @override
+  RegistroHora Function(RegistroHora, DateTime) get carimbarAtualizacao =>
+      (r, agora) => r.comAtualizacao(agora);
+  @override
+  RegistroHora Function(RegistroHora, DateTime) get marcarExclusao =>
+      (r, agora) => r.comExclusao(agora);
+  @override
+  bool estaExcluido(RegistroHora item) => item.excluidoEm != null;
 }
 
 class RevisoesRepositorio extends _HiveRepositorio<Revisao> {
@@ -235,32 +292,38 @@ class ResumosRepositorio extends _HiveRepositorio<Resumo> {
       a.nome.toLowerCase().compareTo(b.nome.toLowerCase());
 
   /// Grava o texto da página carimbando a data de edição.
-  Future<void> salvarTexto(Resumo pagina, String texto) => salvar(
-      pagina.copyWith(texto: texto, atualizadoEm: DateTime.now()));
+  Future<void> salvarTexto(Resumo pagina, String texto) =>
+      salvar(pagina.copyWith(texto: texto, atualizadoEm: DateTime.now()));
 }
 
 final resumosProvider = NotifierProvider<ResumosRepositorio, List<Resumo>>(
-    ResumosRepositorio.new);
+  ResumosRepositorio.new,
+);
 
 final simuladosProvider =
     NotifierProvider<SimuladosRepositorio, List<Simulado>>(
-        SimuladosRepositorio.new);
+      SimuladosRepositorio.new,
+    );
 final ambientesProvider =
     NotifierProvider<AmbientesRepositorio, List<Ambiente>>(
-        AmbientesRepositorio.new);
-final materiasProvider =
-    NotifierProvider<MateriasRepositorio, List<Materia>>(
-        MateriasRepositorio.new);
-final leiturasProvider =
-    NotifierProvider<LeiturasRepositorio, List<Leitura>>(
-        LeiturasRepositorio.new);
-final topicosProvider =
-    NotifierProvider<TopicosRepositorio, List<Topico>>(TopicosRepositorio.new);
-final aulasProvider =
-    NotifierProvider<AulasRepositorio, List<Aula>>(AulasRepositorio.new);
+      AmbientesRepositorio.new,
+    );
+final materiasProvider = NotifierProvider<MateriasRepositorio, List<Materia>>(
+  MateriasRepositorio.new,
+);
+final leiturasProvider = NotifierProvider<LeiturasRepositorio, List<Leitura>>(
+  LeiturasRepositorio.new,
+);
+final topicosProvider = NotifierProvider<TopicosRepositorio, List<Topico>>(
+  TopicosRepositorio.new,
+);
+final aulasProvider = NotifierProvider<AulasRepositorio, List<Aula>>(
+  AulasRepositorio.new,
+);
 final registrosProvider =
     NotifierProvider<RegistrosRepositorio, List<RegistroHora>>(
-        RegistrosRepositorio.new);
-final revisoesProvider =
-    NotifierProvider<RevisoesRepositorio, List<Revisao>>(
-        RevisoesRepositorio.new);
+      RegistrosRepositorio.new,
+    );
+final revisoesProvider = NotifierProvider<RevisoesRepositorio, List<Revisao>>(
+  RevisoesRepositorio.new,
+);

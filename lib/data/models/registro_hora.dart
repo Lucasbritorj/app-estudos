@@ -32,6 +32,14 @@ class RegistroHora {
   final int? questoes;
   final int? acertos;
 
+  /// Última modificação do registro (metadado de sincronização futura:
+  /// resolução last-write-wins). Dados antigos herdam `data`.
+  final DateTime atualizadoEm;
+
+  /// Tombstone: quando não-nulo, a sessão foi excluída — o registro fica
+  /// no box para um sync futuro propagar a exclusão, mas some das contas.
+  final DateTime? excluidoEm;
+
   const RegistroHora._({
     required this.id,
     required this.data,
@@ -47,6 +55,8 @@ class RegistroHora {
     this.comentario,
     this.questoes,
     this.acertos,
+    required this.atualizadoEm,
+    this.excluidoEm,
   });
 
   /// Invariantes garantidas na construção — nenhuma via de entrada (form,
@@ -68,14 +78,16 @@ class RegistroHora {
     String? comentario,
     int? questoes,
     int? acertos,
+    DateTime? atualizadoEm,
+    DateTime? excluidoEm,
   }) {
-    final questoesClamp = questoes == null ? null : (questoes < 0 ? 0 : questoes);
+    final questoesClamp = questoes == null
+        ? null
+        : (questoes < 0 ? 0 : questoes);
     // Acerto só existe contra questões; sem questões, não há taxa a apurar.
     final acertosClamp = acertos == null
         ? null
-        : (questoesClamp == null
-            ? null
-            : acertos.clamp(0, questoesClamp));
+        : (questoesClamp == null ? null : acertos.clamp(0, questoesClamp));
     return RegistroHora._(
       id: id,
       data: data,
@@ -87,16 +99,48 @@ class RegistroHora {
       minutos: minutos < 0 ? 0 : minutos,
       // Página negativa não existe — vira null para não contaminar
       // paginasLidas/ritmo.
-      paginaInicial:
-          (paginaInicial != null && paginaInicial < 0) ? null : paginaInicial,
-      paginaFinal:
-          (paginaFinal != null && paginaFinal < 0) ? null : paginaFinal,
+      paginaInicial: (paginaInicial != null && paginaInicial < 0)
+          ? null
+          : paginaInicial,
+      paginaFinal: (paginaFinal != null && paginaFinal < 0)
+          ? null
+          : paginaFinal,
       paginasLidasManual: paginasLidasManual == null
           ? null
           : (paginasLidasManual < 0 ? 0 : paginasLidasManual),
       comentario: comentario,
       questoes: questoesClamp,
       acertos: acertosClamp,
+      atualizadoEm: atualizadoEm ?? data,
+      excluidoEm: excluidoEm,
+    );
+  }
+
+  /// Cópia com carimbo de modificação — usada pelo repositório ao salvar.
+  RegistroHora comAtualizacao(DateTime agora) => _clone(atualizadoEm: agora);
+
+  /// Cópia marcada como excluída (tombstone) — usada pelo repositório.
+  RegistroHora comExclusao(DateTime agora) =>
+      _clone(atualizadoEm: agora, excluidoEm: agora);
+
+  RegistroHora _clone({required DateTime atualizadoEm, DateTime? excluidoEm}) {
+    return RegistroHora._(
+      id: id,
+      data: data,
+      materiaId: materiaId,
+      topicoId: topicoId,
+      aulaId: aulaId,
+      tipo: tipo,
+      tarefa: tarefa,
+      minutos: minutos,
+      paginaInicial: paginaInicial,
+      paginaFinal: paginaFinal,
+      paginasLidasManual: paginasLidasManual,
+      comentario: comentario,
+      questoes: questoes,
+      acertos: acertos,
+      atualizadoEm: atualizadoEm,
+      excluidoEm: excluidoEm ?? this.excluidoEm,
     );
   }
 
@@ -124,21 +168,23 @@ class RegistroHora {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'data': data.toIso8601String(),
-        'materiaId': materiaId,
-        'topicoId': topicoId,
-        'aulaId': aulaId,
-        'tipo': tipo.name,
-        'tarefa': tarefa,
-        'minutos': minutos,
-        'paginaInicial': paginaInicial,
-        'paginaFinal': paginaFinal,
-        'paginasLidasManual': paginasLidasManual,
-        'comentario': comentario,
-        'questoes': questoes,
-        'acertos': acertos,
-      };
+    'id': id,
+    'data': data.toIso8601String(),
+    'materiaId': materiaId,
+    'topicoId': topicoId,
+    'aulaId': aulaId,
+    'tipo': tipo.name,
+    'tarefa': tarefa,
+    'minutos': minutos,
+    'paginaInicial': paginaInicial,
+    'paginaFinal': paginaFinal,
+    'paginasLidasManual': paginasLidasManual,
+    'comentario': comentario,
+    'questoes': questoes,
+    'acertos': acertos,
+    'atualizadoEm': atualizadoEm.toIso8601String(),
+    'excluidoEm': excluidoEm?.toIso8601String(),
+  };
 
   factory RegistroHora.fromJson(Map<String, dynamic> json) {
     final questoes = (json['questoes'] as num?)?.toInt();
@@ -148,10 +194,10 @@ class RegistroHora {
     final tipo = tipoGravado != null
         ? (tipoGravado == 'pratica' ? TipoEstudo.pratica : TipoEstudo.teoria)
         : ((questoes ?? 0) > 0 &&
-                json['paginaInicial'] == null &&
-                json['paginasLidasManual'] == null
-            ? TipoEstudo.pratica
-            : TipoEstudo.teoria);
+                  json['paginaInicial'] == null &&
+                  json['paginasLidasManual'] == null
+              ? TipoEstudo.pratica
+              : TipoEstudo.teoria);
     return RegistroHora(
       id: json['id'] as String,
       data: DateTime.parse(json['data'] as String),
@@ -167,6 +213,8 @@ class RegistroHora {
       comentario: json['comentario'] as String?,
       questoes: questoes,
       acertos: (json['acertos'] as num?)?.toInt(),
+      atualizadoEm: DateTime.tryParse(json['atualizadoEm'] as String? ?? ''),
+      excluidoEm: DateTime.tryParse(json['excluidoEm'] as String? ?? ''),
     );
   }
 }
