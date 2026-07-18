@@ -18,6 +18,7 @@ import 'widgets/card_plano.dart';
 import 'widgets/card_prontidao.dart';
 import 'widgets/card_quests.dart';
 import 'widgets/card_rankings.dart';
+import 'widgets/heatmap_constancia.dart';
 import 'widgets/card_simulados.dart';
 import 'widgets/graficos.dart';
 import 'widgets/hero_geral.dart';
@@ -97,6 +98,8 @@ class DashboardScreen extends ConsumerWidget {
                       const SizedBox(height: 10),
                     ],
                     const CardQuests(),
+                    const SizedBox(height: 10),
+                    const CardHeatmapConstancia(),
                     const SizedBox(height: 10),
                     const CardSimulados(),
                     const SizedBox(height: 10),

@@ -508,6 +508,24 @@ final questsDoDiaProvider = Provider<List<QuestDia>>((ref) {
   );
 });
 
+typedef HeatmapDados = ({
+  Map<DateTime, int> minutosPorDia,
+  Set<DateTime> diasCongelados,
+  DateTime hoje,
+});
+
+/// Constância diária (escopo do ambiente ativo) + dias protegidos pelo
+/// congelamento do streak — base do heatmap estilo calendário.
+final heatmapDadosProvider = Provider<HeatmapDados>((ref) {
+  final registros = ref.watch(registrosDoAmbienteProvider);
+  final hoje = ref.watch(hojeProvider);
+  return (
+    minutosPorDia: StatsService.minutosPorDia(registros),
+    diasCongelados: StatsService.diasCongeladosDoStreak(registros, hoje),
+    hoje: hoje,
+  );
+});
+
 typedef AmbientesSemana = ({
   List<Ambiente> ambientes,
   Map<String, int> porAmbiente,

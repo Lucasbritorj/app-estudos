@@ -129,6 +129,44 @@ class StatsService {
     DateTime hoje, {
     int metaDiasSemana = metaDiasParaCongelamento,
   }) {
+    final s = _streakCompleto(registros, hoje, metaDiasSemana);
+    return (
+      dias: s.dias,
+      congelados: s.diasCongelados.length,
+      recuperados: s.recuperados,
+      emRisco: s.emRisco,
+    );
+  }
+
+  /// Datas exatas dos dias congelados do streak atual — o heatmap de
+  /// constância marca o dia protegido em vez de deixá-lo vazio.
+  static Set<DateTime> diasCongeladosDoStreak(
+    List<RegistroHora> registros,
+    DateTime hoje, {
+    int metaDiasSemana = metaDiasParaCongelamento,
+  }) => _streakCompleto(registros, hoje, metaDiasSemana).diasCongelados;
+
+  /// Total de minutos por dia (datas truncadas) — base do heatmap.
+  static Map<DateTime, int> minutosPorDia(List<RegistroHora> registros) {
+    final porDia = <DateTime, int>{};
+    for (final r in registros) {
+      final d = dataSemHora(r.data);
+      porDia[d] = (porDia[d] ?? 0) + r.minutos;
+    }
+    return porDia;
+  }
+
+  static ({
+    int dias,
+    Set<DateTime> diasCongelados,
+    int recuperados,
+    bool emRisco,
+  })
+  _streakCompleto(
+    List<RegistroHora> registros,
+    DateTime hoje,
+    int metaDiasSemana,
+  ) {
     final dias = registros.map((r) => dataSemHora(r.data)).toSet();
     final h = dataSemHora(hoje);
     final temHoje = dias.contains(h);
@@ -150,7 +188,7 @@ class StatsService {
 
     var d = temHoje ? h : anterior(h);
     var streak = 0;
-    var congelados = 0;
+    final diasCongelados = <DateTime>{};
     final congeladoNaSemana = <DateTime>{};
 
     while (true) {
@@ -170,7 +208,7 @@ class StatsService {
           diasNaSemana(semanaAnterior) >= metaDiasSemana;
       if (podeCongelar) {
         congeladoNaSemana.add(semana);
-        congelados++;
+        diasCongelados.add(d);
         d = anterior(d);
         continue;
       }
@@ -195,7 +233,7 @@ class StatsService {
 
     return (
       dias: streak,
-      congelados: congelados,
+      diasCongelados: diasCongelados,
       recuperados: recuperados,
       emRisco: streak > 0 && !temHoje,
     );
