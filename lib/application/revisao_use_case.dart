@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../data/models/registro_hora.dart';
 import '../data/models/revisao.dart';
 import '../data/repositories/configuracoes_repositorio.dart';
 import '../data/repositories/repositorios.dart';
@@ -25,9 +26,36 @@ class RevisaoUseCase {
   /// reforço curto; 75-84% cresce devagar; >=85% (ou sem questões) espaça
   /// pleno, com bônus quando revisada perto do esquecimento. Intervalo além
   /// do teto encerra a cadeia.
-  Future<ResultadoConclusao> concluir(Revisao revisao) async {
+  ///
+  /// [questoes]/[acertos] opcionais: desempenho medido NA revisão vira uma
+  /// sessão prática comum ANTES do cálculo — alimenta o Elo e a taxa do
+  /// FSRS pelo canal que já existe (uma só fonte de verdade de acerto), em
+  /// vez de criar um segundo caminho de dado.
+  Future<ResultadoConclusao> concluir(
+    Revisao revisao, {
+    int? questoes,
+    int? acertos,
+    int minutos = 0,
+  }) async {
     final agora = DateTime.now();
     final config = _ref.read(configuracoesProvider);
+    if (questoes != null && questoes > 0 && acertos != null) {
+      await _ref
+          .read(registrosProvider.notifier)
+          .salvar(
+            RegistroHora(
+              id: const Uuid().v4(),
+              data: agora,
+              materiaId: revisao.materiaId,
+              topicoId: revisao.topicoId,
+              tipo: TipoEstudo.pratica,
+              tarefa: 'Revisão: ${revisao.titulo}',
+              minutos: minutos,
+              questoes: questoes,
+              acertos: acertos,
+            ),
+          );
+    }
     final feita = revisao.copyWith(feita: true, dataConclusao: agora);
     await _ref.read(revisoesProvider.notifier).salvar(feita);
     await NotificacoesRevisao.sincronizar(feita, config.horaNotificacao);
