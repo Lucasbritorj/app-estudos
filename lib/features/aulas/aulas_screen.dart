@@ -18,11 +18,15 @@ class AulasScreen extends ConsumerWidget {
 
   const AulasScreen({super.key, required this.materia});
 
-  Future<void> _dialogoAula(BuildContext context, WidgetRef ref,
-      {Aula? existente}) async {
+  Future<void> _dialogoAula(
+    BuildContext context,
+    WidgetRef ref, {
+    Aula? existente,
+  }) async {
     final nome = TextEditingController(text: existente?.nome ?? '');
     final paginas = TextEditingController(
-        text: existente == null ? '' : '${existente.paginasTotais}');
+      text: existente == null ? '' : '${existente.paginasTotais}',
+    );
     final formKey = GlobalKey<FormState>();
 
     await showDialog<void>(
@@ -38,8 +42,9 @@ class AulasScreen extends ConsumerWidget {
                 controller: nome,
                 autofocus: true,
                 decoration: const InputDecoration(
-                    labelText: 'Nome *',
-                    hintText: 'Ex.: Aula 00 — Licitações'),
+                  labelText: 'Nome *',
+                  hintText: 'Ex.: Aula 00 — Licitações',
+                ),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
               ),
@@ -47,7 +52,8 @@ class AulasScreen extends ConsumerWidget {
                 controller: paginas,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                    labelText: 'Páginas totais do PDF *'),
+                  labelText: 'Páginas totais do PDF *',
+                ),
                 validator: (v) {
                   final n = int.tryParse(v ?? '');
                   if (n == null || n <= 0) return 'Inteiro > 0';
@@ -89,20 +95,31 @@ class AulasScreen extends ConsumerWidget {
   /// Concluir manualmente = completar as páginas restantes hoje.
   /// A transição dispara a Revisão 1 da cadeia, igual à conclusão por sessão.
   Future<void> _concluirManual(
-      BuildContext context, WidgetRef ref, Aula aula) async {
+    BuildContext context,
+    WidgetRef ref,
+    Aula aula,
+  ) async {
     final resultado = AulaService.aplicarSessao(
-        aula, aula.paginasRestantes, DateTime.now());
+      aula,
+      aula.paginasRestantes,
+      DateTime.now(),
+    );
     await ref.read(aulasProvider.notifier).salvar(resultado.aula);
     if (resultado.concluiuAgora) {
       final primeira = await ref
           .read(sessaoEstudoUseCaseProvider)
           .criarCadeiaParaAula(resultado.aula, materia.nome);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(primeira == null
-                ? '${aula.nome} concluída.'
-                : '${aula.nome} concluída — Revisão 1 em '
-                    '${primeira.intervaloDias}d (${formatarData(primeira.dataAgendada)}).')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              primeira == null
+                  ? '${aula.nome} concluída.'
+                  : '${aula.nome} concluída — Revisão 1 em '
+                        '${primeira.intervaloDias}d (${formatarData(primeira.dataAgendada)}).',
+            ),
+          ),
+        );
       }
     }
   }
@@ -133,92 +150,111 @@ class AulasScreen extends ConsumerWidget {
                 ),
               ),
             )
-          : ListView.builder(
-              padding: const EdgeInsets.only(bottom: 88),
-              itemCount: aulas.length,
-              itemBuilder: (context, i) {
-                final aula = aulas[i];
-                final ritmo = AulaService.ritmoDaAula(registros, aula.id);
-                final minPorPag =
-                    AulaService.minutosPorPagina(registros, aula.id);
-                final investido =
-                    AulaService.minutosInvestidos(registros, aula.id);
-                final restante =
-                    AulaService.minutosParaTerminar(aula, registros);
-                final detalhe = [
-                  '${aula.paginasLidas}/${aula.paginasTotais} pág',
-                  if (minPorPag != null)
-                    '${minPorPag.toStringAsFixed(1)} min/pág',
-                  if (ritmo != null)
-                    '${ritmo.toStringAsFixed(1)} pág/h',
-                  if (investido > 0)
-                    '${formatarMinutos(investido)} investidos',
-                  if (!aula.concluida && restante != null && restante > 0)
-                    'faltam ~${formatarMinutos(restante)}',
-                  if (aula.concluida && aula.dataConclusao != null)
-                    'concluída em ${formatarData(aula.dataConclusao!)}',
-                ].join(' · ');
+          : ConteudoCentral(
+              child: ListView.builder(
+                padding: const EdgeInsets.only(bottom: 88),
+                itemCount: aulas.length,
+                itemBuilder: (context, i) {
+                  final aula = aulas[i];
+                  final ritmo = AulaService.ritmoDaAula(registros, aula.id);
+                  final minPorPag = AulaService.minutosPorPagina(
+                    registros,
+                    aula.id,
+                  );
+                  final investido = AulaService.minutosInvestidos(
+                    registros,
+                    aula.id,
+                  );
+                  final restante = AulaService.minutosParaTerminar(
+                    aula,
+                    registros,
+                  );
+                  final detalhe = [
+                    '${aula.paginasLidas}/${aula.paginasTotais} pág',
+                    if (minPorPag != null)
+                      '${minPorPag.toStringAsFixed(1)} min/pág',
+                    if (ritmo != null) '${ritmo.toStringAsFixed(1)} pág/h',
+                    if (investido > 0)
+                      '${formatarMinutos(investido)} investidos',
+                    if (!aula.concluida && restante != null && restante > 0)
+                      'faltam ~${formatarMinutos(restante)}',
+                    if (aula.concluida && aula.dataConclusao != null)
+                      'concluída em ${formatarData(aula.dataConclusao!)}',
+                  ].join(' · ');
 
-                return ListTile(
-                  leading: Icon(
-                    aula.concluida
-                        ? Icons.check_circle
-                        : Icons.menu_book_outlined,
-                    color: aula.concluida
-                        ? StatusColors.bom
-                        : VizColors.muted,
-                  ),
-                  title: Text(aula.nome),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(detalhe,
+                  return ListTile(
+                    leading: Icon(
+                      aula.concluida
+                          ? Icons.check_circle
+                          : Icons.menu_book_outlined,
+                      color: aula.concluida
+                          ? StatusColors.bom
+                          : VizColors.muted,
+                    ),
+                    title: Text(aula.nome),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          detalhe,
                           style: const TextStyle(
-                              color: VizColors.muted, fontSize: 12)),
-                      const SizedBox(height: 4),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: aula.progresso,
-                          minHeight: 6,
-                          backgroundColor: VizColors.gridline,
-                          color: aula.concluida
-                              ? StatusColors.bom
-                              : seriesColors[0],
+                            color: VizColors.muted,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (acao) {
-                      if (acao == 'estudar') {
-                        mostrarFormularioRegistro(context,
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: aula.progresso,
+                            minHeight: 6,
+                            backgroundColor: VizColors.gridline,
+                            color: aula.concluida
+                                ? StatusColors.bom
+                                : seriesColors[0],
+                          ),
+                        ),
+                      ],
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (acao) {
+                        if (acao == 'estudar') {
+                          mostrarFormularioRegistro(
+                            context,
                             materiaInicial: materia.id,
-                            aulaInicial: aula.id);
-                      } else if (acao == 'editar') {
-                        _dialogoAula(context, ref, existente: aula);
-                      } else if (acao == 'concluir') {
-                        _concluirManual(context, ref, aula);
-                      } else if (acao == 'excluir') {
-                        ref.read(aulasProvider.notifier).remover(aula.id);
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                          value: 'estudar',
-                          child: Text('Registrar estudo')),
-                      const PopupMenuItem(
-                          value: 'editar', child: Text('Editar')),
-                      if (!aula.concluida)
+                            aulaInicial: aula.id,
+                          );
+                        } else if (acao == 'editar') {
+                          _dialogoAula(context, ref, existente: aula);
+                        } else if (acao == 'concluir') {
+                          _concluirManual(context, ref, aula);
+                        } else if (acao == 'excluir') {
+                          ref.read(aulasProvider.notifier).remover(aula.id);
+                        }
+                      },
+                      itemBuilder: (_) => [
                         const PopupMenuItem(
+                          value: 'estudar',
+                          child: Text('Registrar estudo'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'editar',
+                          child: Text('Editar'),
+                        ),
+                        if (!aula.concluida)
+                          const PopupMenuItem(
                             value: 'concluir',
-                            child: Text('Marcar concluída')),
-                      const PopupMenuItem(
-                          value: 'excluir', child: Text('Excluir')),
-                    ],
-                  ),
-                );
-              },
+                            child: Text('Marcar concluída'),
+                          ),
+                        const PopupMenuItem(
+                          value: 'excluir',
+                          child: Text('Excluir'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
     );
   }

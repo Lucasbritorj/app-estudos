@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/notas_editor.dart';
 import '../../data/models/materia.dart';
 import '../../data/models/topico.dart';
@@ -15,16 +16,22 @@ class TopicosScreen extends ConsumerWidget {
 
   const TopicosScreen({super.key, required this.materia});
 
-  Future<void> _dialogoTopico(BuildContext context, WidgetRef ref,
-      {Topico? existente, String? parentId}) async {
+  Future<void> _dialogoTopico(
+    BuildContext context,
+    WidgetRef ref, {
+    Topico? existente,
+    String? parentId,
+  }) async {
     final nome = TextEditingController(text: existente?.nome ?? '');
     final notas = TextEditingController(text: existente?.notas ?? '');
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(existente == null
-            ? (parentId == null ? 'Novo tópico' : 'Novo subtópico')
-            : 'Editar tópico'),
+        title: Text(
+          existente == null
+              ? (parentId == null ? 'Novo tópico' : 'Novo subtópico')
+              : 'Editar tópico',
+        ),
         content: SizedBox(
           width: 360,
           child: Column(
@@ -49,8 +56,8 @@ class TopicosScreen extends ConsumerWidget {
             onPressed: () {
               final texto = nome.text.trim();
               if (texto.isEmpty) return;
-              final topico = existente?.copyWith(
-                      nome: texto, notas: notas.text.trim()) ??
+              final topico =
+                  existente?.copyWith(nome: texto, notas: notas.text.trim()) ??
                   Topico(
                     id: const Uuid().v4(),
                     materiaId: materia.id,
@@ -119,21 +126,21 @@ class TopicosScreen extends ConsumerWidget {
                   context: context,
                   builder: (dialogContext) => AlertDialog(
                     title: Text(
-                        'Excluir os ${topicos.length} tópicos de '
-                        '${materia.nome}?'),
+                      'Excluir os ${topicos.length} tópicos de '
+                      '${materia.nome}?',
+                    ),
                     content: const Text(
-                        'Remove todos os tópicos e subtópicos desta '
-                        'matéria. Registros de horas não são apagados. '
-                        'Não há como desfazer.'),
+                      'Remove todos os tópicos e subtópicos desta '
+                      'matéria. Registros de horas não são apagados. '
+                      'Não há como desfazer.',
+                    ),
                     actions: [
                       TextButton(
-                        onPressed: () =>
-                            Navigator.pop(dialogContext, false),
+                        onPressed: () => Navigator.pop(dialogContext, false),
                         child: const Text('Cancelar'),
                       ),
                       FilledButton(
-                        onPressed: () =>
-                            Navigator.pop(dialogContext, true),
+                        onPressed: () => Navigator.pop(dialogContext, true),
                         child: const Text('Excluir todos'),
                       ),
                     ],
@@ -147,8 +154,9 @@ class TopicosScreen extends ConsumerWidget {
               },
               itemBuilder: (_) => const [
                 PopupMenuItem(
-                    value: 'excluir-todos',
-                    child: Text('Excluir todos os tópicos')),
+                  value: 'excluir-todos',
+                  child: Text('Excluir todos os tópicos'),
+                ),
               ],
             ),
         ],
@@ -160,58 +168,70 @@ class TopicosScreen extends ConsumerWidget {
       body: ordenados.isEmpty
           ? const Center(
               child: Text(
-                  'Sem tópicos. Toque em + ou importe o conteúdo do edital.'))
-          : ListView.builder(
-              padding: const EdgeInsets.only(bottom: 88),
-              itemCount: ordenados.length,
-              itemBuilder: (context, i) {
-                final (topico, profundidade) = ordenados[i];
-                return Padding(
-                  padding: EdgeInsets.only(left: profundidade * 16.0),
-                  child: CheckboxListTile(
-                    value: topico.concluido,
-                    dense: profundidade > 0,
-                    onChanged: (v) => ref
-                        .read(topicosProvider.notifier)
-                        .salvar(topico.copyWith(concluido: v ?? false)),
-                    title: Text(topico.nome),
-                    secondary: PopupMenuButton<String>(
-                      onSelected: (acao) {
-                        if (acao == 'editar') {
-                          _dialogoTopico(context, ref, existente: topico);
-                        } else if (acao == 'sub') {
-                          _dialogoTopico(context, ref, parentId: topico.id);
-                        } else if (acao == 'notas') {
-                          showDialog<void>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: Text('Notas — ${topico.nome}'),
-                              content: SingleChildScrollView(
-                                  child:
-                                      NotasRicasView(texto: topico.notas)),
-                            ),
-                          );
-                        } else if (acao == 'excluir') {
-                          ref
-                              .read(topicosProvider.notifier)
-                              .remover(topico.id);
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                            value: 'editar', child: Text('Editar')),
-                        const PopupMenuItem(
-                            value: 'sub', child: Text('Adicionar subtópico')),
-                        if (topico.notas.isNotEmpty)
+                'Sem tópicos. Toque em + ou importe o conteúdo do edital.',
+              ),
+            )
+          : ConteudoCentral(
+              child: ListView.builder(
+                padding: const EdgeInsets.only(bottom: 88),
+                itemCount: ordenados.length,
+                itemBuilder: (context, i) {
+                  final (topico, profundidade) = ordenados[i];
+                  return Padding(
+                    padding: EdgeInsets.only(left: profundidade * 16.0),
+                    child: CheckboxListTile(
+                      value: topico.concluido,
+                      dense: profundidade > 0,
+                      onChanged: (v) => ref
+                          .read(topicosProvider.notifier)
+                          .salvar(topico.copyWith(concluido: v ?? false)),
+                      title: Text(topico.nome),
+                      secondary: PopupMenuButton<String>(
+                        onSelected: (acao) {
+                          if (acao == 'editar') {
+                            _dialogoTopico(context, ref, existente: topico);
+                          } else if (acao == 'sub') {
+                            _dialogoTopico(context, ref, parentId: topico.id);
+                          } else if (acao == 'notas') {
+                            showDialog<void>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: Text('Notas — ${topico.nome}'),
+                                content: SingleChildScrollView(
+                                  child: NotasRicasView(texto: topico.notas),
+                                ),
+                              ),
+                            );
+                          } else if (acao == 'excluir') {
+                            ref
+                                .read(topicosProvider.notifier)
+                                .remover(topico.id);
+                          }
+                        },
+                        itemBuilder: (_) => [
                           const PopupMenuItem(
-                              value: 'notas', child: Text('Ver notas')),
-                        const PopupMenuItem(
-                            value: 'excluir', child: Text('Excluir')),
-                      ],
+                            value: 'editar',
+                            child: Text('Editar'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'sub',
+                            child: Text('Adicionar subtópico'),
+                          ),
+                          if (topico.notas.isNotEmpty)
+                            const PopupMenuItem(
+                              value: 'notas',
+                              child: Text('Ver notas'),
+                            ),
+                          const PopupMenuItem(
+                            value: 'excluir',
+                            child: Text('Excluir'),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
     );
   }

@@ -19,8 +19,10 @@ class AmbientesScreen extends ConsumerWidget {
     final ambientes = ref.watch(ambientesProvider);
     final materias = ref.watch(materiasProvider);
     final registros = ref.watch(registrosProvider);
-    final minutosPorAmbiente =
-        InsightsService.minutosPorAmbiente(registros, materias);
+    final minutosPorAmbiente = InsightsService.minutosPorAmbiente(
+      registros,
+      materias,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Ambientes')),
@@ -30,56 +32,68 @@ class AmbientesScreen extends ConsumerWidget {
       ),
       body: ambientes.isEmpty
           ? const Center(
-              child: Text('Sem ambientes. Toque em + para criar o primeiro.'))
-          : ListView.builder(
-              itemCount: ambientes.length,
-              itemBuilder: (context, i) {
-                final ambiente = ambientes[i];
-                final qtdMaterias = materias
-                    .where((m) => m.ambienteId == ambiente.id)
-                    .length;
-                final minutos = minutosPorAmbiente[ambiente.id] ?? 0;
-                return ListTile(
-                  leading: CircleAvatar(
-                    radius: 10,
-                    backgroundColor: corDaSerie(ambiente.corSlot),
-                  ),
-                  title: Text(ambiente.nome),
-                  subtitle: Text(
+              child: Text('Sem ambientes. Toque em + para criar o primeiro.'),
+            )
+          : ConteudoCentral(
+              child: ListView.builder(
+                itemCount: ambientes.length,
+                itemBuilder: (context, i) {
+                  final ambiente = ambientes[i];
+                  final qtdMaterias = materias
+                      .where((m) => m.ambienteId == ambiente.id)
+                      .length;
+                  final minutos = minutosPorAmbiente[ambiente.id] ?? 0;
+                  return ListTile(
+                    leading: CircleAvatar(
+                      radius: 10,
+                      backgroundColor: corDaSerie(ambiente.corSlot),
+                    ),
+                    title: Text(ambiente.nome),
+                    subtitle: Text(
                       '$qtdMaterias ${qtdMaterias == 1 ? 'matéria' : 'matérias'}'
-                      ' · ${formatarMinutos(minutos)} acumulados'),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (acao) async {
-                      if (acao == 'editar') {
-                        await _mostrarDialogo(context, ref,
-                            existente: ambiente);
-                      } else if (acao == 'excluir') {
-                        await _excluir(context, ref, ambiente, qtdMaterias);
-                      }
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'editar', child: Text('Editar')),
-                      PopupMenuItem(value: 'excluir', child: Text('Excluir')),
-                    ],
-                  ),
-                );
-              },
+                      ' · ${formatarMinutos(minutos)} acumulados',
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (acao) async {
+                        if (acao == 'editar') {
+                          await _mostrarDialogo(
+                            context,
+                            ref,
+                            existente: ambiente,
+                          );
+                        } else if (acao == 'excluir') {
+                          await _excluir(context, ref, ambiente, qtdMaterias);
+                        }
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'editar', child: Text('Editar')),
+                        PopupMenuItem(value: 'excluir', child: Text('Excluir')),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
     );
   }
 
-  Future<void> _excluir(BuildContext context, WidgetRef ref,
-      Ambiente ambiente, int qtdMaterias) async {
+  Future<void> _excluir(
+    BuildContext context,
+    WidgetRef ref,
+    Ambiente ambiente,
+    int qtdMaterias,
+  ) async {
     if (qtdMaterias > 0) {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text('${ambiente.nome} tem matérias'),
           content: Text(
-              'Este ambiente tem $qtdMaterias '
-              '${qtdMaterias == 1 ? 'matéria' : 'matérias'}. '
-              'Mova-as para outro ambiente (editar matéria) ou exclua-as '
-              'antes de excluir o ambiente.'),
+            'Este ambiente tem $qtdMaterias '
+            '${qtdMaterias == 1 ? 'matéria' : 'matérias'}. '
+            'Mova-as para outro ambiente (editar matéria) ou exclua-as '
+            'antes de excluir o ambiente.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
@@ -117,8 +131,11 @@ class AmbientesScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _mostrarDialogo(BuildContext context, WidgetRef ref,
-      {Ambiente? existente}) async {
+  Future<void> _mostrarDialogo(
+    BuildContext context,
+    WidgetRef ref, {
+    Ambiente? existente,
+  }) async {
     final nome = TextEditingController(text: existente?.nome ?? '');
     final formKey = GlobalKey<FormState>();
     DateTime? dataProva = existente?.dataProva;
@@ -126,8 +143,7 @@ class AmbientesScreen extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setStateDialog) => AlertDialog(
-          title:
-              Text(existente == null ? 'Novo ambiente' : 'Editar ambiente'),
+          title: Text(existente == null ? 'Novo ambiente' : 'Editar ambiente'),
           content: Form(
             key: formKey,
             child: Column(
@@ -137,8 +153,9 @@ class AmbientesScreen extends ConsumerWidget {
                   controller: nome,
                   autofocus: true,
                   decoration: const InputDecoration(
-                      labelText: 'Nome *',
-                      hintText: 'Ex.: Concurso SEFAZ-RN 2026'),
+                    labelText: 'Nome *',
+                    hintText: 'Ex.: Concurso SEFAZ-RN 2026',
+                  ),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
                 ),
@@ -168,9 +185,11 @@ class AmbientesScreen extends ConsumerWidget {
                                   setStateDialog(() => dataProva = null),
                             ),
                     ),
-                    child: Text(dataProva == null
-                        ? 'Sem data marcada'
-                        : formatarData(dataProva!)),
+                    child: Text(
+                      dataProva == null
+                          ? 'Sem data marcada'
+                          : formatarData(dataProva!),
+                    ),
                   ),
                 ),
               ],
