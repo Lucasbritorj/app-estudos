@@ -1,12 +1,12 @@
 {
-    "name": "app_estudos",
-    "short_name": "app_estudos",
+    "name": "Meu Caminho Aprovado",
+    "short_name": "Aprovado",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#0F1115",
+    "theme_color": "#0F1115",
+    "description": "Controle de estudos para concursos: sessões, revisão espaçada, planejamento por edital e prontidão para a prova.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
