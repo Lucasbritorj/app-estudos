@@ -48,60 +48,73 @@ class QuestsService {
     // 1. Sessão na matéria com maior déficit do ciclo (ou qualquer sessão,
     // sem cronograma).
     if (materiaDeficitId != null) {
-      quests.add(QuestDia(
-        id: 'estudar-deficit',
-        titulo: 'Estudar ${materiaDeficitNome ?? 'a matéria do ciclo'}',
-        descricao: 'É a matéria com maior déficit no ciclo desta semana',
-        atual: registrosHoje.any((r) => r.materiaId == materiaDeficitId)
-            ? 1
-            : 0,
-        alvo: 1,
-      ));
+      quests.add(
+        QuestDia(
+          id: 'estudar-deficit',
+          titulo: 'Estudar ${materiaDeficitNome ?? 'a matéria do ciclo'}',
+          descricao: 'É a matéria com maior déficit no ciclo desta semana',
+          atual: registrosHoje.any((r) => r.materiaId == materiaDeficitId)
+              ? 1
+              : 0,
+          alvo: 1,
+        ),
+      );
     } else {
-      quests.add(QuestDia(
-        id: 'estudar-hoje',
-        titulo: 'Estudar hoje',
-        descricao: 'Registre pelo menos uma sessão',
-        atual: registrosHoje.isEmpty ? 0 : 1,
-        alvo: 1,
-      ));
+      quests.add(
+        QuestDia(
+          id: 'estudar-hoje',
+          titulo: 'Estudar hoje',
+          descricao: 'Registre pelo menos uma sessão',
+          atual: registrosHoje.isEmpty ? 0 : 1,
+          alvo: 1,
+        ),
+      );
     }
 
     // 2. Revisões do dia: alvo estável = feitas hoje + pendentes até hoje,
     // teto de 3 — concluir revisões não encolhe o alvo no meio do dia.
     final feitasHoje = revisoes
-        .where((r) =>
-            r.feita &&
-            r.dataConclusao != null &&
-            StatsService.dataSemHora(r.dataConclusao!) == h)
+        .where(
+          (r) =>
+              r.feita &&
+              r.dataConclusao != null &&
+              StatsService.dataSemHora(r.dataConclusao!) == h,
+        )
         .length;
     final pendentesAteHoje = revisoes.where((r) {
       if (r.feita) return false;
       final agendada = StatsService.dataSemHora(r.dataAgendada);
       return !agendada.isAfter(h);
     }).length;
-    final alvoRevisoes =
-        (feitasHoje + pendentesAteHoje).clamp(0, alvoMaxRevisoes);
+    final alvoRevisoes = (feitasHoje + pendentesAteHoje).clamp(
+      0,
+      alvoMaxRevisoes,
+    );
     if (alvoRevisoes > 0) {
-      quests.add(QuestDia(
-        id: 'revisoes-do-dia',
-        titulo: 'Concluir $alvoRevisoes '
-            '${alvoRevisoes == 1 ? 'revisão' : 'revisões'}',
-        descricao: 'Revisão espaçada em dia é retenção garantida',
-        atual: feitasHoje.clamp(0, alvoRevisoes),
-        alvo: alvoRevisoes,
-      ));
+      quests.add(
+        QuestDia(
+          id: 'revisoes-do-dia',
+          titulo:
+              'Concluir $alvoRevisoes '
+              '${alvoRevisoes == 1 ? 'revisão' : 'revisões'}',
+          descricao: 'Revisão espaçada em dia é retenção garantida',
+          atual: feitasHoje.clamp(0, alvoRevisoes),
+          alvo: alvoRevisoes,
+        ),
+      );
     }
 
     // 3. Avançar no mapa: uma sessão de hoje amarrada a um tópico.
     if (temTopicos) {
-      quests.add(QuestDia(
-        id: 'topico-mapa',
-        titulo: 'Estudar 1 tópico do mapa',
-        descricao: 'Sessão com tópico marcado move o grafo de progresso',
-        atual: registrosHoje.any((r) => r.topicoId != null) ? 1 : 0,
-        alvo: 1,
-      ));
+      quests.add(
+        QuestDia(
+          id: 'topico-mapa',
+          titulo: 'Estudar 1 tópico do mapa',
+          descricao: 'Sessão com tópico marcado move o grafo de progresso',
+          atual: registrosHoje.any((r) => r.topicoId != null) ? 1 : 0,
+          alvo: 1,
+        ),
+      );
     }
 
     return quests;

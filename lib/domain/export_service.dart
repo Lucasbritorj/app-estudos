@@ -13,25 +13,31 @@ import 'stats_service.dart';
 /// Serialização de export — funções puras, testáveis.
 class ExportService {
   /// CSV com separador ';' e decimal com vírgula (convenção Excel pt-BR).
-  static String csvRegistros(List<RegistroHora> registros,
-      Map<String, Materia> materias, Map<String, Topico> topicos) {
+  static String csvRegistros(
+    List<RegistroHora> registros,
+    Map<String, Materia> materias,
+    Map<String, Topico> topicos,
+  ) {
     final buffer = StringBuffer(
-        'Data;Matéria;Tópico;Tarefa;Minutos;Pág. inicial;Pág. final;Páginas lidas;Pág/h;Comentário\r\n');
+      'Data;Matéria;Tópico;Tarefa;Minutos;Pág. inicial;Pág. final;Páginas lidas;Pág/h;Comentário\r\n',
+    );
     final ordenados = [...registros]..sort((a, b) => a.data.compareTo(b.data));
     for (final r in ordenados) {
       final ritmo = r.paginasPorHora;
-      buffer.write([
-        '${_doisDigitos(r.data.day)}/${_doisDigitos(r.data.month)}/${r.data.year}',
-        _campo(materias[r.materiaId]?.nome ?? ''),
-        _campo(topicos[r.topicoId]?.nome ?? ''),
-        _campo(r.tarefa),
-        '${r.minutos}',
-        r.paginaInicial?.toString() ?? '',
-        r.paginaFinal?.toString() ?? '',
-        r.paginasLidas?.toString() ?? '',
-        ritmo == null ? '' : ritmo.toStringAsFixed(1).replaceAll('.', ','),
-        _campo(r.comentario ?? ''),
-      ].join(';'));
+      buffer.write(
+        [
+          '${_doisDigitos(r.data.day)}/${_doisDigitos(r.data.month)}/${r.data.year}',
+          _campo(materias[r.materiaId]?.nome ?? ''),
+          _campo(topicos[r.topicoId]?.nome ?? ''),
+          _campo(r.tarefa),
+          '${r.minutos}',
+          r.paginaInicial?.toString() ?? '',
+          r.paginaFinal?.toString() ?? '',
+          r.paginasLidas?.toString() ?? '',
+          ritmo == null ? '' : ritmo.toStringAsFixed(1).replaceAll('.', ','),
+          _campo(r.comentario ?? ''),
+        ].join(';'),
+      );
       buffer.write('\r\n');
     }
     return buffer.toString();
@@ -47,31 +53,34 @@ class ExportService {
     required int metaSemanalMinutos,
   }) {
     final buffer = StringBuffer(
-        'data,semana_inicio,materia,peso_materia,topico,tarefa,minutos,horas,'
-        'pagina_inicial,pagina_final,paginas_lidas,paginas_por_hora,'
-        'questoes,acertos,taxa_acerto,meta_semanal_minutos,comentario\r\n');
+      'data,semana_inicio,materia,peso_materia,topico,tarefa,minutos,horas,'
+      'pagina_inicial,pagina_final,paginas_lidas,paginas_por_hora,'
+      'questoes,acertos,taxa_acerto,meta_semanal_minutos,comentario\r\n',
+    );
     final ordenados = [...registros]..sort((a, b) => a.data.compareTo(b.data));
     for (final r in ordenados) {
       final materia = materias[r.materiaId];
-      buffer.write([
-        _iso(r.data),
-        _iso(StatsService.inicioDaSemana(r.data)),
-        _campoBi(materia?.nome ?? ''),
-        materia?.peso.toString() ?? '',
-        _campoBi(topicos[r.topicoId]?.nome ?? ''),
-        _campoBi(r.tarefa),
-        '${r.minutos}',
-        (r.minutos / 60.0).toStringAsFixed(4),
-        r.paginaInicial?.toString() ?? '',
-        r.paginaFinal?.toString() ?? '',
-        r.paginasLidas?.toString() ?? '',
-        r.paginasPorHora?.toStringAsFixed(2) ?? '',
-        r.questoes?.toString() ?? '',
-        r.acertos?.toString() ?? '',
-        r.taxaAcerto?.toStringAsFixed(4) ?? '',
-        '$metaSemanalMinutos',
-        _campoBi(r.comentario ?? ''),
-      ].join(','));
+      buffer.write(
+        [
+          _iso(r.data),
+          _iso(StatsService.inicioDaSemana(r.data)),
+          _campoBi(materia?.nome ?? ''),
+          materia?.peso.toString() ?? '',
+          _campoBi(topicos[r.topicoId]?.nome ?? ''),
+          _campoBi(r.tarefa),
+          '${r.minutos}',
+          (r.minutos / 60.0).toStringAsFixed(4),
+          r.paginaInicial?.toString() ?? '',
+          r.paginaFinal?.toString() ?? '',
+          r.paginasLidas?.toString() ?? '',
+          r.paginasPorHora?.toStringAsFixed(2) ?? '',
+          r.questoes?.toString() ?? '',
+          r.acertos?.toString() ?? '',
+          r.taxaAcerto?.toStringAsFixed(4) ?? '',
+          '$metaSemanalMinutos',
+          _campoBi(r.comentario ?? ''),
+        ].join(','),
+      );
       buffer.write('\r\n');
     }
     return buffer.toString();
@@ -126,8 +135,7 @@ class ExportService {
       'registros': registros.map((r) => r.toJson()).toList(),
       'revisoes': revisoes.map((r) => r.toJson()).toList(),
       'leituras': leituras.map((l) => l.toJson()).toList(),
-      'planejamento':
-          planejamento.map((k, v) => MapEntry(k.toString(), v)),
+      'planejamento': planejamento.map((k, v) => MapEntry(k.toString(), v)),
       'simulados': simulados.map((s) => s.toJson()).toList(),
     });
   }
@@ -145,8 +153,9 @@ class ExportService {
     required List<Revisao> revisoes,
     List<Simulado> simulados = const [],
   }) {
-    final minhasMaterias =
-        materias.where((m) => m.ambienteId == ambiente.id).toList();
+    final minhasMaterias = materias
+        .where((m) => m.ambienteId == ambiente.id)
+        .toList();
     final ids = minhasMaterias.map((m) => m.id).toSet();
     return jsonCompleto(
       ambientes: [ambiente],
@@ -157,8 +166,7 @@ class ExportService {
       revisoes: revisoes.where((r) => ids.contains(r.materiaId)).toList(),
       leituras: const [],
       planejamento: const {},
-      simulados:
-          simulados.where((s) => s.ambienteId == ambiente.id).toList(),
+      simulados: simulados.where((s) => s.ambienteId == ambiente.id).toList(),
     );
   }
 

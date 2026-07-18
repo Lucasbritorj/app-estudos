@@ -40,16 +40,18 @@ class XlsxReader {
   }) {
     if (bytes.length > maxBytesArquivo) {
       throw FormatException(
-          'Arquivo .xlsx excede ${maxBytesArquivo ~/ (1024 * 1024)} MB — '
-          'rejeitado por segurança antes de abrir.');
+        'Arquivo .xlsx excede ${maxBytesArquivo ~/ (1024 * 1024)} MB — '
+        'rejeitado por segurança antes de abrir.',
+      );
     }
     final Archive zip;
     try {
       zip = ZipDecoder().decodeBytes(bytes);
     } catch (_) {
       throw const FormatException(
-          'Arquivo não é um .xlsx válido (não é um zip legível). '
-          'Confira se é a planilha salva pelo Excel, não .xls antigo ou .csv.');
+        'Arquivo não é um .xlsx válido (não é um zip legível). '
+        'Confira se é a planilha salva pelo Excel, não .xls antigo ou .csv.',
+      );
     }
 
     String? conteudo(String caminho) {
@@ -61,23 +63,31 @@ class XlsxReader {
       return null;
     }
 
-    final compartilhadas = _protegido('textos compartilhados',
-        () => _lerSharedStrings(conteudo('xl/sharedStrings.xml')));
+    final compartilhadas = _protegido(
+      'textos compartilhados',
+      () => _lerSharedStrings(conteudo('xl/sharedStrings.xml')),
+    );
     final abas = _protegido(
-        'índice de abas',
-        () => _mapearAbas(conteudo('xl/workbook.xml'),
-            conteudo('xl/_rels/workbook.xml.rels')));
+      'índice de abas',
+      () => _mapearAbas(
+        conteudo('xl/workbook.xml'),
+        conteudo('xl/_rels/workbook.xml.rels'),
+      ),
+    );
 
     final resultado = <String, List<List<String>>>{};
     for (final aba in abas.entries) {
       final xmlAba = conteudo('xl/${aba.value}');
       if (xmlAba == null) continue;
       resultado[aba.key] = _protegido(
-          'aba "${aba.key}"', () => _lerPlanilha(xmlAba, compartilhadas));
+        'aba "${aba.key}"',
+        () => _lerPlanilha(xmlAba, compartilhadas),
+      );
     }
     if (resultado.isEmpty) {
       throw const FormatException(
-          'Nenhuma aba encontrada — o arquivo é mesmo um .xlsx?');
+        'Nenhuma aba encontrada — o arquivo é mesmo um .xlsx?',
+      );
     }
     return resultado;
   }
@@ -97,7 +107,10 @@ class XlsxReader {
   /// alvo de deploy web. Entradas de zip usam deflate cru (raw), que é
   /// exatamente o que `Inflate` espera.
   static String _descomprimirLimitado(
-      ArchiveFile f, String caminho, int maxBytes) {
+    ArchiveFile f,
+    String caminho,
+    int maxBytes,
+  ) {
     final saida = _SaidaLimitada(maxBytes);
     final raw = f.rawContent;
     try {
@@ -116,13 +129,15 @@ class XlsxReader {
         // inflável por `Inflate` — rejeita explícito em vez de inflar dado
         // que não é deflate e produzir lixo em silêncio.
         throw FormatException(
-            'Parte "$caminho" usa compressão não suportada '
-            '(${f.compression?.name}) — esperado .xlsx padrão.');
+          'Parte "$caminho" usa compressão não suportada '
+          '(${f.compression?.name}) — esperado .xlsx padrão.',
+        );
       }
     } on _LimiteExcedido {
       throw FormatException(
-          'Parte "$caminho" excede ${maxBytes ~/ (1024 * 1024)} MB '
-          'descomprimida — arquivo rejeitado por segurança.');
+        'Parte "$caminho" excede ${maxBytes ~/ (1024 * 1024)} MB '
+        'descomprimida — arquivo rejeitado por segurança.',
+      );
     }
     return utf8.decode(saida.getBytes(), allowMalformed: true);
   }
@@ -145,8 +160,9 @@ class XlsxReader {
     }
     final alvosPorId = <String, String>{};
     if (rels != null) {
-      for (final rel
-          in XmlDocument.parse(rels).findAllElements('Relationship')) {
+      for (final rel in XmlDocument.parse(
+        rels,
+      ).findAllElements('Relationship')) {
         final id = rel.getAttribute('Id');
         var alvo = rel.getAttribute('Target') ?? '';
         if (alvo.startsWith('/xl/')) alvo = alvo.substring(4);
@@ -158,8 +174,7 @@ class XlsxReader {
 
     final abas = <String, String>{};
     var indice = 1;
-    for (final sheet
-        in XmlDocument.parse(workbook).findAllElements('sheet')) {
+    for (final sheet in XmlDocument.parse(workbook).findAllElements('sheet')) {
       final nome = sheet.getAttribute('name') ?? 'Planilha$indice';
       final rId = sheet.getAttribute('r:id') ?? sheet.getAttribute('id');
       final alvo = alvosPorId[rId] ?? 'worksheets/sheet$indice.xml';
@@ -178,15 +193,18 @@ class XlsxReader {
   }
 
   static List<List<String>> _lerPlanilha(
-      String xml, List<String> compartilhadas) {
+    String xml,
+    List<String> compartilhadas,
+  ) {
     final linhas = <List<String>>[];
     for (final row in XmlDocument.parse(xml).findAllElements('row')) {
       final numeroLinha =
           int.tryParse(row.getAttribute('r') ?? '') ?? (linhas.length + 1);
       if (numeroLinha > _maxLinhas) {
         throw FormatException(
-            'Linha $numeroLinha além do máximo do Excel ($_maxLinhas) — '
-            'arquivo rejeitado por segurança.');
+          'Linha $numeroLinha além do máximo do Excel ($_maxLinhas) — '
+          'arquivo rejeitado por segurança.',
+        );
       }
       while (linhas.length < numeroLinha - 1) {
         linhas.add(const []);
@@ -196,8 +214,9 @@ class XlsxReader {
         final coluna = _colunaDe(c.getAttribute('r') ?? '');
         if (coluna >= _maxColunas) {
           throw FormatException(
-              'Célula além da coluna máxima do Excel (XFD) na linha '
-              '$numeroLinha — arquivo rejeitado por segurança.');
+            'Célula além da coluna máxima do Excel (XFD) na linha '
+            '$numeroLinha — arquivo rejeitado por segurança.',
+          );
         }
         while (celulas.length < coluna) {
           celulas.add('');

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/avatar_cor.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/ambiente.dart';
 import '../../data/repositories/configuracoes_repositorio.dart';
@@ -44,10 +45,7 @@ class AmbientesScreen extends ConsumerWidget {
                       .length;
                   final minutos = minutosPorAmbiente[ambiente.id] ?? 0;
                   return ListTile(
-                    leading: CircleAvatar(
-                      radius: 10,
-                      backgroundColor: corDaSerie(ambiente.corSlot),
-                    ),
+                    leading: AvatarCor(slot: ambiente.corSlot),
                     title: Text(ambiente.nome),
                     subtitle: Text(
                       '$qtdMaterias ${qtdMaterias == 1 ? 'matéria' : 'matérias'}'

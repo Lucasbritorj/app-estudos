@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/avatar_cor.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/repositories/ambiente_filtros.dart';
 import '../dashboard_providers.dart';
@@ -74,11 +75,12 @@ class CardRankings extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Rankings',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(color: VizColors.inkSecondary)),
+            Text(
+              'Rankings',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: VizColors.inkSecondary),
+            ),
             const SizedBox(height: 10),
             for (final (icone, cor, rotulo, valor) in linhas)
               Padding(
@@ -88,21 +90,31 @@ class CardRankings extends ConsumerWidget {
                     Icon(icone, size: 16, color: cor),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: Text(rotulo,
-                            style: const TextStyle(
-                                color: VizColors.inkSecondary,
-                                fontSize: 13))),
-                    Text(valor,
+                      child: Text(
+                        rotulo,
                         style: const TextStyle(
-                            color: VizColors.inkPrimary, fontSize: 13)),
+                          color: VizColors.inkSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      valor,
+                      style: const TextStyle(
+                        color: VizColors.inkPrimary,
+                        fontSize: 13,
+                      ),
+                    ),
                   ],
                 ),
               ),
             if (ranking.isNotEmpty) ...[
               const Divider(color: VizColors.gridline),
               const SizedBox(height: 4),
-              const Text('Acertos por matéria (mín. 10 questões)',
-                  style: TextStyle(color: VizColors.muted, fontSize: 11)),
+              const Text(
+                'Acertos por matéria (mín. 10 questões)',
+                style: TextStyle(color: VizColors.muted, fontSize: 11),
+              ),
               const SizedBox(height: 6),
               for (final linha in ranking)
                 if (nomes.containsKey(linha.materiaId))
@@ -110,21 +122,27 @@ class CardRankings extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                            radius: 5,
-                            backgroundColor: corDaSerie(
-                                nomes[linha.materiaId]!.corSlot)),
+                        AvatarCor(
+                          slot: nomes[linha.materiaId]!.corSlot,
+                          raio: 5,
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
-                            child: Text(nomeDe(linha.materiaId),
-                                style: const TextStyle(
-                                    color: VizColors.inkSecondary,
-                                    fontSize: 12))),
+                          child: Text(
+                            nomeDe(linha.materiaId),
+                            style: const TextStyle(
+                              color: VizColors.inkSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                         Text(
                           '${linha.acertos}✓ ${linha.questoes - linha.acertos}✗ · '
                           '${(linha.taxa * 100).toStringAsFixed(0)}%',
                           style: const TextStyle(
-                              color: VizColors.muted, fontSize: 12),
+                            color: VizColors.muted,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),

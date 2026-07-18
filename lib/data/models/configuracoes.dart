@@ -28,15 +28,16 @@ class Configuracoes {
     this.onboardingConcluido = false,
   });
 
-  Configuracoes copyWith(
-      {List<int>? intervalosRevisao,
-      int? horaNotificacao,
-      int? metaSemanalMinutos,
-      int? horaLembreteEstudo,
-      bool desligarLembreteEstudo = false,
-      String? ambienteAtivoId,
-      bool limparAmbienteAtivo = false,
-      bool? onboardingConcluido}) {
+  Configuracoes copyWith({
+    List<int>? intervalosRevisao,
+    int? horaNotificacao,
+    int? metaSemanalMinutos,
+    int? horaLembreteEstudo,
+    bool desligarLembreteEstudo = false,
+    String? ambienteAtivoId,
+    bool limparAmbienteAtivo = false,
+    bool? onboardingConcluido,
+  }) {
     return Configuracoes(
       intervalosRevisao: intervalosRevisao ?? this.intervalosRevisao,
       horaNotificacao: horaNotificacao ?? this.horaNotificacao,
@@ -52,24 +53,25 @@ class Configuracoes {
   }
 
   Map<String, dynamic> toJson() => {
-        'intervalosRevisao': intervalosRevisao,
-        'horaNotificacao': horaNotificacao,
-        'metaSemanalMinutos': metaSemanalMinutos,
-        'horaLembreteEstudo': horaLembreteEstudo,
-        'ambienteAtivoId': ambienteAtivoId,
-        'onboardingConcluido': onboardingConcluido,
-      };
+    'intervalosRevisao': intervalosRevisao,
+    'horaNotificacao': horaNotificacao,
+    'metaSemanalMinutos': metaSemanalMinutos,
+    'horaLembreteEstudo': horaLembreteEstudo,
+    'ambienteAtivoId': ambienteAtivoId,
+    'onboardingConcluido': onboardingConcluido,
+  };
 
   factory Configuracoes.fromJson(Map<String, dynamic> json) => Configuracoes(
-        intervalosRevisao: (json['intervalosRevisao'] as List?)
-                ?.map((e) => (e as num).toInt())
-                .toList() ??
-            const [7, 15, 30],
-        horaNotificacao: (json['horaNotificacao'] as num?)?.toInt() ?? 9,
-        metaSemanalMinutos:
-            (json['metaSemanalMinutos'] as num?)?.toInt() ?? 30 * 60,
-        horaLembreteEstudo: (json['horaLembreteEstudo'] as num?)?.toInt(),
-        ambienteAtivoId: json['ambienteAtivoId'] as String?,
-        onboardingConcluido: json['onboardingConcluido'] as bool? ?? false,
-      );
+    intervalosRevisao:
+        (json['intervalosRevisao'] as List?)
+            ?.map((e) => (e as num).toInt())
+            .toList() ??
+        const [7, 15, 30],
+    horaNotificacao: (json['horaNotificacao'] as num?)?.toInt() ?? 9,
+    metaSemanalMinutos:
+        (json['metaSemanalMinutos'] as num?)?.toInt() ?? 30 * 60,
+    horaLembreteEstudo: (json['horaLembreteEstudo'] as num?)?.toInt(),
+    ambienteAtivoId: json['ambienteAtivoId'] as String?,
+    onboardingConcluido: json['onboardingConcluido'] as bool? ?? false,
+  );
 }

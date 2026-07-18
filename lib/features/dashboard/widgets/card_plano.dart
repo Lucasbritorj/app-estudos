@@ -34,21 +34,28 @@ class CardPlano extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Text('Plano de estudo',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(color: VizColors.inkSecondary)),
+                  Text(
+                    'Plano de estudo',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: VizColors.inkSecondary,
+                    ),
+                  ),
                   const Spacer(),
                   if (!temCronograma)
                     Text(
-                        'meta ${formatarMinutos(dados.metaSemanalMinutos)}/sem',
-                        style: const TextStyle(
-                            color: VizColors.muted, fontSize: 11)),
+                      'meta ${formatarMinutos(dados.metaSemanalMinutos)}/sem',
+                      style: const TextStyle(
+                        color: VizColors.muted,
+                        fontSize: 11,
+                      ),
+                    ),
                   if (metaSemanaBatida) ...[
                     const SizedBox(width: 6),
-                    const Icon(Icons.celebration,
-                        size: 16, color: LuminaColors.ouro),
+                    const Icon(
+                      Icons.celebration,
+                      size: 16,
+                      color: LuminaColors.ouro,
+                    ),
                   ],
                 ],
               ),
@@ -57,18 +64,19 @@ class CardPlano extends ConsumerWidget {
                 Row(
                   children: [
                     SizedBox(
-                        width: 56,
-                        child: Text(linha.rotulo,
-                            style: const TextStyle(
-                                color: VizColors.inkSecondary))),
+                      width: 56,
+                      child: Text(
+                        linha.rotulo,
+                        style: const TextStyle(color: VizColors.inkSecondary),
+                      ),
+                    ),
                     Expanded(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: linha.planejado == 0
                               ? 0
-                              : (linha.feito / linha.planejado)
-                                  .clamp(0.0, 1.0),
+                              : (linha.feito / linha.planejado).clamp(0.0, 1.0),
                           minHeight: 8,
                           backgroundColor: VizColors.gridline,
                           color: seriesColors[0],
@@ -83,7 +91,9 @@ class CardPlano extends ConsumerWidget {
                     '${formatarMinutos(linha.feito)} de ${formatarMinutos(linha.planejado)} · '
                     'restante ${formatarMinutos((linha.planejado - linha.feito).clamp(0, linha.planejado))}',
                     style: const TextStyle(
-                        color: VizColors.muted, fontSize: 11),
+                      color: VizColors.muted,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
               ],

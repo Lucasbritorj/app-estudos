@@ -26,28 +26,28 @@ class Resumo {
   });
 
   Resumo copyWith({String? texto, DateTime? atualizadoEm}) => Resumo(
-        sigla: sigla,
-        nome: nome,
-        texto: texto ?? this.texto,
-        atualizadoEm: atualizadoEm ?? this.atualizadoEm,
-        doCatalogo: doCatalogo,
-      );
+    sigla: sigla,
+    nome: nome,
+    texto: texto ?? this.texto,
+    atualizadoEm: atualizadoEm ?? this.atualizadoEm,
+    doCatalogo: doCatalogo,
+  );
 
   Map<String, dynamic> toJson() => {
-        'sigla': sigla,
-        'nome': nome,
-        'texto': texto,
-        'atualizadoEm': atualizadoEm?.toIso8601String(),
-        'doCatalogo': doCatalogo,
-      };
+    'sigla': sigla,
+    'nome': nome,
+    'texto': texto,
+    'atualizadoEm': atualizadoEm?.toIso8601String(),
+    'doCatalogo': doCatalogo,
+  };
 
   factory Resumo.fromJson(Map<String, dynamic> json) => Resumo(
-        sigla: json['sigla'] as String,
-        nome: json['nome'] as String? ?? json['sigla'] as String,
-        texto: json['texto'] as String? ?? '',
-        atualizadoEm: json['atualizadoEm'] == null
-            ? null
-            : DateTime.parse(json['atualizadoEm'] as String),
-        doCatalogo: json['doCatalogo'] as bool? ?? false,
-      );
+    sigla: json['sigla'] as String,
+    nome: json['nome'] as String? ?? json['sigla'] as String,
+    texto: json['texto'] as String? ?? '',
+    atualizadoEm: json['atualizadoEm'] == null
+        ? null
+        : DateTime.parse(json['atualizadoEm'] as String),
+    doCatalogo: json['doCatalogo'] as bool? ?? false,
+  );
 }

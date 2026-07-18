@@ -70,8 +70,9 @@ class _HomeShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Tour de primeira execução antes de qualquer aba — mostrado uma vez
     // (flag persistida); "Pular"/"Começar" liberam o app.
-    final onboardingConcluido =
-        ref.watch(configuracoesProvider.select((c) => c.onboardingConcluido));
+    final onboardingConcluido = ref.watch(
+      configuracoesProvider.select((c) => c.onboardingConcluido),
+    );
     if (!onboardingConcluido) {
       return const OnboardingScreen();
     }

@@ -65,8 +65,7 @@ class ImportService {
       throw FormatException('Versão de backup não suportada: $versao');
     }
 
-    List<T> lista<T>(
-        String chave, T Function(Map<String, dynamic>) fromJson) {
+    List<T> lista<T>(String chave, T Function(Map<String, dynamic>) fromJson) {
       final bruta = mapa[chave];
       if (bruta == null) return [];
       if (bruta is! List) {
@@ -91,7 +90,8 @@ class ImportService {
         // `as num` aqui lançaria TypeError e furaria o catch da UI.
         if (v is! num) {
           throw FormatException(
-              'Valor de planejamento inválido para o dia $dia: "$v"');
+            'Valor de planejamento inválido para o dia $dia: "$v"',
+          );
         }
         final minutos = v.toInt();
         planejamento[dia] = minutos < 0 ? 0 : minutos;

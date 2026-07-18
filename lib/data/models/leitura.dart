@@ -14,20 +14,20 @@ class SessaoLeitura {
 
   double? get minutosPorPagina =>
       (minutos == null || minutos! <= 0 || paginas <= 0)
-          ? null
-          : minutos! / paginas;
+      ? null
+      : minutos! / paginas;
 
   Map<String, dynamic> toJson() => {
-        'data': data.toIso8601String(),
-        'paginas': paginas,
-        'minutos': minutos,
-      };
+    'data': data.toIso8601String(),
+    'paginas': paginas,
+    'minutos': minutos,
+  };
 
   factory SessaoLeitura.fromJson(Map<String, dynamic> json) => SessaoLeitura(
-        data: DateTime.parse(json['data'] as String),
-        paginas: (json['paginas'] as num).toInt(),
-        minutos: (json['minutos'] as num?)?.toInt(),
-      );
+    data: DateTime.parse(json['data'] as String),
+    paginas: (json['paginas'] as num).toInt(),
+    minutos: (json['minutos'] as num?)?.toInt(),
+  );
 }
 
 /// Material de leitura (PDF/livro) dividido em partes — espelha a aba
@@ -59,8 +59,7 @@ class Leitura {
 
   int get totalPaginas => paginaFim - paginaInicio + 1;
 
-  int get paginasRegistradas =>
-      sessoes.fold(0, (soma, s) => soma + s.paginas);
+  int get paginasRegistradas => sessoes.fold(0, (soma, s) => soma + s.paginas);
 
   int get minutosRegistrados =>
       sessoes.fold(0, (soma, s) => soma + (s.minutos ?? 0));
@@ -84,41 +83,43 @@ class Leitura {
   int? get minutosParaTerminar {
     final ritmo = minutosPorPagina;
     if (ritmo == null) return null;
-    final restantes = (totalPaginas - paginasRegistradas).clamp(0, totalPaginas);
+    final restantes = (totalPaginas - paginasRegistradas).clamp(
+      0,
+      totalPaginas,
+    );
     return (restantes * ritmo).round();
   }
 
-  Leitura copyWith(
-          {String? titulo,
-          List<bool>? partesConcluidas,
-          List<SessaoLeitura>? sessoes}) =>
-      Leitura(
-        id: id,
-        titulo: titulo ?? this.titulo,
-        materiaId: materiaId,
-        paginaInicio: paginaInicio,
-        paginaFim: paginaFim,
-        partes: partes,
-        partesConcluidas: partesConcluidas ?? this.partesConcluidas,
-        sessoes: sessoes ?? this.sessoes,
-      );
+  Leitura copyWith({
+    String? titulo,
+    List<bool>? partesConcluidas,
+    List<SessaoLeitura>? sessoes,
+  }) => Leitura(
+    id: id,
+    titulo: titulo ?? this.titulo,
+    materiaId: materiaId,
+    paginaInicio: paginaInicio,
+    paginaFim: paginaFim,
+    partes: partes,
+    partesConcluidas: partesConcluidas ?? this.partesConcluidas,
+    sessoes: sessoes ?? this.sessoes,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'titulo': titulo,
-        'materiaId': materiaId,
-        'paginaInicio': paginaInicio,
-        'paginaFim': paginaFim,
-        'partes': partes,
-        'partesConcluidas': partesConcluidas,
-        'sessoes': sessoes.map((s) => s.toJson()).toList(),
-      };
+    'id': id,
+    'titulo': titulo,
+    'materiaId': materiaId,
+    'paginaInicio': paginaInicio,
+    'paginaFim': paginaFim,
+    'partes': partes,
+    'partesConcluidas': partesConcluidas,
+    'sessoes': sessoes.map((s) => s.toJson()).toList(),
+  };
 
   factory Leitura.fromJson(Map<String, dynamic> json) {
     final partes = (json['partes'] as num).toInt();
-    final concluidas = (json['partesConcluidas'] as List?)
-            ?.map((e) => e == true)
-            .toList() ??
+    final concluidas =
+        (json['partesConcluidas'] as List?)?.map((e) => e == true).toList() ??
         List.filled(partes, false);
     return Leitura(
       id: json['id'] as String,
@@ -131,8 +132,9 @@ class Leitura {
           ? concluidas
           : List.filled(partes, false),
       sessoes: (json['sessoes'] as List? ?? const [])
-          .map((e) =>
-              SessaoLeitura.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) => SessaoLeitura.fromJson(Map<String, dynamic>.from(e as Map)),
+          )
           .toList(),
     );
   }

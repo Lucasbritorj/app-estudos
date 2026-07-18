@@ -14,7 +14,9 @@ class CronometroState {
   const CronometroState({required this.status, required this.decorrido});
 
   static const inicial = CronometroState(
-      status: CronometroStatus.parado, decorrido: Duration.zero);
+    status: CronometroStatus.parado,
+    decorrido: Duration.zero,
+  );
 
   /// Restaura o estado a partir do registro persistido. Sessão que estava
   /// rodando volta PAUSADA no último tempo salvo: não perde o estudo nem
@@ -24,8 +26,9 @@ class CronometroState {
     final ms = (raw['elapsedMs'] as num?)?.toInt() ?? 0;
     if (ms <= 0) return inicial;
     return CronometroState(
-        status: CronometroStatus.pausado,
-        decorrido: Duration(milliseconds: ms));
+      status: CronometroStatus.pausado,
+      decorrido: Duration(milliseconds: ms),
+    );
   }
 }
 
@@ -55,7 +58,8 @@ class CronometroController extends Notifier<CronometroState> {
     ref.onDispose(() => _tick?.cancel());
     final raw = _box.get(_chave);
     final restaurado = CronometroState.restaurar(
-        raw == null ? null : Map<String, dynamic>.from(raw));
+      raw == null ? null : Map<String, dynamic>.from(raw),
+    );
     _acumulado = restaurado.decorrido;
     return restaurado;
   }
@@ -122,7 +126,8 @@ class CronometroController extends Notifier<CronometroState> {
 
 final cronometroProvider =
     NotifierProvider<CronometroController, CronometroState>(
-        CronometroController.new);
+      CronometroController.new,
+    );
 
 typedef PreSelecaoCronometro = ({String? materiaId, String? topicoId});
 
@@ -140,4 +145,5 @@ class PreSelecaoCronometroNotifier extends Notifier<PreSelecaoCronometro?> {
 
 final preSelecaoCronometroProvider =
     NotifierProvider<PreSelecaoCronometroNotifier, PreSelecaoCronometro?>(
-        PreSelecaoCronometroNotifier.new);
+      PreSelecaoCronometroNotifier.new,
+    );

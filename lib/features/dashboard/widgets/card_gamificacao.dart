@@ -37,8 +37,9 @@ class CardGamificacao extends ConsumerWidget {
         if (b.conquistada) b.id,
     };
     final vistas = ref.watch(badgesVistasProvider);
-    final novas =
-        vistas == null ? const <String>{} : conquistadas.difference(vistas);
+    final novas = vistas == null
+        ? const <String>{}
+        : conquistadas.difference(vistas);
     if (vistas == null || novas.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
@@ -58,11 +59,12 @@ class CardGamificacao extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Text('Nível ${progresso.nivel}',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(color: VizColors.inkPrimary)),
+                  Text(
+                    'Nível ${progresso.nivel}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: VizColors.inkPrimary,
+                    ),
+                  ),
                   const Spacer(),
                   // XP troca com fade e dígitos tabulares — conta, não salta.
                   AnimatedSwitcher(
@@ -92,10 +94,10 @@ class CardGamificacao extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                  'Faltam ${progresso.xpParaProximo - progresso.xpNoNivel} XP para o nível ${progresso.nivel + 1} · '
-                  'estudo ${xp.base} + revisões ${xp.bonusRevisoes} + streak ${xp.bonusStreak}',
-                  style:
-                      const TextStyle(color: VizColors.muted, fontSize: 11)),
+                'Faltam ${progresso.xpParaProximo - progresso.xpNoNivel} XP para o nível ${progresso.nivel + 1} · '
+                'estudo ${xp.base} + revisões ${xp.bonusRevisoes} + streak ${xp.bonusStreak}',
+                style: const TextStyle(color: VizColors.muted, fontSize: 11),
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 12,

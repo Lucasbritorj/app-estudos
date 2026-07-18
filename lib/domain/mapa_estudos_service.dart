@@ -25,22 +25,19 @@ class MetricasTopico {
 
 /// Status e métricas de um tópico para o Mapa de Estudos — puro, testável.
 class MapaEstudosService {
-  static StatusTopico statusDe(
-      Topico topico, List<RegistroHora> registros) {
+  static StatusTopico statusDe(Topico topico, List<RegistroHora> registros) {
     if (topico.concluido) return StatusTopico.concluido;
     final estudado = registros.any((r) => r.topicoId == topico.id);
     return estudado ? StatusTopico.emEstudo : StatusTopico.naoIniciado;
   }
 
-  static int minutosDoTopico(
-          List<RegistroHora> registros, String topicoId) =>
+  static int minutosDoTopico(List<RegistroHora> registros, String topicoId) =>
       registros
           .where((r) => r.topicoId == topicoId)
           .fold(0, (soma, r) => soma + r.minutos);
 
   /// Taxa de acerto do tópico; null sem questões registradas.
-  static double? taxaDoTopico(
-      List<RegistroHora> registros, String topicoId) {
+  static double? taxaDoTopico(List<RegistroHora> registros, String topicoId) {
     final d = StatsService.desempenhoPorTopico(registros)[topicoId];
     if (d == null || d.questoes == 0) return null;
     return d.acertos / d.questoes;
@@ -49,8 +46,9 @@ class MapaEstudosService {
   /// Domínio estimado (Elo) do tópico — pondera evidência recente acima da
   /// antiga, diferente da taxa acumulada. Null sem questões registradas.
   static ({double dominio, int questoes, bool confiavel})? dominioDoTopico(
-          List<RegistroHora> registros, String topicoId) =>
-      DominioService.dominioDoTopico(registros, topicoId);
+    List<RegistroHora> registros,
+    String topicoId,
+  ) => DominioService.dominioDoTopico(registros, topicoId);
 
   // --- Grafo de conhecimento (fronteira de estudo) -------------------------
 
@@ -69,27 +67,31 @@ class MapaEstudosService {
   /// Pré-requisitos de [topico] ainda não satisfeitos (vazio = liberado).
   /// Id de tópico apagado é ignorado — nunca trava para sempre.
   static List<Topico> bloqueadoPor(
-      Topico topico, List<Topico> todos, List<RegistroHora> registros) {
+    Topico topico,
+    List<Topico> todos,
+    List<RegistroHora> registros,
+  ) {
     final porId = {for (final t in todos) t.id: t};
     return [
       for (final id in topico.prerequisitos)
-        if (porId[id] != null && !satisfeito(porId[id]!, registros))
-          porId[id]!,
+        if (porId[id] != null && !satisfeito(porId[id]!, registros)) porId[id]!,
     ];
   }
 
   /// Fronteira de estudo: tópicos não concluídos com todos os
   /// pré-requisitos satisfeitos, por peso desc (desempate por nome).
   static List<Topico> fronteira(
-      List<Topico> topicos, List<RegistroHora> registros) {
+    List<Topico> topicos,
+    List<RegistroHora> registros,
+  ) {
     return [
       for (final t in topicos)
         if (!t.concluido && bloqueadoPor(t, topicos, registros).isEmpty) t,
     ]..sort((a, b) {
-        final porPeso = b.peso.compareTo(a.peso);
-        if (porPeso != 0) return porPeso;
-        return a.nome.toLowerCase().compareTo(b.nome.toLowerCase());
-      });
+      final porPeso = b.peso.compareTo(a.peso);
+      if (porPeso != 0) return porPeso;
+      return a.nome.toLowerCase().compareTo(b.nome.toLowerCase());
+    });
   }
 
   /// Métricas de todos os tópicos de uma matéria numa passada só:
@@ -97,7 +99,9 @@ class MapaEstudosService {
   /// do cálculo por linha. [topicos] = tópicos da matéria; [registros] =
   /// lista completa (agrupada internamente por tópico).
   static Map<String, MetricasTopico> metricasPorTopico(
-      List<Topico> topicos, List<RegistroHora> registros) {
+    List<Topico> topicos,
+    List<RegistroHora> registros,
+  ) {
     final porTopico = <String, List<RegistroHora>>{};
     final minutos = <String, int>{};
     final ids = {for (final t in topicos) t.id};
@@ -108,10 +112,11 @@ class MapaEstudosService {
       minutos[id] = (minutos[id] ?? 0) + r.minutos;
     }
 
-    final dominios = <String, ({double dominio, int questoes, bool confiavel})?>{
-      for (final t in topicos)
-        t.id: DominioService.dominioDe(porTopico[t.id] ?? const []),
-    };
+    final dominios =
+        <String, ({double dominio, int questoes, bool confiavel})?>{
+          for (final t in topicos)
+            t.id: DominioService.dominioDe(porTopico[t.id] ?? const []),
+        };
 
     bool satisfeitoLocal(Topico t) {
       if (t.concluido) return true;
@@ -126,15 +131,14 @@ class MapaEstudosService {
           status: t.concluido
               ? StatusTopico.concluido
               : (porTopico[t.id]?.isNotEmpty ?? false)
-                  ? StatusTopico.emEstudo
-                  : StatusTopico.naoIniciado,
+              ? StatusTopico.emEstudo
+              : StatusTopico.naoIniciado,
           minutos: minutos[t.id] ?? 0,
           taxa: _taxaDe(porTopico[t.id]),
           dominio: dominios[t.id],
           bloqueadoPor: [
             for (final id in t.prerequisitos)
-              if (porId[id] != null && !satisfeitoLocal(porId[id]!))
-                porId[id]!,
+              if (porId[id] != null && !satisfeitoLocal(porId[id]!)) porId[id]!,
           ],
         ),
     };
@@ -156,7 +160,10 @@ class MapaEstudosService {
   /// True se adicionar [prerequisitoId] como pré-requisito de [topicoId]
   /// criaria ciclo (auto-referência incluída) — o grafo deve seguir DAG.
   static bool criariaCiclo(
-      List<Topico> topicos, String topicoId, String prerequisitoId) {
+    List<Topico> topicos,
+    String topicoId,
+    String prerequisitoId,
+  ) {
     if (topicoId == prerequisitoId) return true;
     final porId = {for (final t in topicos) t.id: t};
     // Há ciclo se [topicoId] já é alcançável a partir de [prerequisitoId]

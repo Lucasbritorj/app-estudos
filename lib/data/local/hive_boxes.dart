@@ -93,8 +93,9 @@ class HiveBoxes {
     final rawConfig = Hive.box<Map>(config).get('config');
     final intervalos = rawConfig == null
         ? const Configuracoes().intervalosRevisao
-        : Configuracoes.fromJson(Map<String, dynamic>.from(rawConfig))
-            .intervalosRevisao;
+        : Configuracoes.fromJson(
+            Map<String, dynamic>.from(rawConfig),
+          ).intervalosRevisao;
     final primeiro = RevisaoService.proximoIntervalo(intervalos, 0);
     if (primeiro == null) return;
 

@@ -29,14 +29,16 @@ class EditalParserService {
   /// Quebra "…textos. 2 Tipologia… 2.1 Gêneros…" antes de cada numeração
   /// que segue pontuação de fim de item — o caso clássico do copy/paste de
   /// PDF que fazia metade dos tópicos sumir dentro do nome do anterior.
-  static final _numeracaoEmbutida =
-      RegExp(r'(?<=[\.;:])\s+(?=\d+(?:\.\d+)*\s*[\.\)\-–—:]?\s+\S)');
+  static final _numeracaoEmbutida = RegExp(
+    r'(?<=[\.;:])\s+(?=\d+(?:\.\d+)*\s*[\.\)\-–—:]?\s+\S)',
+  );
 
   /// Cabeçalho de matéria colado no meio da linha ("… 2 Crase. NOÇÕES DE
   /// INFORMÁTICA: 1 Hardware…"): separa antes da sequência em caixa alta
   /// terminada em ':' que vem depois de pontuação.
-  static final _cabecalhoEmbutido =
-      RegExp(r'(?<=[\.;])\s+(?=[A-ZÀ-Ü][A-ZÀ-Ü0-9\s]{2,}:)');
+  static final _cabecalhoEmbutido = RegExp(
+    r'(?<=[\.;])\s+(?=[A-ZÀ-Ü][A-ZÀ-Ü0-9\s]{2,}:)',
+  );
 
   static List<String> _fragmentar(String texto) {
     final fragmentos = <String>[];
@@ -65,8 +67,9 @@ class EditalParserService {
       final numerado = _numerado.firstMatch(fragmento);
       if (numerado != null) {
         final nivel = '.'.allMatches(numerado.group(1)!).length;
-        itens.add(ItemEdital(
-            nome: _limparNome(numerado.group(2)!), nivel: nivel));
+        itens.add(
+          ItemEdital(nome: _limparNome(numerado.group(2)!), nivel: nivel),
+        );
         nivelAnterior = nivel;
         continue;
       }
@@ -74,8 +77,9 @@ class EditalParserService {
       final marcador = _marcador.firstMatch(fragmento);
       if (marcador != null) {
         final nivel = nivelAnterior < 0 ? 0 : nivelAnterior + 1;
-        itens.add(ItemEdital(
-            nome: _limparNome(marcador.group(1)!), nivel: nivel));
+        itens.add(
+          ItemEdital(nome: _limparNome(marcador.group(1)!), nivel: nivel),
+        );
         continue;
       }
 
@@ -112,8 +116,7 @@ class EditalParserService {
 
     void fechar() {
       if (materiaAtual != null || itensAtuais.isNotEmpty) {
-        secoes.add(
-            SecaoEdital(materia: materiaAtual, itens: itensAtuais));
+        secoes.add(SecaoEdital(materia: materiaAtual, itens: itensAtuais));
       }
     }
 
@@ -128,16 +131,18 @@ class EditalParserService {
       final numerado = _numerado.firstMatch(fragmento);
       if (numerado != null) {
         final nivel = '.'.allMatches(numerado.group(1)!).length;
-        itensAtuais.add(ItemEdital(
-            nome: _limparNome(numerado.group(2)!), nivel: nivel));
+        itensAtuais.add(
+          ItemEdital(nome: _limparNome(numerado.group(2)!), nivel: nivel),
+        );
         nivelAnterior = nivel;
         continue;
       }
       final marcador = _marcador.firstMatch(fragmento);
       if (marcador != null) {
         final nivel = nivelAnterior < 0 ? 0 : nivelAnterior + 1;
-        itensAtuais.add(ItemEdital(
-            nome: _limparNome(marcador.group(1)!), nivel: nivel));
+        itensAtuais.add(
+          ItemEdital(nome: _limparNome(marcador.group(1)!), nivel: nivel),
+        );
         continue;
       }
       itensAtuais.add(ItemEdital(nome: _limparNome(fragmento), nivel: 0));

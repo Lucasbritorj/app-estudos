@@ -19,7 +19,7 @@ class CardAlertas extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     final materiasPorId = {
-      for (final m in ref.watch(materiasDoAmbienteProvider)) m.id: m
+      for (final m in ref.watch(materiasDoAmbienteProvider)) m.id: m,
     };
 
     return Padding(
@@ -35,8 +35,11 @@ class CardAlertas extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline,
-                          size: 16, color: StatusColors.critico),
+                      const Icon(
+                        Icons.error_outline,
+                        size: 16,
+                        color: StatusColors.critico,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -44,7 +47,9 @@ class CardAlertas extends ConsumerWidget {
                           '${e.value == 1 ? 'revisão atrasada' : 'revisões atrasadas'} '
                           'de ${materiasPorId[e.key]?.nome ?? 'matéria removida'}',
                           style: const TextStyle(
-                              color: StatusColors.critico, fontSize: 13),
+                            color: StatusColors.critico,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],
@@ -55,15 +60,20 @@ class CardAlertas extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
                     children: [
-                      const Icon(Icons.warning_amber,
-                          size: 16, color: StatusColors.atencao),
+                      const Icon(
+                        Icons.warning_amber,
+                        size: 16,
+                        color: StatusColors.atencao,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'Falso domínio em ${m.nome}: intimidade alta, '
                           'acerto abaixo de 75% — reforce questões e revisão',
                           style: const TextStyle(
-                              color: StatusColors.atencao, fontSize: 13),
+                            color: StatusColors.atencao,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],

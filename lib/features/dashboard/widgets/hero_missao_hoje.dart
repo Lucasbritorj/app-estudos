@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/avatar_cor.dart';
 import '../../../core/utils/formatters.dart';
 import '../../cronometro/cronometro_controller.dart';
 import '../../registro/registro_form.dart';
@@ -21,13 +22,11 @@ class HeroMissaoHoje extends ConsumerWidget {
     if (sugestao == null) return const SizedBox.shrink();
     final materia = sugestao.materia;
     final proximoTopico = sugestao.proximoTopico;
-    final cor = corDaSerie(materia.corSlot);
 
     void estudarAgora() {
-      ref.read(preSelecaoCronometroProvider.notifier).definir(
-            materiaId: materia.id,
-            topicoId: proximoTopico?.id,
-          );
+      ref
+          .read(preSelecaoCronometroProvider.notifier)
+          .definir(materiaId: materia.id, topicoId: proximoTopico?.id);
       // Só inicia se parado: nunca atropela uma sessão pausada existente.
       if (ref.read(cronometroProvider).status == CronometroStatus.parado) {
         ref.read(cronometroProvider.notifier).iniciar();
@@ -40,14 +39,17 @@ class HeroMissaoHoje extends ConsumerWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: const BorderRadius.all(Radius.circular(14)),
-          boxShadow:
-              LuminaElevation.glow(LuminaColors.safiraClara, alpha: 0.22),
+          boxShadow: LuminaElevation.glow(
+            LuminaColors.safiraClara,
+            alpha: 0.22,
+          ),
         ),
         child: Card(
           shape: RoundedRectangleBorder(
             borderRadius: const BorderRadius.all(Radius.circular(14)),
             side: BorderSide(
-                color: LuminaColors.safiraClara.withValues(alpha: 0.45)),
+              color: LuminaColors.safiraClara.withValues(alpha: 0.45),
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -58,16 +60,14 @@ class HeroMissaoHoje extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    CircleAvatar(radius: 7, backgroundColor: cor),
+                    AvatarCor(slot: materia.corSlot, raio: 7),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         materia.nome,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
+                        style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(color: VizColors.inkPrimary),
                       ),
                     ),
@@ -78,9 +78,11 @@ class HeroMissaoHoje extends ConsumerWidget {
                   'Faltam ${formatarMinutos(sugestao.deficitMinutos)} no '
                   'ciclo desta semana'
                   '${proximoTopico == null ? '' : ' · próximo tópico: '
-                      '"${proximoTopico.nome}"'}',
+                            '"${proximoTopico.nome}"'}',
                   style: const TextStyle(
-                      color: VizColors.inkSecondary, fontSize: 13),
+                    color: VizColors.inkSecondary,
+                    fontSize: 13,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Wrap(

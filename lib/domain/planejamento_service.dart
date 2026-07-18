@@ -27,7 +27,9 @@ class PlanejamentoService {
   /// nunca se contradizer: a taxa acumulada carregava erro de meses atrás
   /// para sempre. Sem medição confiável não há veredito: regular.
   static DiagnosticoMateria diagnostico(
-      int intimidade, MedicaoDominio? medido) {
+    int intimidade,
+    MedicaoDominio? medido,
+  ) {
     if (intimidade <= 1) return DiagnosticoMateria.teoriaPrioritaria;
     if (medido == null || !medido.confiavel) return DiagnosticoMateria.regular;
     if (intimidade >= 4 && medido.dominio < 0.75) {
@@ -42,8 +44,10 @@ class PlanejamentoService {
   /// Domínio inicial da matéria para o ciclo: medição Elo confiável tem
   /// precedência; sem ela, prior pela intimidade declarada
   /// (1..5 -> 0.2..0.8). Medição com pouca amostra não substitui o prior.
-  static double dominioInicial(int intimidade,
-      ({double dominio, int questoes, bool confiavel})? medido) {
+  static double dominioInicial(
+    int intimidade,
+    ({double dominio, int questoes, bool confiavel})? medido,
+  ) {
     if (medido != null && medido.confiavel) return medido.dominio;
     return 0.2 + 0.15 * (intimidade.clamp(1, 5) - 1);
   }
@@ -51,10 +55,15 @@ class PlanejamentoService {
   /// Ponto único do ciclo para as telas (Planejamento e Sugestão de hoje
   /// NUNCA podem divergir): domínio Elo da matéria com prior de intimidade,
   /// distribuído por utilidade.
-  static Map<String, int> cicloPorUtilidade(int minutosTotais,
-      List<Materia> materias, List<RegistroHora> registros) {
+  static Map<String, int> cicloPorUtilidade(
+    int minutosTotais,
+    List<Materia> materias,
+    List<RegistroHora> registros,
+  ) {
     final medidos = DominioService.dominioPorMateria(
-        registros, materias.map((m) => m.id));
+      registros,
+      materias.map((m) => m.id),
+    );
     return distribuirPorUtilidade(minutosTotais, materias, {
       for (final m in materias)
         m.id: dominioInicial(m.intimidade, medidos[m.id]),
@@ -103,12 +112,15 @@ class PlanejamentoService {
       }
       final bloco = min(blocoMinutos, restante);
       resultado[escolhida.id] = resultado[escolhida.id]! + bloco;
-      dominioEfetivo[escolhida.id] = min(1.0,
-          dominioEfetivo[escolhida.id]! + passoPorBloco * bloco / blocoMinutos);
+      dominioEfetivo[escolhida.id] = min(
+        1.0,
+        dominioEfetivo[escolhida.id]! + passoPorBloco * bloco / blocoMinutos,
+      );
       restante -= bloco;
     }
     return resultado;
   }
+
   static int totalPlanejado(Map<int, int> minutosPorDiaDaSemana) =>
       minutosPorDiaDaSemana.values.fold(0, (a, b) => a + b);
 
@@ -116,7 +128,10 @@ class PlanejamentoService {
   /// por dia da semana sobre cada dia do período (planejado do mês/ano da
   /// aba "Visão Geral" deriva do cronograma da aba "Cronograma").
   static int planejadoEntre(
-      Map<int, int> minutosPorDiaDaSemana, DateTime de, DateTime ate) {
+    Map<int, int> minutosPorDiaDaSemana,
+    DateTime de,
+    DateTime ate,
+  ) {
     var ini = DateTime(de.year, de.month, de.day);
     final fim = DateTime(ate.year, ate.month, ate.day);
     if (fim.isBefore(ini)) return 0;
@@ -139,7 +154,9 @@ class PlanejamentoService {
   /// Distribui [minutosTotais] entre matérias ativas proporcional ao peso,
   /// com método do maior resto: a soma distribuída bate exata com o total.
   static Map<String, int> distribuirPorPeso(
-      int minutosTotais, List<Materia> materias) {
+    int minutosTotais,
+    List<Materia> materias,
+  ) {
     final ativas = materias.where((m) => !m.arquivada).toList();
     return _distribuir(minutosTotais, {
       for (final m in ativas) m.id: m.peso.toDouble(),
@@ -153,38 +170,44 @@ class PlanejamentoService {
   /// Alvo pode "estourar" a semana de propósito — a fila mostra em quantas
   /// semanas cada uma fecha no ritmo da meta.
   static List<
-      ({
-        Materia materia,
-        int restanteMinutos,
-        double semanasAteConcluir,
-        bool concluida,
-      })> filaDeEstudo({
-    required List<Materia> materias,
-    required Map<String, int> feitoPorMateria,
-    required int minutosSemanais,
-  }) {
-    final comAlvo = materias
-        .where((m) => !m.arquivada && (m.minutosAlvo ?? 0) > 0)
-        .toList()
-      ..sort((a, b) {
-        final porPeso = b.peso.compareTo(a.peso);
-        if (porPeso != 0) return porPeso;
-        final porIntimidade = a.intimidade.compareTo(b.intimidade);
-        if (porIntimidade != 0) return porIntimidade;
-        return a.nome.toLowerCase().compareTo(b.nome.toLowerCase());
-      });
-
-    final fila = <({
+    ({
       Materia materia,
       int restanteMinutos,
       double semanasAteConcluir,
       bool concluida,
-    })>[];
+    })
+  >
+  filaDeEstudo({
+    required List<Materia> materias,
+    required Map<String, int> feitoPorMateria,
+    required int minutosSemanais,
+  }) {
+    final comAlvo =
+        materias.where((m) => !m.arquivada && (m.minutosAlvo ?? 0) > 0).toList()
+          ..sort((a, b) {
+            final porPeso = b.peso.compareTo(a.peso);
+            if (porPeso != 0) return porPeso;
+            final porIntimidade = a.intimidade.compareTo(b.intimidade);
+            if (porIntimidade != 0) return porIntimidade;
+            return a.nome.toLowerCase().compareTo(b.nome.toLowerCase());
+          });
+
+    final fila =
+        <
+          ({
+            Materia materia,
+            int restanteMinutos,
+            double semanasAteConcluir,
+            bool concluida,
+          })
+        >[];
     var acumuladoMinutos = 0;
     for (final materia in comAlvo) {
-      final restante = (materia.minutosAlvo! -
-              (feitoPorMateria[materia.id] ?? 0))
-          .clamp(0, materia.minutosAlvo!);
+      final restante =
+          (materia.minutosAlvo! - (feitoPorMateria[materia.id] ?? 0)).clamp(
+            0,
+            materia.minutosAlvo!,
+          );
       acumuladoMinutos += restante;
       fila.add((
         materia: materia,
@@ -199,13 +222,14 @@ class PlanejamentoService {
   }
 
   static Map<String, int> _distribuir(
-      int minutosTotais, Map<String, double> pesos) {
+    int minutosTotais,
+    Map<String, double> pesos,
+  ) {
     final somaPesos = pesos.values.fold(0.0, (soma, p) => soma + p);
     if (minutosTotais <= 0 || pesos.isEmpty || somaPesos <= 0) return {};
 
     final exatos = <String, double>{
-      for (final e in pesos.entries)
-        e.key: minutosTotais * e.value / somaPesos,
+      for (final e in pesos.entries) e.key: minutosTotais * e.value / somaPesos,
     };
     final resultado = <String, int>{
       for (final e in exatos.entries) e.key: e.value.floor(),
@@ -213,8 +237,10 @@ class PlanejamentoService {
     var faltam = minutosTotais - resultado.values.fold(0, (a, b) => a + b);
 
     final porResto = exatos.entries.toList()
-      ..sort((a, b) => (b.value - b.value.floor())
-          .compareTo(a.value - a.value.floor()));
+      ..sort(
+        (a, b) =>
+            (b.value - b.value.floor()).compareTo(a.value - a.value.floor()),
+      );
     for (var i = 0; faltam > 0; i = (i + 1) % porResto.length) {
       resultado[porResto[i].key] = resultado[porResto[i].key]! + 1;
       faltam--;

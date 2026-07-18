@@ -24,7 +24,9 @@ class ProntidaoService {
   /// Prontidão = média de domínio ponderada pelo peso do edital.
   /// Null sem matérias ativas (sem dados, sem número inventado).
   static double? prontidao(
-      List<Materia> materias, Map<String, double> dominios) {
+    List<Materia> materias,
+    Map<String, double> dominios,
+  ) {
     final ativas = materias.where((m) => !m.arquivada).toList();
     if (ativas.isEmpty) return null;
     var somaPesos = 0.0;
@@ -42,12 +44,12 @@ class ProntidaoService {
   /// vem de DominioService.dominioPorMateria (uma passada, compartilhada
   /// entre os consumidores) em vez de re-filtrar registros por matéria.
   static Map<String, double> dominiosAtuais(
-          List<Materia> materias, Map<String, MedicaoDominio?> medidos) =>
-      {
-        for (final m in materias)
-          m.id: PlanejamentoService.dominioInicial(
-              m.intimidade, medidos[m.id]),
-      };
+    List<Materia> materias,
+    Map<String, MedicaoDominio?> medidos,
+  ) => {
+    for (final m in materias)
+      m.id: PlanejamentoService.dominioInicial(m.intimidade, medidos[m.id]),
+  };
 
   /// Projeta os domínios na data da prova simulando o ciclo semana a
   /// semana: [minutosSemanais] do cronograma, alocados por utilidade sobre
@@ -71,7 +73,10 @@ class ProntidaoService {
       final minutosDaSemana = (minutosSemanais * fracao).round();
       if (minutosDaSemana <= 0) break;
       final alocacao = PlanejamentoService.distribuirPorUtilidade(
-          minutosDaSemana, materias, dominios);
+        minutosDaSemana,
+        materias,
+        dominios,
+      );
       for (final e in alocacao.entries) {
         final ganho = _passoPorBloco * e.value / _blocoMinutos;
         dominios[e.key] = min(1.0, (dominios[e.key] ?? 0.5) + ganho);
@@ -84,7 +89,9 @@ class ProntidaoService {
   /// Matérias ativas cuja projeção fica abaixo de [limiarRisco], piores
   /// primeiro.
   static List<({Materia materia, double projetado})> materiasEmRisco(
-      List<Materia> materias, Map<String, double> projetados) {
+    List<Materia> materias,
+    Map<String, double> projetados,
+  ) {
     return [
       for (final m in materias.where((m) => !m.arquivada))
         if ((projetados[m.id] ?? 0.5) < limiarRisco)
@@ -96,9 +103,10 @@ class ProntidaoService {
   /// intimidade. Chamada de calibração (cold start): registrar 10+ questões
   /// troca o palpite por evidência.
   static List<Materia> semMedicao(
-          List<Materia> materias, Map<String, MedicaoDominio?> medidos) =>
-      [
-        for (final m in materias.where((m) => !m.arquivada))
-          if (!(medidos[m.id]?.confiavel ?? false)) m,
-      ];
+    List<Materia> materias,
+    Map<String, MedicaoDominio?> medidos,
+  ) => [
+    for (final m in materias.where((m) => !m.arquivada))
+      if (!(medidos[m.id]?.confiavel ?? false)) m,
+  ];
 }

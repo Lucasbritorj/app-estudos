@@ -33,15 +33,15 @@ class PlanilhaImportada {
   });
 
   String get resumo => [
-        '${registros.length} registros',
-        '${revisoes.length} revisões',
-        '${materiasNovas.length} matérias novas',
-        if (materiasAtualizadas.isNotEmpty)
-          '${materiasAtualizadas.length} matérias atualizadas (peso/questões)',
-        '${topicosNovos.length} tópicos novos',
-        if (metaSemanalMinutos != null)
-          'meta semanal ${metaSemanalMinutos! ~/ 60}h',
-      ].join(', ');
+    '${registros.length} registros',
+    '${revisoes.length} revisões',
+    '${materiasNovas.length} matérias novas',
+    if (materiasAtualizadas.isNotEmpty)
+      '${materiasAtualizadas.length} matérias atualizadas (peso/questões)',
+    '${topicosNovos.length} tópicos novos',
+    if (metaSemanalMinutos != null)
+      'meta semanal ${metaSemanalMinutos! ~/ 60}h',
+  ].join(', ');
 }
 
 /// Religado à UI em 10/07/2026 (pedido "Import Excel completo"): a tela
@@ -94,8 +94,11 @@ class PlanilhaImportService {
       final nova = materiasNovas[chave];
       if (nova != null) {
         if (peso != null || questoes != null || minimo != null) {
-          materiasNovas[chave] =
-              nova.copyWith(peso: peso, questoes: questoes, minimo: minimo);
+          materiasNovas[chave] = nova.copyWith(
+            peso: peso,
+            questoes: questoes,
+            minimo: minimo,
+          );
         }
         return materiasNovas[chave]!;
       }
@@ -137,23 +140,38 @@ class PlanilhaImportService {
       final colunas = cabecalho.colunas;
 
       final temData = colunas.containsKey('data');
-      final ehRegistro = temData &&
+      final ehRegistro =
+          temData &&
           (colunas.containsKey('horas') ||
               colunas.containsKey('minutos') ||
               colunas.containsKey('tempo'));
-      final ehRevisao = temData &&
+      final ehRevisao =
+          temData &&
           (colunas.containsKey('intervalo') ||
               _normalizar(aba.key).contains('revis'));
       final ehPesos = !temData && colunas.containsKey('peso');
 
       if (ehRegistro && !achouRegistros) {
         achouRegistros = true;
-        _lerRegistros(aba.key, aba.value, cabecalho, avisos, registros,
-            materiaDe, topicoDe);
+        _lerRegistros(
+          aba.key,
+          aba.value,
+          cabecalho,
+          avisos,
+          registros,
+          materiaDe,
+          topicoDe,
+        );
       } else if (ehRevisao && !achouRevisoes) {
         achouRevisoes = true;
         _lerRevisoes(
-            aba.key, aba.value, cabecalho, avisos, revisoes, materiaDe);
+          aba.key,
+          aba.value,
+          cabecalho,
+          avisos,
+          revisoes,
+          materiaDe,
+        );
       } else if (ehPesos && !achouPesos) {
         achouPesos = true;
         _lerPesos(aba.key, aba.value, cabecalho, avisos, materiaDe);
@@ -162,10 +180,11 @@ class PlanilhaImportService {
 
     if (!achouRegistros && !achouRevisoes && !achouPesos) {
       throw const FormatException(
-          'Nenhuma aba com cabeçalho reconhecido. Esperado: "Data" + '
-          '"Matéria" + tempo (Tempo ou Horas/Minutos) para registros; '
-          '"Data" + "Matéria" + "Intervalo" para revisões; '
-          '"Matéria" + "Peso" para pesos do edital.');
+        'Nenhuma aba com cabeçalho reconhecido. Esperado: "Data" + '
+        '"Matéria" + tempo (Tempo ou Horas/Minutos) para registros; '
+        '"Data" + "Matéria" + "Intervalo" para revisões; '
+        '"Matéria" + "Peso" para pesos do edital.',
+      );
     }
 
     return PlanilhaImportada(
@@ -186,7 +205,7 @@ class PlanilhaImportService {
     List<String> avisos,
     List<RegistroHora> registros,
     Materia Function(String nome, {int? peso, int? questoes, int? minimo})
-        materiaDe,
+    materiaDe,
     Topico? Function(String nome, String materiaId) topicoDe,
   ) {
     final c = Map<String, int>.from(cabecalho.colunas);
@@ -195,7 +214,9 @@ class PlanilhaImportService {
     // "Tempo" mesclado sobre subcolunas: a linha seguinte ao cabeçalho traz
     // "Horas"/"Minutos" (ou "h"/"min") sob a célula Tempo.
     final colTempo = c['tempo'];
-    if (colTempo != null && !c.containsKey('horas') && !c.containsKey('minutos')) {
+    if (colTempo != null &&
+        !c.containsKey('horas') &&
+        !c.containsKey('minutos')) {
       final sub = inicioDados < linhas.length
           ? linhas[inicioDados]
           : const <String>[];
@@ -252,23 +273,27 @@ class PlanilhaImportService {
 
       final materia = materiaDe(nomeMateria);
       final topico = topicoDe(celula('topico'), materia.id);
-      final tarefa = [celula('tarefa'), celula('aula')]
-          .where((t) => t.isNotEmpty)
-          .join(' · ');
+      final tarefa = [
+        celula('tarefa'),
+        celula('aula'),
+      ].where((t) => t.isNotEmpty).join(' · ');
 
-      registros.add(RegistroHora(
-        id: 'xlsx-registro-$i-${data.toIso8601String().substring(0, 10)}',
-        data: data,
-        materiaId: materia.id,
-        topicoId: topico?.id,
-        tarefa: tarefa,
-        minutos: totalMinutos,
-        paginaInicial: _parseNumero(celula('pagina inicial'))?.round(),
-        paginaFinal: _parseNumero(celula('pagina final'))?.round(),
-        paginasLidasManual: _parseNumero(celula('paginas lidas'))?.round(),
-        comentario:
-            celula('comentario').isEmpty ? null : celula('comentario'),
-      ));
+      registros.add(
+        RegistroHora(
+          id: 'xlsx-registro-$i-${data.toIso8601String().substring(0, 10)}',
+          data: data,
+          materiaId: materia.id,
+          topicoId: topico?.id,
+          tarefa: tarefa,
+          minutos: totalMinutos,
+          paginaInicial: _parseNumero(celula('pagina inicial'))?.round(),
+          paginaFinal: _parseNumero(celula('pagina final'))?.round(),
+          paginasLidasManual: _parseNumero(celula('paginas lidas'))?.round(),
+          comentario: celula('comentario').isEmpty
+              ? null
+              : celula('comentario'),
+        ),
+      );
     }
   }
 
@@ -279,7 +304,7 @@ class PlanilhaImportService {
     List<String> avisos,
     List<Revisao> revisoes,
     Materia Function(String nome, {int? peso, int? questoes, int? minimo})
-        materiaDe,
+    materiaDe,
   ) {
     final c = cabecalho.colunas;
     for (var i = cabecalho.linha + 1; i < linhas.length; i++) {
@@ -297,27 +322,31 @@ class PlanilhaImportService {
       final nomeMateria = celula('materia');
       if (data == null || nomeMateria.isEmpty) {
         avisos.add(
-            '$nomeAba, linha ${i + 1}: revisão sem data ou matéria — pulada.');
+          '$nomeAba, linha ${i + 1}: revisão sem data ou matéria — pulada.',
+        );
         continue;
       }
       final titulo = celula('titulo').isEmpty
           ? 'Revisão de $nomeMateria'
           : celula('titulo');
       final status = _normalizar(celula('status'));
-      final feita = status == 'feita' ||
+      final feita =
+          status == 'feita' ||
           status == 'concluida' ||
           status == 'ok' ||
           status == 'sim';
 
-      revisoes.add(Revisao(
-        id: 'xlsx-revisao-$i-${data.toIso8601String().substring(0, 10)}',
-        materiaId: materiaDe(nomeMateria).id,
-        titulo: titulo,
-        dataAgendada: data,
-        intervaloDias: _parseNumero(celula('intervalo'))?.round() ?? 0,
-        feita: feita,
-        dataConclusao: feita ? data : null,
-      ));
+      revisoes.add(
+        Revisao(
+          id: 'xlsx-revisao-$i-${data.toIso8601String().substring(0, 10)}',
+          materiaId: materiaDe(nomeMateria).id,
+          titulo: titulo,
+          dataAgendada: data,
+          intervaloDias: _parseNumero(celula('intervalo'))?.round() ?? 0,
+          feita: feita,
+          dataConclusao: feita ? data : null,
+        ),
+      );
     }
   }
 
@@ -328,7 +357,7 @@ class PlanilhaImportService {
     _Cabecalho cabecalho,
     List<String> avisos,
     Materia Function(String nome, {int? peso, int? questoes, int? minimo})
-        materiaDe,
+    materiaDe,
   ) {
     final c = cabecalho.colunas;
     for (var i = cabecalho.linha + 1; i < linhas.length; i++) {
@@ -468,8 +497,11 @@ class PlanilhaImportService {
     if (br != null) {
       var ano = int.parse(br.group(3)!);
       if (ano < 100) ano += 2000;
-      final data = DateTime(ano, int.parse(br.group(2)!),
-          int.parse(br.group(1)!));
+      final data = DateTime(
+        ano,
+        int.parse(br.group(2)!),
+        int.parse(br.group(1)!),
+      );
       return (data.year < 2000 || data.year > 2100) ? null : data;
     }
     final iso = DateTime.tryParse(s);

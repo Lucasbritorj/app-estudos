@@ -37,8 +37,11 @@ class RevisaoUseCase {
       materiaId: revisao.materiaId,
       topicoId: revisao.topicoId,
     );
-    final agendada = DateTime(revisao.dataAgendada.year,
-        revisao.dataAgendada.month, revisao.dataAgendada.day);
+    final agendada = DateTime(
+      revisao.dataAgendada.year,
+      revisao.dataAgendada.month,
+      revisao.dataAgendada.day,
+    );
     final passo = RevisaoService.proximoPassoFsrs(
       estabilidade: revisao.estabilidade,
       dificuldade: revisao.dificuldade,
@@ -50,8 +53,10 @@ class RevisaoUseCase {
       return (proxima: null, taxaAcerto: taxa, reforco: false);
     }
 
-    final tituloBase =
-        revisao.titulo.replaceFirst(RegExp(r' \((\d+d|reforço)\)$'), '');
+    final tituloBase = revisao.titulo.replaceFirst(
+      RegExp(r' \((\d+d|reforço)\)$'),
+      '',
+    );
     final proxima = Revisao(
       id: const Uuid().v4(),
       materiaId: revisao.materiaId,
@@ -75,10 +80,13 @@ class RevisaoUseCase {
   Future<Revisao> adiar(Revisao revisao, int dias) async {
     final base = revisao.dataAgendada;
     final nova = revisao.copyWith(
-        dataAgendada: DateTime(base.year, base.month, base.day + dias));
+      dataAgendada: DateTime(base.year, base.month, base.day + dias),
+    );
     await _ref.read(revisoesProvider.notifier).salvar(nova);
     await NotificacoesRevisao.sincronizar(
-        nova, _ref.read(configuracoesProvider).horaNotificacao);
+      nova,
+      _ref.read(configuracoesProvider).horaNotificacao,
+    );
     return nova;
   }
 
@@ -97,7 +105,9 @@ class RevisaoUseCase {
     );
     await _ref.read(revisoesProvider.notifier).salvar(revisao);
     await NotificacoesRevisao.sincronizar(
-        revisao, _ref.read(configuracoesProvider).horaNotificacao);
+      revisao,
+      _ref.read(configuracoesProvider).horaNotificacao,
+    );
     return revisao;
   }
 }

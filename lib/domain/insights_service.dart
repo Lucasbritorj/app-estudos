@@ -24,19 +24,21 @@ class InsightsService {
 
   /// Matéria com mais minutos acumulados; null sem registros.
   static ({String materiaId, int minutos})? maisEstudada(
-      List<RegistroHora> registros) {
+    List<RegistroHora> registros,
+  ) {
     final porMateria = StatsService.minutosPorMateria(registros);
     if (porMateria.isEmpty) return null;
-    final top =
-        porMateria.entries.reduce((a, b) => b.value > a.value ? b : a);
+    final top = porMateria.entries.reduce((a, b) => b.value > a.value ? b : a);
     return (materiaId: top.key, minutos: top.value);
   }
 
   /// Ranking de acertos/erros por matéria, maior taxa primeiro. Só entra
   /// matéria com pelo menos [minQuestoes] questões registradas.
   static List<({String materiaId, int questoes, int acertos, double taxa})>
-      rankingAcertos(List<RegistroHora> registros,
-          {int minQuestoes = amostraMinimaQuestoes}) {
+  rankingAcertos(
+    List<RegistroHora> registros, {
+    int minQuestoes = amostraMinimaQuestoes,
+  }) {
     final desempenho = StatsService.desempenhoPorMateria(registros);
     final linhas = [
       for (final e in desempenho.entries)
@@ -53,7 +55,8 @@ class InsightsService {
 
   /// Dia da semana com mais minutos (1=segunda..7=domingo); null sem dados.
   static ({int diaSemana, int minutos})? melhorDiaSemana(
-      List<RegistroHora> registros) {
+    List<RegistroHora> registros,
+  ) {
     final porDia = StatsService.minutosPorDiaSemana(registros);
     if (porDia.isEmpty) return null;
     final top = porDia.entries.reduce((a, b) => b.value > a.value ? b : a);
@@ -63,14 +66,18 @@ class InsightsService {
   /// Minutos por ambiente no período — agregação registro→matéria→ambiente.
   /// Registro de matéria apagada é ignorado (sem ambiente rastreável).
   static Map<String, int> minutosPorAmbiente(
-      List<RegistroHora> registros, List<Materia> materias,
-      {DateTime? de, DateTime? ate}) {
-    final ambienteDaMateria = {
-      for (final m in materias) m.id: m.ambienteId,
-    };
+    List<RegistroHora> registros,
+    List<Materia> materias, {
+    DateTime? de,
+    DateTime? ate,
+  }) {
+    final ambienteDaMateria = {for (final m in materias) m.id: m.ambienteId};
     final resultado = <String, int>{};
-    final porMateria =
-        StatsService.minutosPorMateria(registros, de: de, ate: ate);
+    final porMateria = StatsService.minutosPorMateria(
+      registros,
+      de: de,
+      ate: ate,
+    );
     for (final e in porMateria.entries) {
       final ambienteId = ambienteDaMateria[e.key];
       if (ambienteId == null) continue;
@@ -95,13 +102,15 @@ class InsightsService {
         .where((r) => r.statusEm(hoje) == RevisaoStatus.atrasada)
         .length;
     if (atrasadas > 0) {
-      acoes.add(InsightAcao(
-        TipoInsight.revisao,
-        atrasadas == 1
-            ? 'Você tem 1 revisão atrasada — 20 minutos resolvem.'
-            : 'Você tem $atrasadas revisões atrasadas — comece por elas '
-                '(15-20 min cada).',
-      ));
+      acoes.add(
+        InsightAcao(
+          TipoInsight.revisao,
+          atrasadas == 1
+              ? 'Você tem 1 revisão atrasada — 20 minutos resolvem.'
+              : 'Você tem $atrasadas revisões atrasadas — comece por elas '
+                    '(15-20 min cada).',
+        ),
+      );
     }
 
     final ranking = rankingAcertos(registros);
@@ -109,32 +118,38 @@ class InsightsService {
       final pior = ranking.last;
       final nome = nomes[pior.materiaId];
       if (nome != null) {
-        acoes.add(InsightAcao(
-          TipoInsight.desempenho,
-          'Baixo desempenho em $nome '
-          '(${(pior.taxa * 100).toStringAsFixed(0)}% em ${pior.questoes} '
-          'questões) — recomendo 2h de questões dela esta semana.',
-          materiaId: pior.materiaId,
-        ));
+        acoes.add(
+          InsightAcao(
+            TipoInsight.desempenho,
+            'Baixo desempenho em $nome '
+            '(${(pior.taxa * 100).toStringAsFixed(0)}% em ${pior.questoes} '
+            'questões) — recomendo 2h de questões dela esta semana.',
+            materiaId: pior.materiaId,
+          ),
+        );
       }
     }
 
     final streak = StatsService.streakAtual(registros, hoje);
     final estudouHoje = StatsService.minutosNoDia(registros, hoje) > 0;
     if (streak > 0 && !estudouHoje) {
-      acoes.add(InsightAcao(
-        TipoInsight.streak,
-        'Streak de $streak ${streak == 1 ? 'dia' : 'dias'} em risco — '
-        '25 minutos hoje mantêm a chama acesa.',
-      ));
+      acoes.add(
+        InsightAcao(
+          TipoInsight.streak,
+          'Streak de $streak ${streak == 1 ? 'dia' : 'dias'} em risco — '
+          '25 minutos hoje mantêm a chama acesa.',
+        ),
+      );
     }
 
     if (acoes.isEmpty) {
-      acoes.add(const InsightAcao(
-        TipoInsight.positivo,
-        'Tudo em dia. Avance na aula mais próxima de concluir '
-        'ou puxe questões da matéria de menor taxa.',
-      ));
+      acoes.add(
+        const InsightAcao(
+          TipoInsight.positivo,
+          'Tudo em dia. Avance na aula mais próxima de concluir '
+          'ou puxe questões da matéria de menor taxa.',
+        ),
+      );
     }
     return acoes;
   }

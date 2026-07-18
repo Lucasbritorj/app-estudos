@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/materia_use_case.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/avatar_cor.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/materia.dart';
 import '../../data/repositories/ambiente_filtros.dart';
@@ -42,60 +43,61 @@ class MateriasScreen extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: materias.isEmpty
-          ? const Center(
-              child: Text('Sem matérias. Toque em + para começar.'),
-            )
+          ? const Center(child: Text('Sem matérias. Toque em + para começar.'))
           : ConteudoCentral(
               child: ListView.builder(
-              itemCount: materias.length,
-              itemBuilder: (context, i) {
-                final materia = materias[i];
-                final minutos = minutosPorMateria[materia.id] ?? 0;
-                return ListTile(
-                  leading: CircleAvatar(
-                    radius: 10,
-                    backgroundColor: corDaSerie(materia.corSlot),
-                  ),
-                  title: Text(materia.nome),
-                  subtitle: Text(
-                      'peso ${materia.peso} · ${formatarMinutos(minutos)} · nível ${GamificacaoService.nivelPara(minutos)}'),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => TopicosScreen(materia: materia)),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: 'Aulas (PDFs)',
-                        icon: const Icon(Icons.menu_book_outlined, size: 20),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => AulasScreen(materia: materia)),
-                        ),
+                itemCount: materias.length,
+                itemBuilder: (context, i) {
+                  final materia = materias[i];
+                  final minutos = minutosPorMateria[materia.id] ?? 0;
+                  return ListTile(
+                    leading: AvatarCor(slot: materia.corSlot),
+                    title: Text(materia.nome),
+                    subtitle: Text(
+                      'peso ${materia.peso} · ${formatarMinutos(minutos)} · nível ${GamificacaoService.nivelPara(minutos)}',
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TopicosScreen(materia: materia),
                       ),
-                      if (materia.notas.isNotEmpty)
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         IconButton(
-                          tooltip: 'Ver notas',
-                          icon: const Icon(Icons.sticky_note_2_outlined,
-                              size: 20),
-                          onPressed: () => showDialog<void>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: Text('Notas — ${materia.nome}'),
-                              content: SingleChildScrollView(
-                                  child: Text(materia.notas)),
+                          tooltip: 'Aulas (PDFs)',
+                          icon: const Icon(Icons.menu_book_outlined, size: 20),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AulasScreen(materia: materia),
                             ),
                           ),
                         ),
-                      _MenuMateria(materia: materia),
-                    ],
-                  ),
-                );
-              },
-            ),
+                        if (materia.notas.isNotEmpty)
+                          IconButton(
+                            tooltip: 'Ver notas',
+                            icon: const Icon(
+                              Icons.sticky_note_2_outlined,
+                              size: 20,
+                            ),
+                            onPressed: () => showDialog<void>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: Text('Notas — ${materia.nome}'),
+                                content: SingleChildScrollView(
+                                  child: Text(materia.notas),
+                                ),
+                              ),
+                            ),
+                          ),
+                        _MenuMateria(materia: materia),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
     );
   }
@@ -118,9 +120,10 @@ class _MenuMateria extends ConsumerWidget {
             builder: (dialogContext) => AlertDialog(
               title: Text('Excluir ${materia.nome}?'),
               content: const Text(
-                  'Tópicos, aulas e revisões pendentes desta matéria também '
-                  'serão excluídos. Os registros de horas permanecem no '
-                  'histórico.'),
+                'Tópicos, aulas e revisões pendentes desta matéria também '
+                'serão excluídos. Os registros de horas permanecem no '
+                'histórico.',
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext, false),

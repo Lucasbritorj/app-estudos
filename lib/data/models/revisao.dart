@@ -42,49 +42,51 @@ class Revisao {
     return d.isBefore(h) ? RevisaoStatus.atrasada : RevisaoStatus.aFazer;
   }
 
-  Revisao copyWith(
-          {bool? feita, DateTime? dataConclusao, DateTime? dataAgendada}) =>
-      Revisao(
-        id: id,
-        materiaId: materiaId,
-        topicoId: topicoId,
-        aulaId: aulaId,
-        titulo: titulo,
-        dataAgendada: dataAgendada ?? this.dataAgendada,
-        intervaloDias: intervaloDias,
-        feita: feita ?? this.feita,
-        dataConclusao: dataConclusao ?? this.dataConclusao,
-        estabilidade: estabilidade,
-        dificuldade: dificuldade,
-      );
+  Revisao copyWith({
+    bool? feita,
+    DateTime? dataConclusao,
+    DateTime? dataAgendada,
+  }) => Revisao(
+    id: id,
+    materiaId: materiaId,
+    topicoId: topicoId,
+    aulaId: aulaId,
+    titulo: titulo,
+    dataAgendada: dataAgendada ?? this.dataAgendada,
+    intervaloDias: intervaloDias,
+    feita: feita ?? this.feita,
+    dataConclusao: dataConclusao ?? this.dataConclusao,
+    estabilidade: estabilidade,
+    dificuldade: dificuldade,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'materiaId': materiaId,
-        'topicoId': topicoId,
-        'aulaId': aulaId,
-        'titulo': titulo,
-        'dataAgendada': dataAgendada.toIso8601String(),
-        'intervaloDias': intervaloDias,
-        'feita': feita,
-        'dataConclusao': dataConclusao?.toIso8601String(),
-        'estabilidade': estabilidade,
-        'dificuldade': dificuldade,
-      };
+    'id': id,
+    'materiaId': materiaId,
+    'topicoId': topicoId,
+    'aulaId': aulaId,
+    'titulo': titulo,
+    'dataAgendada': dataAgendada.toIso8601String(),
+    'intervaloDias': intervaloDias,
+    'feita': feita,
+    'dataConclusao': dataConclusao?.toIso8601String(),
+    'estabilidade': estabilidade,
+    'dificuldade': dificuldade,
+  };
 
   factory Revisao.fromJson(Map<String, dynamic> json) => Revisao(
-        id: json['id'] as String,
-        materiaId: json['materiaId'] as String,
-        topicoId: json['topicoId'] as String?,
-        aulaId: json['aulaId'] as String?,
-        titulo: json['titulo'] as String? ?? '',
-        dataAgendada: DateTime.parse(json['dataAgendada'] as String),
-        intervaloDias: (json['intervaloDias'] as num).toInt(),
-        feita: json['feita'] as bool? ?? false,
-        dataConclusao: json['dataConclusao'] == null
-            ? null
-            : DateTime.parse(json['dataConclusao'] as String),
-        estabilidade: (json['estabilidade'] as num?)?.toDouble(),
-        dificuldade: (json['dificuldade'] as num?)?.toDouble(),
-      );
+    id: json['id'] as String,
+    materiaId: json['materiaId'] as String,
+    topicoId: json['topicoId'] as String?,
+    aulaId: json['aulaId'] as String?,
+    titulo: json['titulo'] as String? ?? '',
+    dataAgendada: DateTime.parse(json['dataAgendada'] as String),
+    intervaloDias: (json['intervaloDias'] as num).toInt(),
+    feita: json['feita'] as bool? ?? false,
+    dataConclusao: json['dataConclusao'] == null
+        ? null
+        : DateTime.parse(json['dataConclusao'] as String),
+    estabilidade: (json['estabilidade'] as num?)?.toDouble(),
+    dificuldade: (json['dificuldade'] as num?)?.toDouble(),
+  );
 }

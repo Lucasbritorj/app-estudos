@@ -34,17 +34,17 @@ class SessaoEstudoUseCase {
     Aula? aulaAtualizada;
     var concluiuAgora = false;
     Revisao? primeira;
-    final paginas =
-        registro.tipo == TipoEstudo.teoria ? (registro.paginasLidas ?? 0) : 0;
+    final paginas = registro.tipo == TipoEstudo.teoria
+        ? (registro.paginasLidas ?? 0)
+        : 0;
     final aula = registro.aulaId == null
         ? null
         : _ref
-            .read(aulasProvider)
-            .where((a) => a.id == registro.aulaId)
-            .firstOrNull;
+              .read(aulasProvider)
+              .where((a) => a.id == registro.aulaId)
+              .firstOrNull;
     if (aula != null && paginas > 0) {
-      final resultado =
-          AulaService.aplicarSessao(aula, paginas, registro.data);
+      final resultado = AulaService.aplicarSessao(aula, paginas, registro.data);
       aulaAtualizada = resultado.aula;
       concluiuAgora = resultado.concluiuAgora;
       await _ref.read(aulasProvider.notifier).salvar(resultado.aula);
@@ -54,7 +54,9 @@ class SessaoEstudoUseCase {
             .where((m) => m.id == registro.materiaId)
             .firstOrNull;
         primeira = await criarCadeiaParaAula(
-            resultado.aula, materia?.nome ?? 'Estudo');
+          resultado.aula,
+          materia?.nome ?? 'Estudo',
+        );
       }
     }
 
@@ -62,7 +64,10 @@ class SessaoEstudoUseCase {
     var reancoradas = const <Revisao>[];
     if (registro.topicoId != null) {
       reancoradas = RevisaoService.reagendarPorEstudo(
-          _ref.read(revisoesProvider), registro.topicoId!, registro.data);
+        _ref.read(revisoesProvider),
+        registro.topicoId!,
+        registro.data,
+      );
       // Lote: N revisões reancoradas custam uma escrita, não N recargas.
       await _ref.read(revisoesProvider.notifier).mesclar(reancoradas);
       for (final r in reancoradas) {
@@ -84,8 +89,10 @@ class SessaoEstudoUseCase {
   /// conclusão do PDF — as seguintes nascem ao concluir cada revisão.
   Future<Revisao?> criarCadeiaParaAula(Aula aula, String materiaNome) async {
     final config = _ref.read(configuracoesProvider);
-    final primeiro =
-        RevisaoService.proximoIntervalo(config.intervalosRevisao, 0);
+    final primeiro = RevisaoService.proximoIntervalo(
+      config.intervalosRevisao,
+      0,
+    );
     if (primeiro == null) return null;
 
     // Uma cadeia por aula: se já existe revisão pendente da aula, não duplica.
@@ -109,5 +116,4 @@ class SessaoEstudoUseCase {
   }
 }
 
-final sessaoEstudoUseCaseProvider =
-    Provider((ref) => SessaoEstudoUseCase(ref));
+final sessaoEstudoUseCaseProvider = Provider((ref) => SessaoEstudoUseCase(ref));

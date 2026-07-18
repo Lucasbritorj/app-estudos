@@ -37,11 +37,12 @@ class CardQuests extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Text('Quests de hoje',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(color: VizColors.inkPrimary)),
+                  Text(
+                    'Quests de hoje',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: VizColors.inkPrimary,
+                    ),
+                  ),
                   const Spacer(),
                   Text(
                     '$concluidas/${quests.length}',
@@ -66,7 +67,7 @@ class CardQuests extends ConsumerWidget {
                           q.concluida
                               ? Icons.check_circle
                               : (_iconesQuest[q.id] ??
-                                  Icons.radio_button_unchecked),
+                                    Icons.radio_button_unchecked),
                           key: ValueKey(q.concluida),
                           size: 20,
                           color: q.concluida
@@ -98,7 +99,9 @@ class CardQuests extends ConsumerWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                  color: VizColors.muted, fontSize: 11),
+                                color: VizColors.muted,
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         ),

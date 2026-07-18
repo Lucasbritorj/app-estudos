@@ -27,15 +27,18 @@ class CardDesempenho extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Text('Desempenho em questões',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(color: VizColors.inkSecondary)),
+                Text(
+                  'Desempenho em questões',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: VizColors.inkSecondary,
+                  ),
+                ),
                 const Spacer(),
                 if (geral != null)
-                  Text('${(geral * 100).toStringAsFixed(0)}% geral',
-                      style: const TextStyle(color: VizColors.muted)),
+                  Text(
+                    '${(geral * 100).toStringAsFixed(0)}% geral',
+                    style: const TextStyle(color: VizColors.muted),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -57,8 +60,11 @@ class _LinhaDesempenho extends StatelessWidget {
   final int questoes;
   final int acertos;
 
-  const _LinhaDesempenho(
-      {required this.materia, required this.questoes, required this.acertos});
+  const _LinhaDesempenho({
+    required this.materia,
+    required this.questoes,
+    required this.acertos,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -67,8 +73,8 @@ class _LinhaDesempenho extends StatelessWidget {
     final (corStatus, icone, rotulo) = taxa < 0.75
         ? (StatusColors.critico, Icons.error_outline, 'reforçar')
         : taxa < 0.85
-            ? (StatusColors.atencao, Icons.trending_up, 'evoluindo')
-            : (StatusColors.bom, Icons.check_circle_outline, 'dominado');
+        ? (StatusColors.atencao, Icons.trending_up, 'evoluindo')
+        : (StatusColors.bom, Icons.check_circle_outline, 'dominado');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),

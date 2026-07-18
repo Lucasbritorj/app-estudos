@@ -47,7 +47,9 @@ class ConfeteLeve extends StatefulWidget {
 class _ConfeteLeveState extends State<ConfeteLeve>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 1600));
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  );
 
   @override
   void initState() {
@@ -85,8 +87,11 @@ class _ConfeteLeveState extends State<ConfeteLeve>
               animation: _controller,
               builder: (context, _) => _controller.isAnimating
                   ? CustomPaint(
-                      painter: _ConfetePainter(_controller.value,
-                          widget.cores ?? seriesColors))
+                      painter: _ConfetePainter(
+                        _controller.value,
+                        widget.cores ?? seriesColors,
+                      ),
+                    )
                   : const SizedBox.shrink(),
             ),
           ),
@@ -114,15 +119,17 @@ class _ConfetePainter extends CustomPainter {
       final progresso = ((t - atraso) / (1 - atraso)).clamp(0.0, 1.0);
       if (progresso == 0) continue;
 
-      tinta.color =
-          cores[i % cores.length].withValues(alpha: 0.9 * (1 - progresso));
+      tinta.color = cores[i % cores.length].withValues(
+        alpha: 0.9 * (1 - progresso),
+      );
       canvas.save();
-      canvas.translate(
-          x * size.width, progresso * (size.height + 20) - 10);
+      canvas.translate(x * size.width, progresso * (size.height + 20) - 10);
       canvas.rotate(giro + progresso * 3 * (i.isEven ? 1 : -1));
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-            const Rect.fromLTWH(-3, -2, 6, 4), const Radius.circular(1)),
+          const Rect.fromLTWH(-3, -2, 6, 4),
+          const Radius.circular(1),
+        ),
         tinta,
       );
       canvas.restore();

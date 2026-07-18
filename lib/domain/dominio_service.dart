@@ -32,20 +32,24 @@ class DominioService {
   /// Domínio estimado do tópico em [0,1]; null sem questões registradas
   /// (sem dados, sem número inventado).
   static ({double dominio, int questoes, bool confiavel})? dominioDoTopico(
-          List<RegistroHora> registros, String topicoId) =>
-      _projetar(registros.where((r) => r.topicoId == topicoId));
+    List<RegistroHora> registros,
+    String topicoId,
+  ) => _projetar(registros.where((r) => r.topicoId == topicoId));
 
   /// Mesma projeção agregada na matéria — alimenta o ciclo por utilidade
   /// do planejamento.
   static ({double dominio, int questoes, bool confiavel})? dominioDaMateria(
-          List<RegistroHora> registros, String materiaId) =>
-      _projetar(registros.where((r) => r.materiaId == materiaId));
+    List<RegistroHora> registros,
+    String materiaId,
+  ) => _projetar(registros.where((r) => r.materiaId == materiaId));
 
   /// Projeção Elo de todas as matérias numa passada só: agrupa os registros
   /// por matéria (O(registros)) e projeta cada grupo — substitui o padrão
   /// de re-filtrar a lista inteira por matéria (O(matérias × registros)).
   static Map<String, MedicaoDominio?> dominioPorMateria(
-      List<RegistroHora> registros, Iterable<String> materiaIds) {
+    List<RegistroHora> registros,
+    Iterable<String> materiaIds,
+  ) {
     final porMateria = <String, List<RegistroHora>>{};
     for (final r in registros) {
       (porMateria[r.materiaId] ??= []).add(r);
@@ -59,7 +63,8 @@ class DominioService {
   /// quem agrupa registros uma vez e projeta cada grupo (ex.: métricas do
   /// mapa por matéria) em vez de re-filtrar a lista inteira por tópico.
   static ({double dominio, int questoes, bool confiavel})? dominioDe(
-      Iterable<RegistroHora> candidatos) {
+    Iterable<RegistroHora> candidatos,
+  ) {
     final sessoes = candidatos.where((r) => (r.questoes ?? 0) > 0).toList()
       ..sort((a, b) => a.data.compareTo(b.data));
     if (sessoes.isEmpty) return null;
@@ -84,8 +89,8 @@ class DominioService {
   }
 
   static ({double dominio, int questoes, bool confiavel})? _projetar(
-          Iterable<RegistroHora> candidatos) =>
-      dominioDe(candidatos);
+    Iterable<RegistroHora> candidatos,
+  ) => dominioDe(candidatos);
 
   static double _sigmoide(double x) => 1 / (1 + exp(-x));
 }

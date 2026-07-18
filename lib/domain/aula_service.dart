@@ -8,10 +8,15 @@ class AulaService {
   /// [concluiuAgora] é true SÓ na transição — é o gatilho da cadeia de
   /// revisões; sessões seguintes na aula já concluída não redisparam.
   static ({Aula aula, bool concluiuAgora}) aplicarSessao(
-      Aula aula, int paginasNaSessao, DateTime dataSessao) {
+    Aula aula,
+    int paginasNaSessao,
+    DateTime dataSessao,
+  ) {
     if (paginasNaSessao <= 0) return (aula: aula, concluiuAgora: false);
-    final lidas =
-        (aula.paginasLidas + paginasNaSessao).clamp(0, aula.paginasTotais);
+    final lidas = (aula.paginasLidas + paginasNaSessao).clamp(
+      0,
+      aula.paginasTotais,
+    );
     final completou = aula.paginasTotais > 0 && lidas >= aula.paginasTotais;
     final concluiuAgora = completou && !aula.concluida;
     return (
@@ -44,8 +49,7 @@ class AulaService {
   }
 
   /// Projeção para terminar a aula no ritmo atual; null sem ritmo.
-  static int? minutosParaTerminar(
-      Aula aula, List<RegistroHora> registros) {
+  static int? minutosParaTerminar(Aula aula, List<RegistroHora> registros) {
     final ritmo = ritmoDaAula(registros, aula.id);
     if (ritmo == null || ritmo <= 0) return null;
     if (aula.paginasRestantes <= 0) return 0;
@@ -53,16 +57,14 @@ class AulaService {
   }
 
   /// Tempo médio por página (minutos); inverso do ritmo, null sem dados.
-  static double? minutosPorPagina(
-      List<RegistroHora> registros, String aulaId) {
+  static double? minutosPorPagina(List<RegistroHora> registros, String aulaId) {
     final ritmo = ritmoDaAula(registros, aulaId);
     if (ritmo == null || ritmo <= 0) return null;
     return 60 / ritmo;
   }
 
   /// Minutos líquidos totais investidos na aula (sessões teóricas).
-  static int minutosInvestidos(
-      List<RegistroHora> registros, String aulaId) {
+  static int minutosInvestidos(List<RegistroHora> registros, String aulaId) {
     return registros
         .where((r) => r.aulaId == aulaId && r.tipo == TipoEstudo.teoria)
         .fold(0, (soma, r) => soma + r.minutos);

@@ -9,19 +9,27 @@ class RevisaoService {
   /// tópico. Estudou de novo -> pendentes do tópico são reancoradas em
   /// [dataEstudo] + intervalo. Retorna só as que mudaram de data.
   static List<Revisao> reagendarPorEstudo(
-      List<Revisao> revisoes, String topicoId, DateTime dataEstudo) {
+    List<Revisao> revisoes,
+    String topicoId,
+    DateTime dataEstudo,
+  ) {
     final base = DateTime(dataEstudo.year, dataEstudo.month, dataEstudo.day);
     final alteradas = <Revisao>[];
     for (final r in revisoes) {
       if (r.feita || r.topicoId != topicoId || r.intervaloDias <= 0) continue;
       final nova = DateTime(base.year, base.month, base.day + r.intervaloDias);
-      if (nova != DateTime(r.dataAgendada.year, r.dataAgendada.month,
-          r.dataAgendada.day)) {
+      if (nova !=
+          DateTime(
+            r.dataAgendada.year,
+            r.dataAgendada.month,
+            r.dataAgendada.day,
+          )) {
         alteradas.add(r.copyWith(dataAgendada: nova));
       }
     }
     return alteradas;
   }
+
   /// Próximo intervalo da cadeia (ex.: 7 -> 15 -> 30 -> 60). Retorna o menor
   /// intervalo configurado maior que [atual]; null quando a cadeia termina.
   /// Revisão manual (intervalo 0) entra no início da cadeia.
@@ -38,8 +46,12 @@ class RevisaoService {
   /// questões registradas. A janela de recência decide o passo da revisão
   /// pelo desempenho ATUAL — na taxa acumulada, um período ruim de meses
   /// atrás segurava o intervalo para sempre, mesmo recuperado.
-  static double? taxaAcertoDe(List<RegistroHora> registros,
-      {required String materiaId, String? topicoId, int ultimasSessoes = 10}) {
+  static double? taxaAcertoDe(
+    List<RegistroHora> registros, {
+    required String materiaId,
+    String? topicoId,
+    int ultimasSessoes = 10,
+  }) {
     final sessoes = [
       for (final r in registros)
         if ((topicoId != null
@@ -65,7 +77,10 @@ class RevisaoService {
   /// - >= 85% ou sem questões registradas: segue a cadeia normal.
   /// null = cadeia terminou (nada a agendar).
   static ({int dias, int intervalo, bool reforco})? proximoPasso(
-      List<int> intervalosConfigurados, int atual, double? taxaAcerto) {
+    List<int> intervalosConfigurados,
+    int atual,
+    double? taxaAcerto,
+  ) {
     if (taxaAcerto != null && taxaAcerto < 0.75) {
       return (dias: 3, intervalo: atual, reforco: true);
     }
@@ -113,17 +128,21 @@ class RevisaoService {
     bool reforco,
     double estabilidade,
     double dificuldade,
-  })? proximoPassoFsrs({
+  })?
+  proximoPassoFsrs({
     double? estabilidade,
     double? dificuldade,
     required int intervaloAtual,
     int diasDeAtraso = 0,
     required double? taxaAcerto,
   }) {
-    final s = estabilidade ??
+    final s =
+        estabilidade ??
         (intervaloAtual > 0 ? intervaloAtual.toDouble() : _sementeManualDias);
-    final d =
-        ((dificuldade ?? _dificuldadeInicial).clamp(1.0, 10.0)).toDouble();
+    final d = ((dificuldade ?? _dificuldadeInicial).clamp(
+      1.0,
+      10.0,
+    )).toDouble();
 
     // Dias efetivamente decorridos desde o estudo que ancorou a revisão.
     final base = intervaloAtual > 0 ? intervaloAtual : s.round();

@@ -64,12 +64,16 @@ class ResumosScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final paginas = paginasResumo(
-        ref.watch(resumosProvider), ref.watch(materiasProvider));
+      ref.watch(resumosProvider),
+      ref.watch(materiasProvider),
+    );
     final comTexto = paginas.where((p) => p.texto.trim().isNotEmpty).toList()
-      ..sort((a, b) => (b.atualizadoEm ?? DateTime(0))
-          .compareTo(a.atualizadoEm ?? DateTime(0)));
-    final vazias =
-        paginas.where((p) => p.texto.trim().isEmpty).toList();
+      ..sort(
+        (a, b) => (b.atualizadoEm ?? DateTime(0)).compareTo(
+          a.atualizadoEm ?? DateTime(0),
+        ),
+      );
+    final vazias = paginas.where((p) => p.texto.trim().isEmpty).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Resumos por matéria')),
@@ -107,11 +111,12 @@ class _RotuloSecao extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(texto,
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(color: VizColors.inkSecondary)),
+      child: Text(
+        texto,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(color: VizColors.inkSecondary),
+      ),
     );
   }
 }
@@ -147,9 +152,7 @@ class TagResumo extends StatelessWidget {
       message: pagina.nome,
       waitDuration: const Duration(milliseconds: 300),
       child: Material(
-        color: temTexto
-            ? tinta.withValues(alpha: 0.15)
-            : Colors.transparent,
+        color: temTexto ? tinta.withValues(alpha: 0.15) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
@@ -158,19 +161,20 @@ class TagResumo extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (_) => ResumoPage(sigla: pagina.sigla,
-                      paginaInicial: pagina)),
+                builder: (_) =>
+                    ResumoPage(sigla: pagina.sigla, paginaInicial: pagina),
+              ),
             );
           },
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                  color: temTexto
-                      ? tinta.withValues(alpha: 0.4)
-                      : VizColors.gridline),
+                color: temTexto
+                    ? tinta.withValues(alpha: 0.4)
+                    : VizColors.gridline,
+              ),
             ),
             child: Text(
               '#${pagina.sigla}',
@@ -195,16 +199,20 @@ class ResumoPage extends ConsumerStatefulWidget {
   /// Página ainda não gravada (matéria do usuário fora do catálogo).
   final Resumo paginaInicial;
 
-  const ResumoPage(
-      {super.key, required this.sigla, required this.paginaInicial});
+  const ResumoPage({
+    super.key,
+    required this.sigla,
+    required this.paginaInicial,
+  });
 
   @override
   ConsumerState<ResumoPage> createState() => _ResumoPageState();
 }
 
 class _ResumoPageState extends ConsumerState<ResumoPage> {
-  late final TextEditingController _texto =
-      TextEditingController(text: widget.paginaInicial.texto);
+  late final TextEditingController _texto = TextEditingController(
+    text: widget.paginaInicial.texto,
+  );
 
   @override
   void dispose() {
@@ -215,17 +223,17 @@ class _ResumoPageState extends ConsumerState<ResumoPage> {
   @override
   Widget build(BuildContext context) {
     final resumos = ref.watch(resumosProvider);
-    final pagina = resumos
-            .where((r) => r.sigla == widget.sigla)
-            .firstOrNull ??
+    final pagina =
+        resumos.where((r) => r.sigla == widget.sigla).firstOrNull ??
         widget.paginaInicial;
     final siglas = {
       ...resumos.map((r) => r.sigla),
-      ...paginasResumo(resumos, ref.watch(materiasProvider))
-          .map((r) => r.sigla),
+      ...paginasResumo(
+        resumos,
+        ref.watch(materiasProvider),
+      ).map((r) => r.sigla),
     };
-    final ligacoes = ligacoesNoTexto(_texto.text, siglas)
-      ..remove(pagina.sigla);
+    final ligacoes = ligacoesNoTexto(_texto.text, siglas)..remove(pagina.sigla);
 
     return Scaffold(
       appBar: AppBar(title: Text(pagina.nome)),
@@ -242,10 +250,12 @@ class _ResumoPageState extends ConsumerState<ResumoPage> {
                     pagina.atualizadoEm == null
                         ? 'Nunca editado'
                         : 'Editado em ${formatarData(pagina.atualizadoEm!)} '
-                            'às ${pagina.atualizadoEm!.hour.toString().padLeft(2, '0')}:'
-                            '${pagina.atualizadoEm!.minute.toString().padLeft(2, '0')}',
+                              'às ${pagina.atualizadoEm!.hour.toString().padLeft(2, '0')}:'
+                              '${pagina.atualizadoEm!.minute.toString().padLeft(2, '0')}',
                     style: const TextStyle(
-                        color: VizColors.muted, fontSize: 12),
+                      color: VizColors.muted,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
@@ -258,15 +268,16 @@ class _ResumoPageState extends ConsumerState<ResumoPage> {
             ),
             if (ligacoes.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text('Ligações',
-                  style: TextStyle(color: VizColors.muted, fontSize: 12)),
+              const Text(
+                'Ligações',
+                style: TextStyle(color: VizColors.muted, fontSize: 12),
+              ),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final sigla in ligacoes)
-                    _LigacaoChip(sigla: sigla),
+                  for (final sigla in ligacoes) _LigacaoChip(sigla: sigla),
                 ],
               ),
             ],
@@ -281,7 +292,8 @@ class _ResumoPageState extends ConsumerState<ResumoPage> {
                 if (!mounted) return;
                 setState(() {});
                 messenger.showSnackBar(
-                    const SnackBar(content: Text('Resumo salvo')));
+                  const SnackBar(content: Text('Resumo salvo')),
+                );
               },
               icon: const Icon(Icons.save_outlined),
               label: const Text('Salvar resumo'),
@@ -302,9 +314,10 @@ class _LigacaoChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final paginas = paginasResumo(
-        ref.watch(resumosProvider), ref.watch(materiasProvider));
-    final destino =
-        paginas.where((p) => p.sigla == sigla).firstOrNull;
+      ref.watch(resumosProvider),
+      ref.watch(materiasProvider),
+    );
+    final destino = paginas.where((p) => p.sigla == sigla).firstOrNull;
     if (destino == null) return const SizedBox.shrink();
     return TagResumo(pagina: destino);
   }

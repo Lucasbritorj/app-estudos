@@ -103,22 +103,26 @@ final resumoGeralProvider = Provider<ResumoGeral>((ref) {
 /// Questões/acertos acumulados por matéria — compartilhado por
 /// CardDesempenho, rankings (via [rankingsProvider]) e CardAlertas.
 final desempenhoPorMateriaProvider =
-    Provider<Map<String, ({int questoes, int acertos})>>((ref) =>
-        StatsService.desempenhoPorMateria(
-            ref.watch(registrosDoAmbienteProvider)));
+    Provider<Map<String, ({int questoes, int acertos})>>(
+      (ref) => StatsService.desempenhoPorMateria(
+        ref.watch(registrosDoAmbienteProvider),
+      ),
+    );
 
 /// Medição Elo por matéria numa passada única sobre os registros —
 /// compartilhada por prontidão, alertas e diagnóstico (antes cada consumidor
 /// re-filtrava a lista inteira por matéria: O(matérias × registros) cada).
-final dominioPorMateriaProvider =
-    Provider<Map<String, MedicaoDominio?>>((ref) =>
-        DominioService.dominioPorMateria(
-            ref.watch(registrosDoAmbienteProvider),
-            ref.watch(materiasDoAmbienteProvider).map((m) => m.id)));
+final dominioPorMateriaProvider = Provider<Map<String, MedicaoDominio?>>(
+  (ref) => DominioService.dominioPorMateria(
+    ref.watch(registrosDoAmbienteProvider),
+    ref.watch(materiasDoAmbienteProvider).map((m) => m.id),
+  ),
+);
 
 /// Taxa de acerto geral ponderada (null sem questões).
-final taxaAcertoGeralProvider = Provider<double?>((ref) =>
-    StatsService.taxaAcertoGeral(ref.watch(registrosDoAmbienteProvider)));
+final taxaAcertoGeralProvider = Provider<double?>(
+  (ref) => StatsService.taxaAcertoGeral(ref.watch(registrosDoAmbienteProvider)),
+);
 
 typedef Rankings = ({
   ({String materiaId, int minutos})? maisEstudada,
@@ -137,13 +141,14 @@ final rankingsProvider = Provider<Rankings>((ref) {
 });
 
 /// "O que melhorar hoje" — recomendações acionáveis já ordenadas.
-final insightsProvider = Provider<List<InsightAcao>>((ref) =>
-    InsightsService.melhorarHoje(
-      registros: ref.watch(registrosDoAmbienteProvider),
-      materias: ref.watch(materiasDoAmbienteProvider),
-      revisoes: ref.watch(revisoesDoAmbienteProvider),
-      hoje: ref.watch(hojeProvider),
-    ));
+final insightsProvider = Provider<List<InsightAcao>>(
+  (ref) => InsightsService.melhorarHoje(
+    registros: ref.watch(registrosDoAmbienteProvider),
+    materias: ref.watch(materiasDoAmbienteProvider),
+    revisoes: ref.watch(revisoesDoAmbienteProvider),
+    hoje: ref.watch(hojeProvider),
+  ),
+);
 
 typedef Alertas = ({
   Map<String, int> atrasadasPorMateria,
@@ -172,9 +177,11 @@ final alertasProvider = Provider<Alertas>((ref) {
   }
 
   final falsoDominio = materias
-      .where((m) =>
-          PlanejamentoService.diagnostico(m.intimidade, medidos[m.id]) ==
-          DiagnosticoMateria.falsoDominio)
+      .where(
+        (m) =>
+            PlanejamentoService.diagnostico(m.intimidade, medidos[m.id]) ==
+            DiagnosticoMateria.falsoDominio,
+      )
       .toList();
 
   return (atrasadasPorMateria: atrasadasPorMateria, falsoDominio: falsoDominio);
@@ -197,10 +204,16 @@ final sugestaoHojeProvider = Provider<SugestaoHoje?>((ref) {
 
   final registros = ref.watch(registrosDoAmbienteProvider);
   final hoje = ref.watch(hojeProvider);
-  final alvo =
-      PlanejamentoService.cicloPorUtilidade(planejado, materias, registros);
-  final feito = StatsService.minutosPorMateria(registros,
-      de: StatsService.inicioDaSemana(hoje), ate: hoje);
+  final alvo = PlanejamentoService.cicloPorUtilidade(
+    planejado,
+    materias,
+    registros,
+  );
+  final feito = StatsService.minutosPorMateria(
+    registros,
+    de: StatsService.inicioDaSemana(hoje),
+    ate: hoje,
+  );
 
   String? sugestaoId;
   var maiorDeficit = 0;
@@ -219,8 +232,10 @@ final sugestaoHojeProvider = Provider<SugestaoHoje?>((ref) {
       .watch(topicosProvider)
       .where((t) => t.materiaId == materia.id)
       .toList();
-  final proximoTopico =
-      MapaEstudosService.fronteira(topicosDaMateria, registros).firstOrNull;
+  final proximoTopico = MapaEstudosService.fronteira(
+    topicosDaMateria,
+    registros,
+  ).firstOrNull;
 
   return (
     materia: materia,
@@ -247,8 +262,11 @@ final planoProvider = Provider<PlanoResumo>((ref) {
   final temCronograma = PlanejamentoService.totalPlanejado(plano) > 0;
 
   final inicioSemana = StatsService.inicioDaSemana(hoje);
-  final fimSemana =
-      DateTime(inicioSemana.year, inicioSemana.month, inicioSemana.day + 6);
+  final fimSemana = DateTime(
+    inicioSemana.year,
+    inicioSemana.month,
+    inicioSemana.day + 6,
+  );
   final inicioMes = DateTime(hoje.year, hoje.month, 1);
   final fimMes = DateTime(hoje.year, hoje.month + 1, 0);
   final inicioAno = DateTime(hoje.year, 1, 1);
@@ -315,12 +333,7 @@ final tilesResumoProvider = Provider<TilesResumoDados>((ref) {
   );
 });
 
-typedef AnosResumo = ({
-  Map<int, int> porAno,
-  int total,
-  int projecao,
-  int ano,
-});
+typedef AnosResumo = ({Map<int, int> porAno, int total, int projecao, int ano});
 
 /// Horas acumuladas por ano + projeção do ano corrente.
 final anosProvider = Provider<AnosResumo>((ref) {
@@ -362,10 +375,11 @@ final prontidaoProvider = Provider<ProntidaoResumo?>((ref) {
   final plano = ref.watch(planejamentoProvider);
   final hoje = ref.watch(hojeProvider);
 
-  final diasAteProva =
-      DateTime(dataProva.year, dataProva.month, dataProva.day)
-          .difference(DateTime(hoje.year, hoje.month, hoje.day))
-          .inDays;
+  final diasAteProva = DateTime(
+    dataProva.year,
+    dataProva.month,
+    dataProva.day,
+  ).difference(DateTime(hoje.year, hoje.month, hoje.day)).inDays;
   final minutosSemanais = PlanejamentoService.totalPlanejado(plano);
 
   final medidos = ref.watch(dominioPorMateriaProvider);
@@ -402,8 +416,11 @@ final barrasSemanaProvider = Provider<MinutosPorMateria>((ref) {
   final registros = ref.watch(registrosDoAmbienteProvider);
   final hoje = ref.watch(hojeProvider);
   final inicio = StatsService.inicioDaSemana(hoje);
-  final porMateria =
-      StatsService.minutosPorMateria(registros, de: inicio, ate: hoje);
+  final porMateria = StatsService.minutosPorMateria(
+    registros,
+    de: inicio,
+    ate: hoje,
+  );
   return [
     for (final e in porMateria.entries)
       if (e.value > 0) (materiaId: e.key, minutos: e.value),
@@ -411,15 +428,19 @@ final barrasSemanaProvider = Provider<MinutosPorMateria>((ref) {
 });
 
 /// Série diária dos últimos 14 dias para a linha de evolução.
-final serieEvolucaoProvider =
-    Provider<List<({DateTime dia, int minutos})>>((ref) =>
-        StatsService.serieDiaria(ref.watch(registrosDoAmbienteProvider),
-            ref.watch(hojeProvider), 14));
+final serieEvolucaoProvider = Provider<List<({DateTime dia, int minutos})>>(
+  (ref) => StatsService.serieDiaria(
+    ref.watch(registrosDoAmbienteProvider),
+    ref.watch(hojeProvider),
+    14,
+  ),
+);
 
 /// Distribuição total por matéria (donut), só matérias com estudo.
 final donutProvider = Provider<MinutosPorMateria>((ref) {
-  final porMateria =
-      StatsService.minutosPorMateria(ref.watch(registrosDoAmbienteProvider));
+  final porMateria = StatsService.minutosPorMateria(
+    ref.watch(registrosDoAmbienteProvider),
+  );
   return [
     for (final e in porMateria.entries)
       if (e.value > 0) (materiaId: e.key, minutos: e.value),
@@ -445,8 +466,12 @@ final gamificacaoProvider = Provider<GamificacaoResumo>((ref) {
   final pesoPorMateria = {
     for (final m in ref.watch(materiasProvider)) m.id: m.peso,
   };
-  final xp = GamificacaoService.xpDetalhado(registros, revisoes, hoje,
-      pesoPorMateria: pesoPorMateria);
+  final xp = GamificacaoService.xpDetalhado(
+    registros,
+    revisoes,
+    hoje,
+    pesoPorMateria: pesoPorMateria,
+  );
   return (
     xp: xp,
     progresso: GamificacaoService.progressoNivel(xp.total),
@@ -466,7 +491,8 @@ class BadgesVistasNotifier extends Notifier<Set<String>?> {
 
 final badgesVistasProvider =
     NotifierProvider<BadgesVistasNotifier, Set<String>?>(
-        BadgesVistasNotifier.new);
+      BadgesVistasNotifier.new,
+    );
 
 /// Quests do dia derivadas do planejador (matéria em déficit, revisões
 /// pendentes, mapa) — escopo do ambiente ativo, igual à sugestão de hoje.
@@ -495,8 +521,12 @@ final ambientesSemanaProvider = Provider<AmbientesSemana>((ref) {
   final registros = ref.watch(registrosProvider);
   final hoje = ref.watch(hojeProvider);
   final inicioSemana = StatsService.inicioDaSemana(hoje);
-  final porAmbiente = InsightsService.minutosPorAmbiente(registros, materias,
-      de: inicioSemana, ate: hoje);
+  final porAmbiente = InsightsService.minutosPorAmbiente(
+    registros,
+    materias,
+    de: inicioSemana,
+    ate: hoje,
+  );
   return (
     ambientes: ambientes,
     porAmbiente: porAmbiente,

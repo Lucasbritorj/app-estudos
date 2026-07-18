@@ -59,12 +59,10 @@ class DashboardScreen extends ConsumerWidget {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Text(
                         _mensagemDoDia(hoje),
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                                color: VizColors.inkSecondary,
-                                fontStyle: FontStyle.italic),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: VizColors.inkSecondary,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ),
                     // Próximo passo primeiro: a missão responde "o que
@@ -164,15 +162,19 @@ class _EstadoVazio extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.auto_stories,
-                  size: 44, color: LuminaColors.safiraClara),
+              const Icon(
+                Icons.auto_stories,
+                size: 44,
+                color: LuminaColors.safiraClara,
+              ),
               const SizedBox(height: 14),
-              Text('Seu dashboard nasce do primeiro registro',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(color: VizColors.inkPrimary)),
+              Text(
+                'Seu dashboard nasce do primeiro registro',
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(color: VizColors.inkPrimary),
+              ),
               const SizedBox(height: 6),
               const Text(
                 'Cada sessão de estudo vira horas, gráficos, streak e '

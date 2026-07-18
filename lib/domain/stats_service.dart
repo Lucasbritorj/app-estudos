@@ -21,24 +21,35 @@ class StatsService {
 
   /// Soma minutos no intervalo fechado de dias [de, ate].
   static int minutosEntre(
-      List<RegistroHora> registros, DateTime de, DateTime ate) {
+    List<RegistroHora> registros,
+    DateTime de,
+    DateTime ate,
+  ) {
     final ini = dataSemHora(de);
     final fim = dataSemHora(ate);
-    return registros.where((r) {
-      final d = dataSemHora(r.data);
-      return !d.isBefore(ini) && !d.isAfter(fim);
-    }).fold(0, (soma, r) => soma + r.minutos);
+    return registros
+        .where((r) {
+          final d = dataSemHora(r.data);
+          return !d.isBefore(ini) && !d.isAfter(fim);
+        })
+        .fold(0, (soma, r) => soma + r.minutos);
   }
 
   static int minutosNaSemana(List<RegistroHora> registros, DateTime hoje) {
     final ini = inicioDaSemana(hoje);
-    return minutosEntre(registros, ini,
-        DateTime(ini.year, ini.month, ini.day + 6));
+    return minutosEntre(
+      registros,
+      ini,
+      DateTime(ini.year, ini.month, ini.day + 6),
+    );
   }
 
   static int minutosNoMes(List<RegistroHora> registros, DateTime ref) =>
-      minutosEntre(registros, DateTime(ref.year, ref.month, 1),
-          DateTime(ref.year, ref.month + 1, 0));
+      minutosEntre(
+        registros,
+        DateTime(ref.year, ref.month, 1),
+        DateTime(ref.year, ref.month + 1, 0),
+      );
 
   static int minutosNoAno(List<RegistroHora> registros, int ano) =>
       minutosEntre(registros, DateTime(ano, 1, 1), DateTime(ano, 12, 31));
@@ -59,19 +70,20 @@ class StatsService {
   /// últimos 28 dias corridos (dias sem estudo contam como zero).
   static int projecaoAno(List<RegistroHora> registros, DateTime hoje) {
     final h = dataSemHora(hoje);
-    final totalAno =
-        minutosEntre(registros, DateTime(h.year, 1, 1), h);
+    final totalAno = minutosEntre(registros, DateTime(h.year, 1, 1), h);
     const janela = 28;
     final inicioJanela = DateTime(h.year, h.month, h.day - (janela - 1));
     final minutosJanela = minutosEntre(registros, inicioJanela, h);
     final ritmoDiario = minutosJanela / janela;
-    final diasRestantes =
-        DateTime(h.year, 12, 31).difference(h).inDays;
+    final diasRestantes = DateTime(h.year, 12, 31).difference(h).inDays;
     return totalAno + (ritmoDiario * diasRestantes).round();
   }
 
-  static Map<String, int> minutosPorMateria(List<RegistroHora> registros,
-      {DateTime? de, DateTime? ate}) {
+  static Map<String, int> minutosPorMateria(
+    List<RegistroHora> registros, {
+    DateTime? de,
+    DateTime? ate,
+  }) {
     final resultado = <String, int>{};
     for (final r in registros) {
       final d = dataSemHora(r.data);
@@ -112,8 +124,11 @@ class StatsService {
   ///   (bônus de XP; o contador exibido recomeça mesmo).
   /// - [emRisco]: streak vivo mas hoje ainda sem registro — a chama treme.
   static ({int dias, int congelados, int recuperados, bool emRisco})
-      streakDetalhado(List<RegistroHora> registros, DateTime hoje,
-          {int metaDiasSemana = metaDiasParaCongelamento}) {
+  streakDetalhado(
+    List<RegistroHora> registros,
+    DateTime hoje, {
+    int metaDiasSemana = metaDiasParaCongelamento,
+  }) {
     final dias = registros.map((r) => dataSemHora(r.data)).toSet();
     final h = dataSemHora(hoje);
     final temHoje = dias.contains(h);
@@ -124,7 +139,10 @@ class StatsService {
       var c = 0;
       for (var i = 0; i < 7; i++) {
         final d = DateTime(
-            inicioSemana.year, inicioSemana.month, inicioSemana.day + i);
+          inicioSemana.year,
+          inicioSemana.month,
+          inicioSemana.day + i,
+        );
         if (dias.contains(d)) c++;
       }
       return c;
@@ -142,9 +160,13 @@ class StatsService {
         continue;
       }
       final semana = inicioDaSemana(d);
-      final semanaAnterior =
-          DateTime(semana.year, semana.month, semana.day - 7);
-      final podeCongelar = !congeladoNaSemana.contains(semana) &&
+      final semanaAnterior = DateTime(
+        semana.year,
+        semana.month,
+        semana.day - 7,
+      );
+      final podeCongelar =
+          !congeladoNaSemana.contains(semana) &&
           diasNaSemana(semanaAnterior) >= metaDiasSemana;
       if (podeCongelar) {
         congeladoNaSemana.add(semana);
@@ -181,7 +203,8 @@ class StatsService {
 
   /// Média/máximo/mínimo de minutos considerando apenas dias COM registro.
   static ({int media, int maximo, int minimo}) resumoDiario(
-      List<RegistroHora> registros) {
+    List<RegistroHora> registros,
+  ) {
     if (registros.isEmpty) return (media: 0, maximo: 0, minimo: 0);
     final porDia = <DateTime, int>{};
     for (final r in registros) {
@@ -201,7 +224,10 @@ class StatsService {
   /// Série cronológica dos últimos [dias] dias (inclui hoje), para gráfico
   /// de linha. Dias sem estudo entram como 0.
   static List<({DateTime dia, int minutos})> serieDiaria(
-      List<RegistroHora> registros, DateTime hoje, int dias) {
+    List<RegistroHora> registros,
+    DateTime hoje,
+    int dias,
+  ) {
     final fim = dataSemHora(hoje);
     final porDia = <DateTime, int>{};
     for (final r in registros) {
@@ -219,15 +245,15 @@ class StatsService {
   static Map<int, int> minutosPorDiaSemana(List<RegistroHora> registros) {
     final resultado = <int, int>{};
     for (final r in registros) {
-      resultado[r.data.weekday] =
-          (resultado[r.data.weekday] ?? 0) + r.minutos;
+      resultado[r.data.weekday] = (resultado[r.data.weekday] ?? 0) + r.minutos;
     }
     return resultado;
   }
 
   /// Questões e acertos acumulados por matéria (só registros com questões).
   static Map<String, ({int questoes, int acertos})> desempenhoPorMateria(
-      List<RegistroHora> registros) {
+    List<RegistroHora> registros,
+  ) {
     final resultado = <String, ({int questoes, int acertos})>{};
     for (final r in registros) {
       if (r.questoes == null || r.questoes! <= 0) continue;
@@ -243,7 +269,8 @@ class StatsService {
   /// Minutos líquidos separados por natureza da sessão (teoria vs prática)
   /// — base das análises isoladas de tempo.
   static ({int teoria, int pratica}) minutosPorTipo(
-      List<RegistroHora> registros) {
+    List<RegistroHora> registros,
+  ) {
     var teoria = 0;
     var pratica = 0;
     for (final r in registros) {
@@ -259,7 +286,8 @@ class StatsService {
   /// Questões e acertos acumulados por tópico (só registros com questões
   /// E tópico). Base do Mapa de Estudos.
   static Map<String, ({int questoes, int acertos})> desempenhoPorTopico(
-      List<RegistroHora> registros) {
+    List<RegistroHora> registros,
+  ) {
     final resultado = <String, ({int questoes, int acertos})>{};
     for (final r in registros) {
       final topico = r.topicoId;
@@ -288,8 +316,10 @@ class StatsService {
 
   /// Ritmo agregado: total de páginas / total de horas, só sobre registros
   /// com páginas informadas (média ponderada, igual à planilha).
-  static double? paginasPorHoraGeral(List<RegistroHora> registros,
-      {String? materiaId}) {
+  static double? paginasPorHoraGeral(
+    List<RegistroHora> registros, {
+    String? materiaId,
+  }) {
     var paginas = 0;
     var minutos = 0;
     for (final r in registros) {

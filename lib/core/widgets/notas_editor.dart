@@ -23,14 +23,16 @@ class NotasRicasView extends StatelessWidget {
                 children: [
                   if (linha.bullet)
                     const TextSpan(
-                        text: '•  ',
-                        style: TextStyle(color: VizColors.muted)),
+                      text: '•  ',
+                      style: TextStyle(color: VizColors.muted),
+                    ),
                   for (final s in linha.segmentos)
                     TextSpan(
                       text: s.texto,
                       style: TextStyle(
-                        fontWeight:
-                            s.negrito ? FontWeight.w700 : FontWeight.w400,
+                        fontWeight: s.negrito
+                            ? FontWeight.w700
+                            : FontWeight.w400,
                         backgroundColor: s.destaque
                             ? const Color(0x33FAB219)
                             : null,
@@ -57,11 +59,12 @@ class NotasEditor extends StatefulWidget {
   /// Altura do campo em linhas (páginas de resumo usam área maior).
   final int linhas;
 
-  const NotasEditor(
-      {super.key,
-      required this.controller,
-      this.rotulo = 'Notas',
-      this.linhas = 4});
+  const NotasEditor({
+    super.key,
+    required this.controller,
+    this.rotulo = 'Notas',
+    this.linhas = 4,
+  });
 
   @override
   State<NotasEditor> createState() => _NotasEditorState();
@@ -78,16 +81,19 @@ class _NotasEditorState extends State<NotasEditor> {
     final texto = c.text;
     if (!sel.isValid) {
       c.text = '$texto$marcador$marcador';
-      c.selection =
-          TextSelection.collapsed(offset: texto.length + marcador.length);
+      c.selection = TextSelection.collapsed(
+        offset: texto.length + marcador.length,
+      );
       return;
     }
     final trecho = sel.textInside(texto);
     c.value = TextEditingValue(
-      text: '${sel.textBefore(texto)}$marcador$trecho$marcador'
+      text:
+          '${sel.textBefore(texto)}$marcador$trecho$marcador'
           '${sel.textAfter(texto)}',
       selection: TextSelection.collapsed(
-          offset: sel.start + marcador.length + trecho.length),
+        offset: sel.start + marcador.length + trecho.length,
+      ),
     );
     setState(() {});
   }
@@ -99,18 +105,21 @@ class _NotasEditorState extends State<NotasEditor> {
     final sel = c.selection.isValid
         ? c.selection
         : TextSelection.collapsed(offset: texto.length);
-    final inicioLinha = texto.lastIndexOf('\n', sel.start > 0 ? sel.start - 1 : 0) + 1;
+    final inicioLinha =
+        texto.lastIndexOf('\n', sel.start > 0 ? sel.start - 1 : 0) + 1;
     final trecho = texto.substring(inicioLinha, sel.end);
     final comBullets = trecho
         .split('\n')
         .map((l) => l.startsWith('- ') ? l : '- $l')
         .join('\n');
     c.value = TextEditingValue(
-      text: texto.substring(0, inicioLinha) +
+      text:
+          texto.substring(0, inicioLinha) +
           comBullets +
           texto.substring(sel.end),
-      selection:
-          TextSelection.collapsed(offset: inicioLinha + comBullets.length),
+      selection: TextSelection.collapsed(
+        offset: inicioLinha + comBullets.length,
+      ),
     );
     setState(() {});
   }
@@ -122,8 +131,10 @@ class _NotasEditorState extends State<NotasEditor> {
       children: [
         Row(
           children: [
-            Text(widget.rotulo,
-                style: const TextStyle(color: VizColors.muted, fontSize: 12)),
+            Text(
+              widget.rotulo,
+              style: const TextStyle(color: VizColors.muted, fontSize: 12),
+            ),
             const Spacer(),
             IconButton(
               tooltip: 'Negrito (**texto**)',
@@ -143,8 +154,9 @@ class _NotasEditorState extends State<NotasEditor> {
             IconButton(
               tooltip: _preview ? 'Editar' : 'Pré-visualizar',
               icon: Icon(
-                  _preview ? Icons.edit_outlined : Icons.visibility_outlined,
-                  size: 18),
+                _preview ? Icons.edit_outlined : Icons.visibility_outlined,
+                size: 18,
+              ),
               onPressed: () => setState(() => _preview = !_preview),
             ),
           ],
@@ -159,8 +171,10 @@ class _NotasEditorState extends State<NotasEditor> {
               borderRadius: BorderRadius.circular(4),
             ),
             child: widget.controller.text.trim().isEmpty
-                ? const Text('Sem notas',
-                    style: TextStyle(color: VizColors.muted))
+                ? const Text(
+                    'Sem notas',
+                    style: TextStyle(color: VizColors.muted),
+                  )
                 : NotasRicasView(texto: widget.controller.text),
           )
         else

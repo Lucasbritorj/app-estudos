@@ -16,15 +16,18 @@ String _normalizar(String s) =>
 /// sob o mesmo pai é reaproveitado — re-importar o edital só adiciona o que
 /// faltou. Retorna quantos são novos.
 Future<int> _gravarItens(
-    WidgetRef ref, Materia destino, List<ItemEdital> itens) async {
+  WidgetRef ref,
+  Materia destino,
+  List<ItemEdital> itens,
+) async {
   final repositorio = ref.read(topicosProvider.notifier);
   final existentes = ref
       .read(topicosProvider)
       .where((t) => t.materiaId == destino.id)
       .toList();
   final porChave = <String, String>{
-    for (final t in existentes) '${t.parentId ?? ''}|${_normalizar(t.nome)}':
-        t.id,
+    for (final t in existentes)
+      '${t.parentId ?? ''}|${_normalizar(t.nome)}': t.id,
   };
   // Pilha nível -> id: liga cada item ao pai de nível acima.
   final pilha = <int, String>{};
@@ -35,12 +38,14 @@ Future<int> _gravarItens(
     var id = porChave[chave];
     if (id == null) {
       id = const Uuid().v4();
-      await repositorio.salvar(Topico(
-        id: id,
-        materiaId: destino.id,
-        parentId: parentId,
-        nome: item.nome,
-      ));
+      await repositorio.salvar(
+        Topico(
+          id: id,
+          materiaId: destino.id,
+          parentId: parentId,
+          nome: item.nome,
+        ),
+      );
       porChave[chave] = id;
       novos++;
     }
@@ -74,8 +79,11 @@ Future<Materia> _materiaPorNome(WidgetRef ref, String nome) async {
 /// Com "detectar matérias" ligado, cabeçalhos em caixa alta viram matérias
 /// e os itens numerados abaixo viram os tópicos de cada uma — o Mapa de
 /// Estudos e o ciclo do Planejamento passam a enxergá-las na hora.
-Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
-    {Materia? materiaFixa}) async {
+Future<void> mostrarImportarEdital(
+  BuildContext context,
+  WidgetRef ref, {
+  Materia? materiaFixa,
+}) async {
   final texto = TextEditingController();
   final novaMateria = TextEditingController();
   String? materiaId = materiaFixa?.id;
@@ -100,22 +108,26 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                    'Copie o conteúdo programático do PDF e cole abaixo — '
-                    'texto normal. Numeração (1, 1.2, 1.2.3), itens '
-                    'separados por ";" e marcadores viram a hierarquia. '
-                    'Re-importar NÃO duplica: só entra o que faltou.',
-                    style: TextStyle(fontSize: 12)),
+                  'Copie o conteúdo programático do PDF e cole abaixo — '
+                  'texto normal. Numeração (1, 1.2, 1.2.3), itens '
+                  'separados por ";" e marcadores viram a hierarquia. '
+                  'Re-importar NÃO duplica: só entra o que faltou.',
+                  style: TextStyle(fontSize: 12),
+                ),
                 const SizedBox(height: 10),
                 if (materiaFixa == null) ...[
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    title: const Text('Detectar matérias automaticamente',
-                        style: TextStyle(fontSize: 13)),
+                    title: const Text(
+                      'Detectar matérias automaticamente',
+                      style: TextStyle(fontSize: 13),
+                    ),
                     subtitle: const Text(
-                        'Edital completo: cabeçalhos EM CAIXA ALTA viram '
-                        'matérias',
-                        style: TextStyle(fontSize: 11)),
+                      'Edital completo: cabeçalhos EM CAIXA ALTA viram '
+                      'matérias',
+                      style: TextStyle(fontSize: 11),
+                    ),
                     value: detectarMaterias,
                     onChanged: (v) =>
                         setStateDialog(() => detectarMaterias = v),
@@ -128,11 +140,14 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
                             child: DropdownButtonFormField<String>(
                               initialValue: materiaId,
                               decoration: const InputDecoration(
-                                  labelText: 'Matéria de destino *'),
+                                labelText: 'Matéria de destino *',
+                              ),
                               items: [
                                 for (final m in materias)
                                   DropdownMenuItem(
-                                      value: m.id, child: Text(m.nome)),
+                                    value: m.id,
+                                    child: Text(m.nome),
+                                  ),
                               ],
                               onChanged: (v) =>
                                   setStateDialog(() => materiaId = v),
@@ -152,9 +167,9 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
                             child: TextField(
                               controller: novaMateria,
                               decoration: const InputDecoration(
-                                  labelText: 'Nome da nova matéria *',
-                                  hintText:
-                                      'Ex.: Direito Constitucional'),
+                                labelText: 'Nome da nova matéria *',
+                                hintText: 'Ex.: Direito Constitucional',
+                              ),
                             ),
                           ),
                           if (materias.isNotEmpty)
@@ -173,10 +188,11 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
                   autofocus: materiaFixa != null,
                   maxLines: 10,
                   decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText:
-                          'LÍNGUA PORTUGUESA: 1 Compreensão de textos; '
-                          '2 Tipologia textual; 2.1 Gêneros...'),
+                    border: OutlineInputBorder(),
+                    hintText:
+                        'LÍNGUA PORTUGUESA: 1 Compreensão de textos; '
+                        '2 Tipologia textual; 2.1 Gêneros...',
+                  ),
                 ),
               ],
             ),
@@ -190,18 +206,19 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
               onPressed: () async {
                 // ---- Edital completo: várias matérias de uma vez.
                 if (materiaFixa == null && detectarMaterias) {
-                  final secoes =
-                      EditalParserService.parseSecoes(texto.text);
+                  final secoes = EditalParserService.parseSecoes(texto.text);
                   final comMateria = secoes
-                      .where((s) =>
-                          s.materia != null && s.itens.isNotEmpty)
+                      .where((s) => s.materia != null && s.itens.isNotEmpty)
                       .toList();
                   if (comMateria.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text(
-                                'Nenhum cabeçalho de matéria detectado — '
-                                'desligue a detecção e escolha a matéria.')));
+                      const SnackBar(
+                        content: Text(
+                          'Nenhum cabeçalho de matéria detectado — '
+                          'desligue a detecção e escolha a matéria.',
+                        ),
+                      ),
+                    );
                     return;
                   }
                   if (dialogContext.mounted) {
@@ -210,18 +227,20 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
                   var totalNovos = 0;
                   var totalItens = 0;
                   for (final secao in comMateria) {
-                    final destino =
-                        await _materiaPorNome(ref, secao.materia!);
-                    totalNovos +=
-                        await _gravarItens(ref, destino, secao.itens);
+                    final destino = await _materiaPorNome(ref, secao.materia!);
+                    totalNovos += await _gravarItens(ref, destino, secao.itens);
                     totalItens += secao.itens.length;
                   }
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
                         content: Text(
-                            '${comMateria.length} matérias · $totalNovos '
-                            'tópicos novos (${totalItens - totalNovos} já '
-                            'existiam). Veja o Mapa de Estudos.')));
+                          '${comMateria.length} matérias · $totalNovos '
+                          'tópicos novos (${totalItens - totalNovos} já '
+                          'existiam). Veja o Mapa de Estudos.',
+                        ),
+                      ),
+                    );
                   }
                   return;
                 }
@@ -230,9 +249,10 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
                 final itens = EditalParserService.parse(texto.text);
                 if (itens.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text(
-                              'Nenhum tópico detectado no texto colado.')));
+                    const SnackBar(
+                      content: Text('Nenhum tópico detectado no texto colado.'),
+                    ),
+                  );
                   return;
                 }
                 Materia? destino = materiaFixa;
@@ -252,10 +272,14 @@ Future<void> mostrarImportarEdital(BuildContext context, WidgetRef ref,
                 }
                 final novos = await _gravarItens(ref, destino, itens);
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
                       content: Text(
-                          '$novos tópicos novos em ${destino.nome} '
-                          '(${itens.length - novos} já existiam).')));
+                        '$novos tópicos novos em ${destino.nome} '
+                        '(${itens.length - novos} já existiam).',
+                      ),
+                    ),
+                  );
                 }
               },
               child: const Text('Importar'),

@@ -11,22 +11,25 @@ import '../../data/repositories/repositorios.dart';
 import '../materias/materia_dialog.dart';
 
 /// Abre o formulário de registro. Retorna true se um registro foi salvo.
-Future<bool> mostrarFormularioRegistro(BuildContext context,
-    {Duration? duracao,
-    String? materiaInicial,
-    String? topicoInicial,
-    String? aulaInicial,
-    TipoEstudo? tipoInicial}) async {
+Future<bool> mostrarFormularioRegistro(
+  BuildContext context, {
+  Duration? duracao,
+  String? materiaInicial,
+  String? topicoInicial,
+  String? aulaInicial,
+  TipoEstudo? tipoInicial,
+}) async {
   final salvo = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     builder: (_) => RegistroForm(
-        duracao: duracao,
-        materiaInicial: materiaInicial,
-        topicoInicial: topicoInicial,
-        aulaInicial: aulaInicial,
-        tipoInicial: tipoInicial),
+      duracao: duracao,
+      materiaInicial: materiaInicial,
+      topicoInicial: topicoInicial,
+      aulaInicial: aulaInicial,
+      tipoInicial: tipoInicial,
+    ),
   );
   return salvo ?? false;
 }
@@ -38,13 +41,14 @@ class RegistroForm extends ConsumerStatefulWidget {
   final String? aulaInicial;
   final TipoEstudo? tipoInicial;
 
-  const RegistroForm(
-      {super.key,
-      this.duracao,
-      this.materiaInicial,
-      this.topicoInicial,
-      this.aulaInicial,
-      this.tipoInicial});
+  const RegistroForm({
+    super.key,
+    this.duracao,
+    this.materiaInicial,
+    this.topicoInicial,
+    this.aulaInicial,
+    this.tipoInicial,
+  });
 
   @override
   ConsumerState<RegistroForm> createState() => _RegistroFormState();
@@ -79,9 +83,8 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
     return minutos;
   }
 
-  int? get _minutosInformados => _modoInicioFim
-      ? _minutosDeInicioFim
-      : int.tryParse(_minutos.text);
+  int? get _minutosInformados =>
+      _modoInicioFim ? _minutosDeInicioFim : int.tryParse(_minutos.text);
 
   @override
   void initState() {
@@ -92,9 +95,10 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
     _tipo = widget.tipoInicial ?? TipoEstudo.teoria;
     final minutosIniciais = widget.duracao?.inMinutes;
     _minutos = TextEditingController(
-        text: minutosIniciais == null
-            ? ''
-            : (minutosIniciais < 1 ? 1 : minutosIniciais).toString());
+      text: minutosIniciais == null
+          ? ''
+          : (minutosIniciais < 1 ? 1 : minutosIniciais).toString(),
+    );
   }
 
   @override
@@ -123,8 +127,9 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
     if (!_formKey.currentState!.validate()) return;
     final minutos = _minutosInformados;
     if (minutos == null || minutos <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Informe início e fim da sessão.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe início e fim da sessão.')),
+      );
       return;
     }
     final teoria = _tipo == TipoEstudo.teoria;
@@ -132,7 +137,12 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
     final registro = RegistroHora(
       id: const Uuid().v4(),
       data: DateTime(
-          _data.year, _data.month, _data.day, agora.hour, agora.minute),
+        _data.year,
+        _data.month,
+        _data.day,
+        agora.hour,
+        agora.minute,
+      ),
       materiaId: _materiaId!,
       topicoId: teoria ? null : _topicoId,
       aulaId: _aulaId,
@@ -140,15 +150,17 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
       tarefa: _tarefa.text.trim(),
       minutos: minutos,
       paginasLidasManual: teoria ? _paginasLidas : null,
-      comentario:
-          _comentario.text.trim().isEmpty ? null : _comentario.text.trim(),
+      comentario: _comentario.text.trim().isEmpty
+          ? null
+          : _comentario.text.trim(),
       questoes: teoria ? null : int.tryParse(_questoes.text),
       acertos: teoria ? null : int.tryParse(_acertos.text),
     );
     // Toda a orquestração (aula, cadeia de revisão, reancoragem,
     // notificações) mora no caso de uso; aqui só se formata o resultado.
-    final resultado =
-        await ref.read(sessaoEstudoUseCaseProvider).registrar(registro);
+    final resultado = await ref
+        .read(sessaoEstudoUseCaseProvider)
+        .registrar(registro);
 
     String? avisoAula;
     final aulaAtualizada = resultado.aulaAtualizada;
@@ -158,9 +170,10 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
         avisoAula = primeira == null
             ? '${aulaAtualizada.nome} concluída!'
             : '${aulaAtualizada.nome} concluída! Revisão 1 em '
-                '${primeira.intervaloDias}d (${formatarData(primeira.dataAgendada)})';
+                  '${primeira.intervaloDias}d (${formatarData(primeira.dataAgendada)})';
       } else {
-        avisoAula = '${aulaAtualizada.paginasLidas}/'
+        avisoAula =
+            '${aulaAtualizada.paginasLidas}/'
             '${aulaAtualizada.paginasTotais} páginas da ${aulaAtualizada.nome}';
       }
     }
@@ -183,8 +196,10 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
     ].map((s) => ' · $s').join();
     messenger.showSnackBar(
       SnackBar(
-          content: Text(
-              'Registro salvo: ${formatarMinutos(registro.minutos)}$sufixo')),
+        content: Text(
+          'Registro salvo: ${formatarMinutos(registro.minutos)}$sufixo',
+        ),
+      ),
     );
   }
 
@@ -200,9 +215,9 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
     final aulas = _materiaId == null
         ? const []
         : ref
-            .watch(aulasProvider)
-            .where((a) => a.materiaId == _materiaId)
-            .toList();
+              .watch(aulasProvider)
+              .where((a) => a.materiaId == _materiaId)
+              .toList();
     final teoria = _tipo == TipoEstudo.teoria;
 
     if (materias.isEmpty) {
@@ -237,21 +252,25 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Registrar sessão',
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'Registrar sessão',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 12),
               // Dualidade explícita: cada sessão é teoria OU prática, e o
               // tempo líquido fica gravado com a flag correspondente.
               SegmentedButton<TipoEstudo>(
                 segments: const [
                   ButtonSegment(
-                      value: TipoEstudo.teoria,
-                      label: Text('Estudo Teórico (PDF)'),
-                      icon: Icon(Icons.menu_book_outlined)),
+                    value: TipoEstudo.teoria,
+                    label: Text('Estudo Teórico (PDF)'),
+                    icon: Icon(Icons.menu_book_outlined),
+                  ),
                   ButtonSegment(
-                      value: TipoEstudo.pratica,
-                      label: Text('Prática (Questões)'),
-                      icon: Icon(Icons.quiz_outlined)),
+                    value: TipoEstudo.pratica,
+                    label: Text('Prática (Questões)'),
+                    icon: Icon(Icons.quiz_outlined),
+                  ),
                 ],
                 selected: {_tipo},
                 onSelectionChanged: (s) => setState(() => _tipo = s.first),
@@ -275,18 +294,23 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String?>(
                   initialValue: _aulaId,
-                  decoration:
-                      const InputDecoration(labelText: 'Aula (opcional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Aula (opcional)',
+                  ),
                   items: [
                     // Teoria avulsa (caderno, videoaula) é legítima — aula
                     // nunca é obrigatória; sem aula só não move o PDF.
                     const DropdownMenuItem<String?>(
-                        value: null, child: Text('— sem aula —')),
+                      value: null,
+                      child: Text('— sem aula —'),
+                    ),
                     for (final a in aulas)
                       DropdownMenuItem<String?>(
-                          value: a.id,
-                          child: Text(
-                              '${a.nome} · ${a.paginasLidas}/${a.paginasTotais} pág')),
+                        value: a.id,
+                        child: Text(
+                          '${a.nome} · ${a.paginasLidas}/${a.paginasTotais} pág',
+                        ),
+                      ),
                   ],
                   onChanged: (v) => setState(() => _aulaId = v),
                 ),
@@ -294,22 +318,28 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
-                      'Sem aulas cadastradas nesta matéria — cadastre em '
-                      'Matérias > Aulas para acompanhar o progresso do PDF.',
-                      style: TextStyle(fontSize: 12)),
+                    'Sem aulas cadastradas nesta matéria — cadastre em '
+                    'Matérias > Aulas para acompanhar o progresso do PDF.',
+                    style: TextStyle(fontSize: 12),
+                  ),
                 ),
               if (!teoria && topicos.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String?>(
                   initialValue: _topicoId,
-                  decoration:
-                      const InputDecoration(labelText: 'Tópico (opcional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tópico (opcional)',
+                  ),
                   items: [
                     const DropdownMenuItem<String?>(
-                        value: null, child: Text('— sem tópico —')),
+                      value: null,
+                      child: Text('— sem tópico —'),
+                    ),
                     for (final t in topicos)
                       DropdownMenuItem<String?>(
-                          value: t.id, child: Text(t.nome)),
+                        value: t.id,
+                        child: Text(t.nome),
+                      ),
                   ],
                   onChanged: (v) => setState(() => _topicoId = v),
                 ),
@@ -318,20 +348,23 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
               TextFormField(
                 controller: _tarefa,
                 decoration: const InputDecoration(
-                    labelText: 'Tarefa / aula',
-                    hintText: 'Ex.: Aula 12 — AFO, questões Cebraspe'),
+                  labelText: 'Tarefa / aula',
+                  hintText: 'Ex.: Aula 12 — AFO, questões Cebraspe',
+                ),
               ),
               const SizedBox(height: 8),
               SegmentedButton<bool>(
                 segments: const [
                   ButtonSegment(
-                      value: false,
-                      label: Text('Minutos'),
-                      icon: Icon(Icons.timer_outlined)),
+                    value: false,
+                    label: Text('Minutos'),
+                    icon: Icon(Icons.timer_outlined),
+                  ),
                   ButtonSegment(
-                      value: true,
-                      label: Text('Início/Fim'),
-                      icon: Icon(Icons.schedule)),
+                    value: true,
+                    label: Text('Início/Fim'),
+                    icon: Icon(Icons.schedule),
+                  ),
                 ],
                 selected: {_modoInicioFim},
                 onSelectionChanged: (s) =>
@@ -345,14 +378,16 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                       child: InkWell(
                         onTap: () async {
                           final hora = await showTimePicker(
-                              context: context,
-                              initialTime: _inicio ??
-                                  const TimeOfDay(hour: 8, minute: 0));
+                            context: context,
+                            initialTime:
+                                _inicio ?? const TimeOfDay(hour: 8, minute: 0),
+                          );
                           if (hora != null) setState(() => _inicio = hora);
                         },
                         child: InputDecorator(
-                          decoration:
-                              const InputDecoration(labelText: 'Início *'),
+                          decoration: const InputDecoration(
+                            labelText: 'Início *',
+                          ),
                           child: Text(_inicio?.format(context) ?? '—'),
                         ),
                       ),
@@ -362,13 +397,13 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                       child: InkWell(
                         onTap: () async {
                           final hora = await showTimePicker(
-                              context: context,
-                              initialTime: _fim ?? TimeOfDay.now());
+                            context: context,
+                            initialTime: _fim ?? TimeOfDay.now(),
+                          );
                           if (hora != null) setState(() => _fim = hora);
                         },
                         child: InputDecorator(
-                          decoration:
-                              const InputDecoration(labelText: 'Fim *'),
+                          decoration: const InputDecoration(labelText: 'Fim *'),
                           child: Text(_fim?.format(context) ?? '—'),
                         ),
                       ),
@@ -378,8 +413,9 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                       child: TextFormField(
                         controller: _minutos,
                         keyboardType: TextInputType.number,
-                        decoration:
-                            const InputDecoration(labelText: 'Minutos *'),
+                        decoration: const InputDecoration(
+                          labelText: 'Minutos *',
+                        ),
                         validator: (v) {
                           if (_modoInicioFim) return null;
                           final n = int.tryParse(v ?? '');
@@ -415,8 +451,9 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                      'Tempo líquido: ${formatarMinutos(_minutosDeInicioFim!)}',
-                      style: Theme.of(context).textTheme.bodySmall),
+                    'Tempo líquido: ${formatarMinutos(_minutosDeInicioFim!)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ),
               if (teoria) ...[
                 const SizedBox(height: 8),
@@ -424,9 +461,10 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                   controller: _paginasSessao,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                      labelText: 'Páginas lidas nesta sessão',
-                      helperText:
-                          'Acumula na aula; ao completar o PDF, a Revisão 1 (7d) é agendada'),
+                    labelText: 'Páginas lidas nesta sessão',
+                    helperText:
+                        'Acumula na aula; ao completar o PDF, a Revisão 1 (7d) é agendada',
+                  ),
                   validator: (v) {
                     if (v == null || v.isEmpty) return null;
                     final n = int.tryParse(v);
@@ -438,8 +476,10 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                 if (_previaRitmo.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Text(_previaRitmo,
-                        style: Theme.of(context).textTheme.bodySmall),
+                    child: Text(
+                      _previaRitmo,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
               ] else ...[
                 const SizedBox(height: 8),
@@ -450,7 +490,8 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                         controller: _questoes,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                            labelText: 'Questões resolvidas *'),
+                          labelText: 'Questões resolvidas *',
+                        ),
                         validator: (v) {
                           if (_tipo != TipoEstudo.pratica) return null;
                           final n = int.tryParse(v ?? '');
@@ -465,8 +506,9 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                       child: TextFormField(
                         controller: _acertos,
                         keyboardType: TextInputType.number,
-                        decoration:
-                            const InputDecoration(labelText: 'Acertos *'),
+                        decoration: const InputDecoration(
+                          labelText: 'Acertos *',
+                        ),
                         validator: (v) {
                           if (_tipo != TipoEstudo.pratica) return null;
                           final questoes = int.tryParse(_questoes.text);
@@ -488,9 +530,10 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                        'Erros: ${int.parse(_questoes.text) - int.parse(_acertos.text)} · '
-                        'acerto ${(int.parse(_acertos.text) * 100 / int.parse(_questoes.text)).toStringAsFixed(0)}%',
-                        style: Theme.of(context).textTheme.bodySmall),
+                      'Erros: ${int.parse(_questoes.text) - int.parse(_acertos.text)} · '
+                      'acerto ${(int.parse(_acertos.text) * 100 / int.parse(_questoes.text)).toStringAsFixed(0)}%',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
               ],
               const SizedBox(height: 8),

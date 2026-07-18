@@ -59,10 +59,7 @@ class HeroGeral extends ConsumerWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (icone != null) ...[
-                      icone,
-                      const SizedBox(width: 4),
-                    ],
+                    if (icone != null) ...[icone, const SizedBox(width: 4)],
                     Text(
                       rotulo,
                       style: const TextStyle(
@@ -137,9 +134,9 @@ class HeroGeral extends ConsumerWidget {
                     resumo.streakEmRisco
                         ? 'Streak — estude hoje'
                         : (resumo.streakCongelados > 0
-                            ? 'Streak · ${resumo.streakCongelados} '
-                                'protegido${resumo.streakCongelados == 1 ? '' : 's'}'
-                            : 'Streak'),
+                              ? 'Streak · ${resumo.streakCongelados} '
+                                    'protegido${resumo.streakCongelados == 1 ? '' : 's'}'
+                              : 'Streak'),
                     '$streak ${streak == 1 ? 'dia' : 'dias'}',
                     LuminaColors.chama,
                     icone: ChamaAnimada(emRisco: resumo.streakEmRisco),
@@ -151,8 +148,11 @@ class HeroGeral extends ConsumerWidget {
                         ? 'em dia'
                         : '$pendentes${atrasadas > 0 ? ' ($atrasadas atrasadas)' : ''}',
                     corRevisoes,
-                    icone: Icon(Icons.event_repeat,
-                        size: 13, color: corRevisoes),
+                    icone: Icon(
+                      Icons.event_repeat,
+                      size: 13,
+                      color: corRevisoes,
+                    ),
                     onTap: () => irPara(Abas.revisoes),
                   ),
                   stat(

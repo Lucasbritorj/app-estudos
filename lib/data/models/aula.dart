@@ -36,7 +36,9 @@ class Aula {
     DateTime? dataConclusao,
   }) {
     final total = paginasTotais < 0 ? 0 : paginasTotais;
-    final lidas = paginasLidas < 0 ? 0 : (paginasLidas > total ? total : paginasLidas);
+    final lidas = paginasLidas < 0
+        ? 0
+        : (paginasLidas > total ? total : paginasLidas);
     return Aula._(
       id: id,
       materiaId: materiaId,
@@ -73,24 +75,24 @@ class Aula {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'materiaId': materiaId,
-        'nome': nome,
-        'paginasTotais': paginasTotais,
-        'paginasLidas': paginasLidas,
-        'concluida': concluida,
-        'dataConclusao': dataConclusao?.toIso8601String(),
-      };
+    'id': id,
+    'materiaId': materiaId,
+    'nome': nome,
+    'paginasTotais': paginasTotais,
+    'paginasLidas': paginasLidas,
+    'concluida': concluida,
+    'dataConclusao': dataConclusao?.toIso8601String(),
+  };
 
   factory Aula.fromJson(Map<String, dynamic> json) => Aula(
-        id: json['id'] as String,
-        materiaId: json['materiaId'] as String,
-        nome: json['nome'] as String,
-        paginasTotais: (json['paginasTotais'] as num?)?.toInt() ?? 0,
-        paginasLidas: (json['paginasLidas'] as num?)?.toInt() ?? 0,
-        concluida: json['concluida'] as bool? ?? false,
-        dataConclusao: json['dataConclusao'] == null
-            ? null
-            : DateTime.parse(json['dataConclusao'] as String),
-      );
+    id: json['id'] as String,
+    materiaId: json['materiaId'] as String,
+    nome: json['nome'] as String,
+    paginasTotais: (json['paginasTotais'] as num?)?.toInt() ?? 0,
+    paginasLidas: (json['paginasLidas'] as num?)?.toInt() ?? 0,
+    concluida: json['concluida'] as bool? ?? false,
+    dataConclusao: json['dataConclusao'] == null
+        ? null
+        : DateTime.parse(json['dataConclusao'] as String),
+  );
 }

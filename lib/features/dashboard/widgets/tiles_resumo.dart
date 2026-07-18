@@ -44,21 +44,23 @@ class TilesResumo extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(rotulo,
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelMedium
-                          ?.copyWith(color: VizColors.muted)),
+                  Text(
+                    rotulo,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: VizColors.muted),
+                  ),
                   // Troca de valor com fade curto — vida sem exagero.
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 350),
-                    child: Text(valor,
-                        key: ValueKey(valor),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: VizColors.inkPrimary,
-                            fontFeatures: const [
-                              FontFeature.tabularFigures()
-                            ])),
+                    child: Text(
+                      valor,
+                      key: ValueKey(valor),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: VizColors.inkPrimary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
                   ),
                 ],
               ),

@@ -18,7 +18,9 @@ class ChamaAnimada extends StatefulWidget {
 class _ChamaAnimadaState extends State<ChamaAnimada>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 900));
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
 
   @override
   void initState() {
@@ -50,10 +52,15 @@ class _ChamaAnimadaState extends State<ChamaAnimada>
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: Tween(begin: 1.0, end: 0.35).animate(
-          CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
-      child: Icon(Icons.local_fire_department,
-          size: widget.size, color: LuminaColors.chama),
+      opacity: Tween(
+        begin: 1.0,
+        end: 0.35,
+      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
+      child: Icon(
+        Icons.local_fire_department,
+        size: widget.size,
+        color: LuminaColors.chama,
+      ),
     );
   }
 }

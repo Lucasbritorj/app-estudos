@@ -38,6 +38,14 @@ class StatusColors {
   static const bom = Color(0xFF0CA30C);
   static const atencao = Color(0xFFFAB219);
   static const critico = Color(0xFFD03B3B);
+
+  /// Regra Nexus como função única (taxa 0..1) — antes reimplementada em
+  /// mapa, simulados, desempenho e prontidão, com risco de limiar divergir.
+  static Color porTaxa(double taxa) {
+    if (taxa < 0.75) return critico;
+    if (taxa < 0.85) return atencao;
+    return bom;
+  }
 }
 
 /// Elevação Lumina (minerada do banco Asimov, componente glass-pricing):

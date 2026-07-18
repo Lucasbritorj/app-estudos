@@ -16,15 +16,12 @@ class CardMelhorarHoje extends ConsumerWidget {
     final acoes = ref.watch(insightsProvider);
 
     (IconData, Color) visual(TipoInsight tipo) => switch (tipo) {
-          TipoInsight.revisao => (Icons.event_repeat, StatusColors.critico),
-          TipoInsight.desempenho =>
-            (Icons.trending_down, StatusColors.atencao),
-          TipoInsight.streak =>
-            (Icons.local_fire_department, LuminaColors.ouro),
-          TipoInsight.ritmo => (Icons.speed, VizColors.inkSecondary),
-          TipoInsight.positivo =>
-            (Icons.check_circle_outline, StatusColors.bom),
-        };
+      TipoInsight.revisao => (Icons.event_repeat, StatusColors.critico),
+      TipoInsight.desempenho => (Icons.trending_down, StatusColors.atencao),
+      TipoInsight.streak => (Icons.local_fire_department, LuminaColors.ouro),
+      TipoInsight.ritmo => (Icons.speed, VizColors.inkSecondary),
+      TipoInsight.positivo => (Icons.check_circle_outline, StatusColors.bom),
+    };
 
     return Card(
       child: Padding(
@@ -32,35 +29,47 @@ class CardMelhorarHoje extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('O que melhorar hoje',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(color: VizColors.inkSecondary)),
+            Text(
+              'O que melhorar hoje',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: VizColors.inkSecondary),
+            ),
             const SizedBox(height: 8),
             for (final acao in acoes)
               InkWell(
                 onTap: acao.materiaId == null
                     ? null
-                    : () => mostrarFormularioRegistro(context,
-                        materiaInicial: acao.materiaId),
+                    : () => mostrarFormularioRegistro(
+                        context,
+                        materiaInicial: acao.materiaId,
+                      ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(visual(acao.tipo).$1,
-                          size: 16, color: visual(acao.tipo).$2),
+                      Icon(
+                        visual(acao.tipo).$1,
+                        size: 16,
+                        color: visual(acao.tipo).$2,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(acao.mensagem,
-                            style: const TextStyle(
-                                color: VizColors.inkSecondary,
-                                fontSize: 13)),
+                        child: Text(
+                          acao.mensagem,
+                          style: const TextStyle(
+                            color: VizColors.inkSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                       if (acao.materiaId != null)
-                        const Icon(Icons.arrow_forward,
-                            size: 14, color: VizColors.muted),
+                        const Icon(
+                          Icons.arrow_forward,
+                          size: 14,
+                          color: VizColors.muted,
+                        ),
                     ],
                   ),
                 ),

@@ -27,12 +27,13 @@ class Ambiente {
     this.dataProva,
   });
 
-  Ambiente copyWith(
-      {String? nome,
-      int? corSlot,
-      bool? arquivado,
-      DateTime? dataProva,
-      bool limparDataProva = false}) {
+  Ambiente copyWith({
+    String? nome,
+    int? corSlot,
+    bool? arquivado,
+    DateTime? dataProva,
+    bool limparDataProva = false,
+  }) {
     return Ambiente(
       id: id,
       nome: nome ?? this.nome,
@@ -44,22 +45,22 @@ class Ambiente {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'nome': nome,
-        'corSlot': corSlot,
-        'arquivado': arquivado,
-        'criadoEm': criadoEm.toIso8601String(),
-        'dataProva': dataProva?.toIso8601String(),
-      };
+    'id': id,
+    'nome': nome,
+    'corSlot': corSlot,
+    'arquivado': arquivado,
+    'criadoEm': criadoEm.toIso8601String(),
+    'dataProva': dataProva?.toIso8601String(),
+  };
 
   factory Ambiente.fromJson(Map<String, dynamic> json) => Ambiente(
-        id: json['id'] as String,
-        nome: json['nome'] as String,
-        corSlot: (json['corSlot'] as num?)?.toInt() ?? 0,
-        arquivado: json['arquivado'] as bool? ?? false,
-        criadoEm: DateTime.parse(json['criadoEm'] as String),
-        dataProva: json['dataProva'] == null
-            ? null
-            : DateTime.parse(json['dataProva'] as String),
-      );
+    id: json['id'] as String,
+    nome: json['nome'] as String,
+    corSlot: (json['corSlot'] as num?)?.toInt() ?? 0,
+    arquivado: json['arquivado'] as bool? ?? false,
+    criadoEm: DateTime.parse(json['criadoEm'] as String),
+    dataProva: json['dataProva'] == null
+        ? null
+        : DateTime.parse(json['dataProva'] as String),
+  );
 }

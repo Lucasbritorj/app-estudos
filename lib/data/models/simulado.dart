@@ -15,10 +15,10 @@ class ResultadoMateria {
   double? get taxa => questoes <= 0 ? null : acertos / questoes;
 
   Map<String, dynamic> toJson() => {
-        'materiaId': materiaId,
-        'questoes': questoes,
-        'acertos': acertos,
-      };
+    'materiaId': materiaId,
+    'questoes': questoes,
+    'acertos': acertos,
+  };
 
   factory ResultadoMateria.fromJson(Map<String, dynamic> json) =>
       ResultadoMateria(
@@ -59,8 +59,7 @@ class Simulado {
     this.comentario = '',
   });
 
-  int get totalQuestoes =>
-      resultados.fold(0, (soma, r) => soma + r.questoes);
+  int get totalQuestoes => resultados.fold(0, (soma, r) => soma + r.questoes);
   int get totalAcertos => resultados.fold(0, (soma, r) => soma + r.acertos);
   int get totalErros => totalQuestoes - totalAcertos;
   double? get taxaGeral =>
@@ -74,30 +73,31 @@ class Simulado {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'ambienteId': ambienteId,
-        'tipo': tipo.name,
-        'nome': nome,
-        'cargo': cargo,
-        'data': data.toIso8601String(),
-        'tempoMinutos': tempoMinutos,
-        'resultados': resultados.map((r) => r.toJson()).toList(),
-        'comentario': comentario,
-      };
+    'id': id,
+    'ambienteId': ambienteId,
+    'tipo': tipo.name,
+    'nome': nome,
+    'cargo': cargo,
+    'data': data.toIso8601String(),
+    'tempoMinutos': tempoMinutos,
+    'resultados': resultados.map((r) => r.toJson()).toList(),
+    'comentario': comentario,
+  };
 
   factory Simulado.fromJson(Map<String, dynamic> json) => Simulado(
-        id: json['id'] as String,
-        ambienteId: json['ambienteId'] as String? ?? 'geral',
-        tipo: TipoSimulado.values.asNameMap()[json['tipo']] ??
-            TipoSimulado.simulado,
-        nome: json['nome'] as String,
-        cargo: json['cargo'] as String? ?? '',
-        data: DateTime.parse(json['data'] as String),
-        tempoMinutos: (json['tempoMinutos'] as num?)?.toInt(),
-        resultados: (json['resultados'] as List? ?? const [])
-            .map((e) =>
-                ResultadoMateria.fromJson(Map<String, dynamic>.from(e as Map)))
-            .toList(),
-        comentario: json['comentario'] as String? ?? '',
-      );
+    id: json['id'] as String,
+    ambienteId: json['ambienteId'] as String? ?? 'geral',
+    tipo:
+        TipoSimulado.values.asNameMap()[json['tipo']] ?? TipoSimulado.simulado,
+    nome: json['nome'] as String,
+    cargo: json['cargo'] as String? ?? '',
+    data: DateTime.parse(json['data'] as String),
+    tempoMinutos: (json['tempoMinutos'] as num?)?.toInt(),
+    resultados: (json['resultados'] as List? ?? const [])
+        .map(
+          (e) => ResultadoMateria.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
+        .toList(),
+    comentario: json['comentario'] as String? ?? '',
+  );
 }

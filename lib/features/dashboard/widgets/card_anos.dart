@@ -24,43 +24,51 @@ class CardAnos extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Horas acumuladas por ano',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(color: VizColors.inkSecondary)),
+            Text(
+              'Horas acumuladas por ano',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: VizColors.inkSecondary),
+            ),
             const SizedBox(height: 12),
             for (final e in porAno.entries)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
                   children: [
-                    Text('${e.key}',
-                        style:
-                            const TextStyle(color: VizColors.inkSecondary)),
+                    Text(
+                      '${e.key}',
+                      style: const TextStyle(color: VizColors.inkSecondary),
+                    ),
                     const Spacer(),
-                    Text(formatarMinutos(e.value),
-                        style: const TextStyle(color: VizColors.inkPrimary)),
+                    Text(
+                      formatarMinutos(e.value),
+                      style: const TextStyle(color: VizColors.inkPrimary),
+                    ),
                   ],
                 ),
               ),
             const Divider(color: VizColors.gridline),
             Row(
               children: [
-                const Text('Total',
-                    style: TextStyle(color: VizColors.inkSecondary)),
+                const Text(
+                  'Total',
+                  style: TextStyle(color: VizColors.inkSecondary),
+                ),
                 const Spacer(),
-                Text(formatarMinutos(total),
-                    style: const TextStyle(color: VizColors.inkPrimary)),
+                Text(
+                  formatarMinutos(total),
+                  style: const TextStyle(color: VizColors.inkPrimary),
+                ),
               ],
             ),
             if (projecao > (porAno[dados.ano] ?? 0))
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                    'Projeção ${dados.ano} no ritmo atual: ~${formatarMinutos(projecao)}',
-                    style: const TextStyle(
-                        color: VizColors.muted, fontSize: 11)),
+                  'Projeção ${dados.ano} no ritmo atual: ~${formatarMinutos(projecao)}',
+                  style: const TextStyle(color: VizColors.muted, fontSize: 11),
+                ),
               ),
           ],
         ),

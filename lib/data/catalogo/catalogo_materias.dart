@@ -72,8 +72,22 @@ const catalogoMaterias = <MateriaCatalogo>[
 ];
 
 const _palavrasVazias = {
-  'de', 'do', 'da', 'dos', 'das', 'e', 'em', 'no', 'na', 'nos', 'nas',
-  'para', 'ao', 'à', 'a', 'o',
+  'de',
+  'do',
+  'da',
+  'dos',
+  'das',
+  'e',
+  'em',
+  'no',
+  'na',
+  'nos',
+  'nas',
+  'para',
+  'ao',
+  'à',
+  'a',
+  'o',
 };
 
 /// Sigla derivada para matéria FORA do catálogo: iniciais das palavras

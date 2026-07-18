@@ -26,8 +26,7 @@ class CardSimulados extends ConsumerWidget {
     // Repo já ordena por data desc; delta = último vs anterior.
     final ultimos = simulados.take(3).toList();
     final taxaAtual = simulados.first.taxaGeral;
-    final taxaAnterior =
-        simulados.length > 1 ? simulados[1].taxaGeral : null;
+    final taxaAnterior = simulados.length > 1 ? simulados[1].taxaGeral : null;
     final delta = (taxaAtual != null && taxaAnterior != null)
         ? (taxaAtual - taxaAnterior) * 100
         : null;
@@ -46,20 +45,19 @@ class CardSimulados extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Text('Simulados & Provas',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(color: VizColors.inkSecondary)),
+                  Text(
+                    'Simulados & Provas',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: VizColors.inkSecondary,
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   if (delta != null)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          delta >= 0
-                              ? Icons.trending_up
-                              : Icons.trending_down,
+                          delta >= 0 ? Icons.trending_up : Icons.trending_down,
                           size: 16,
                           color: delta >= 0
                               ? StatusColors.bom
@@ -69,24 +67,31 @@ class CardSimulados extends ConsumerWidget {
                         Text(
                           '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(0)} pp',
                           style: TextStyle(
-                              fontSize: 12,
-                              color: delta >= 0
-                                  ? StatusColors.bom
-                                  : StatusColors.critico),
+                            fontSize: 12,
+                            color: delta >= 0
+                                ? StatusColors.bom
+                                : StatusColors.critico,
+                          ),
                         ),
                       ],
                     ),
                   const Spacer(),
-                  const Text('ver todos',
-                      style:
-                          TextStyle(color: VizColors.muted, fontSize: 12)),
-                  const Icon(Icons.arrow_forward,
-                      size: 14, color: VizColors.muted),
+                  const Text(
+                    'ver todos',
+                    style: TextStyle(color: VizColors.muted, fontSize: 12),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward,
+                    size: 14,
+                    color: VizColors.muted,
+                  ),
                 ],
               ),
               const SizedBox(height: 2),
-              const Text('Métricas de prova — não somam no estudo diário',
-                  style: TextStyle(color: VizColors.muted, fontSize: 11)),
+              const Text(
+                'Métricas de prova — não somam no estudo diário',
+                style: TextStyle(color: VizColors.muted, fontSize: 11),
+              ),
               const SizedBox(height: 10),
               for (final s in ultimos)
                 Padding(
@@ -104,12 +109,15 @@ class CardSimulados extends ConsumerWidget {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(s.nome,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: VizColors.inkSecondary,
-                                fontSize: 13)),
+                        child: Text(
+                          s.nome,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: VizColors.inkSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                       Text(
                         '${formatarDiaMes(s.data)} · '
@@ -117,7 +125,9 @@ class CardSimulados extends ConsumerWidget {
                         '${s.taxaGeral == null ? '' : ' · ${(s.taxaGeral! * 100).toStringAsFixed(0)}%'}'
                         '${s.minutosPorQuestao == null ? '' : ' · ${s.minutosPorQuestao!.toStringAsFixed(1)} min/q'}',
                         style: const TextStyle(
-                            color: VizColors.muted, fontSize: 12),
+                          color: VizColors.muted,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),

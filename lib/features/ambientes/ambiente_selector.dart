@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/avatar_cor.dart';
 import '../../core/utils/haptica.dart';
 import '../../data/repositories/ambiente_filtros.dart';
 import '../../data/repositories/configuracoes_repositorio.dart';
@@ -15,8 +16,10 @@ class AmbienteSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ambientes =
-        ref.watch(ambientesProvider).where((a) => !a.arquivado).toList();
+    final ambientes = ref
+        .watch(ambientesProvider)
+        .where((a) => !a.arquivado)
+        .toList();
     final ativo = ref.watch(ambienteAtivoProvider);
 
     return PopupMenuButton<String>(
@@ -40,14 +43,15 @@ class AmbienteSelector extends ConsumerWidget {
       },
       itemBuilder: (_) => [
         const PopupMenuItem(
-            value: '__todos__', child: Text('Todos os ambientes')),
+          value: '__todos__',
+          child: Text('Todos os ambientes'),
+        ),
         for (final a in ambientes)
           PopupMenuItem(
             value: a.id,
             child: Row(
               children: [
-                CircleAvatar(
-                    radius: 6, backgroundColor: corDaSerie(a.corSlot)),
+                AvatarCor(slot: a.corSlot, raio: 6),
                 const SizedBox(width: 8),
                 Text(a.nome),
               ],
@@ -55,7 +59,9 @@ class AmbienteSelector extends ConsumerWidget {
           ),
         const PopupMenuDivider(),
         const PopupMenuItem(
-            value: '__gerenciar__', child: Text('Gerenciar ambientes…')),
+          value: '__gerenciar__',
+          child: Text('Gerenciar ambientes…'),
+        ),
       ],
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -63,8 +69,7 @@ class AmbienteSelector extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (ativo != null) ...[
-              CircleAvatar(
-                  radius: 5, backgroundColor: corDaSerie(ativo.corSlot)),
+              AvatarCor(slot: ativo.corSlot, raio: 5),
               const SizedBox(width: 6),
             ],
             ConstrainedBox(
@@ -74,7 +79,9 @@ class AmbienteSelector extends ConsumerWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                    fontSize: 13, color: VizColors.inkSecondary),
+                  fontSize: 13,
+                  color: VizColors.inkSecondary,
+                ),
               ),
             ),
             const Icon(Icons.expand_more, size: 18, color: VizColors.muted),

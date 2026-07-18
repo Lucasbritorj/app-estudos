@@ -172,16 +172,19 @@ class _Passo extends StatelessWidget {
             passo.titulo,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: VizColors.inkPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: VizColors.inkPrimary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             passo.descricao,
             textAlign: TextAlign.center,
             style: const TextStyle(
-                color: VizColors.inkSecondary, fontSize: 14, height: 1.5),
+              color: VizColors.inkSecondary,
+              fontSize: 14,
+              height: 1.5,
+            ),
           ),
         ],
       ),
@@ -207,9 +210,7 @@ class _Indicadores extends StatelessWidget {
             width: i == ativo ? 22 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color: i == ativo
-                  ? LuminaColors.safiraClara
-                  : VizColors.gridline,
+              color: i == ativo ? LuminaColors.safiraClara : VizColors.gridline,
               borderRadius: BorderRadius.circular(4),
             ),
           ),

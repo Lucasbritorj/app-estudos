@@ -24,4 +24,5 @@ class ConfiguracoesRepositorio extends Notifier<Configuracoes> {
 
 final configuracoesProvider =
     NotifierProvider<ConfiguracoesRepositorio, Configuracoes>(
-        ConfiguracoesRepositorio.new);
+      ConfiguracoesRepositorio.new,
+    );

@@ -26,13 +26,14 @@ class Topico {
     this.prerequisitos = const [],
   });
 
-  Topico copyWith(
-      {String? nome,
-      int? peso,
-      bool? concluido,
-      String? parentId,
-      String? notas,
-      List<String>? prerequisitos}) {
+  Topico copyWith({
+    String? nome,
+    int? peso,
+    bool? concluido,
+    String? parentId,
+    String? notas,
+    List<String>? prerequisitos,
+  }) {
     return Topico(
       id: id,
       materiaId: materiaId,
@@ -46,30 +47,31 @@ class Topico {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'materiaId': materiaId,
-        'parentId': parentId,
-        'nome': nome,
-        'peso': peso,
-        'concluido': concluido,
-        'notas': notas,
-        'prerequisitos': prerequisitos,
-      };
+    'id': id,
+    'materiaId': materiaId,
+    'parentId': parentId,
+    'nome': nome,
+    'peso': peso,
+    'concluido': concluido,
+    'notas': notas,
+    'prerequisitos': prerequisitos,
+  };
 
   factory Topico.fromJson(Map<String, dynamic> json) {
     // Peso >= 1: mesma invariante de Materia — backup não rebaixa.
     final peso = (json['peso'] as num?)?.toInt() ?? 1;
     return Topico(
-        id: json['id'] as String,
-        materiaId: json['materiaId'] as String,
-        parentId: json['parentId'] as String?,
-        nome: json['nome'] as String,
-        peso: peso < 1 ? 1 : peso,
-        concluido: json['concluido'] as bool? ?? false,
-        notas: json['notas'] as String? ?? '',
-        prerequisitos: [
-          for (final id in json['prerequisitos'] as List? ?? const [])
-            id as String,
-        ]);
+      id: json['id'] as String,
+      materiaId: json['materiaId'] as String,
+      parentId: json['parentId'] as String?,
+      nome: json['nome'] as String,
+      peso: peso < 1 ? 1 : peso,
+      concluido: json['concluido'] as bool? ?? false,
+      notas: json['notas'] as String? ?? '',
+      prerequisitos: [
+        for (final id in json['prerequisitos'] as List? ?? const [])
+          id as String,
+      ],
+    );
   }
 }

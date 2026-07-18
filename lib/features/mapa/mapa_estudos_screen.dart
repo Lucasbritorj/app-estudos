@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/avatar_cor.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/notas_editor.dart';
 import '../../data/models/aula.dart';
@@ -17,12 +18,8 @@ import '../../domain/planejamento_service.dart';
 import '../../domain/stats_service.dart';
 import '../registro/registro_form.dart';
 
-Color _corDaTaxa(double? taxa) {
-  if (taxa == null) return VizColors.muted;
-  if (taxa >= 0.85) return StatusColors.bom;
-  if (taxa >= 0.75) return StatusColors.atencao;
-  return StatusColors.critico;
-}
+Color _corDaTaxa(double? taxa) =>
+    taxa == null ? VizColors.muted : StatusColors.porTaxa(taxa);
 
 /// Mapa de Estudos: o edital como árvore expansível, com status por tópico
 /// (não iniciado / em estudo / concluído colorido pela taxa de acerto),
@@ -141,10 +138,7 @@ class _MateriaTile extends ConsumerWidget {
     ].join(' · ');
 
     return ExpansionTile(
-      leading: CircleAvatar(
-        radius: 10,
-        backgroundColor: corDaSerie(materia.corSlot),
-      ),
+      leading: AvatarCor(slot: materia.corSlot),
       title: Row(
         children: [
           Expanded(child: Text(materia.nome)),

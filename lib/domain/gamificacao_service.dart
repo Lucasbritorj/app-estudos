@@ -34,7 +34,9 @@ class GamificacaoService {
   /// XP base ponderado pelo peso da matéria de cada registro. Sem mapa de
   /// pesos (ou matéria desconhecida) degrada para 1 XP/minuto.
   static int xpPonderado(
-      List<RegistroHora> registros, Map<String, int> pesoPorMateria) {
+    List<RegistroHora> registros,
+    Map<String, int> pesoPorMateria,
+  ) {
     var total = 0.0;
     for (final r in registros) {
       total += r.minutos * multiplicadorPeso(pesoPorMateria[r.materiaId] ?? 1);
@@ -46,15 +48,17 @@ class GamificacaoService {
   /// concluída + 10 por dia de streak (dias contados + recuperados pela
   /// regra 24h). Tudo derivado, recalculado a cada leitura.
   static ({int base, int bonusRevisoes, int bonusStreak, int total})
-      xpDetalhado(List<RegistroHora> registros, List<Revisao> revisoes,
-          DateTime hoje,
-          {Map<String, int> pesoPorMateria = const {}}) {
+  xpDetalhado(
+    List<RegistroHora> registros,
+    List<Revisao> revisoes,
+    DateTime hoje, {
+    Map<String, int> pesoPorMateria = const {},
+  }) {
     final base = xpPonderado(registros, pesoPorMateria);
     final bonusRevisoes =
         revisoes.where((r) => r.feita).length * xpPorRevisaoFeita;
     final streak = StatsService.streakDetalhado(registros, hoje);
-    final bonusStreak =
-        (streak.dias + streak.recuperados) * xpPorDiaDeStreak;
+    final bonusStreak = (streak.dias + streak.recuperados) * xpPorDiaDeStreak;
     return (
       base: base,
       bonusRevisoes: bonusRevisoes,
@@ -66,7 +70,8 @@ class GamificacaoService {
   /// Subir do nível n para n+1 custa 600·n XP (10h no primeiro degrau,
   /// crescendo linearmente). Nível mínimo: 1.
   static ({int nivel, int xpNoNivel, int xpParaProximo}) progressoNivel(
-      int xp) {
+    int xp,
+  ) {
     var nivel = 1;
     var resto = xp;
     var custo = 600;
@@ -81,7 +86,10 @@ class GamificacaoService {
   static int nivelPara(int xp) => progressoNivel(xp).nivel;
 
   static List<BadgeStatus> badges(
-      List<RegistroHora> registros, List<Revisao> revisoes, DateTime hoje) {
+    List<RegistroHora> registros,
+    List<Revisao> revisoes,
+    DateTime hoje,
+  ) {
     final totalMinutos = xpTotal(registros);
     // Streak com congelamento: badge não cai por 1 dia protegido.
     final streak = StatsService.streakDetalhado(registros, hoje).dias;

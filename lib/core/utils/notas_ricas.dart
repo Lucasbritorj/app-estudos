@@ -7,8 +7,7 @@ class SegmentoNota {
   final bool negrito;
   final bool destaque;
 
-  const SegmentoNota(this.texto,
-      {this.negrito = false, this.destaque = false});
+  const SegmentoNota(this.texto, {this.negrito = false, this.destaque = false});
 
   @override
   bool operator ==(Object other) =>

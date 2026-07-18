@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/revisao_use_case.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/avatar_cor.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/revisao.dart';
 import '../../data/repositories/ambiente_filtros.dart';
@@ -25,7 +26,8 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
         .toList();
     if (materias.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cadastre uma matéria primeiro.')));
+        const SnackBar(content: Text('Cadastre uma matéria primeiro.')),
+      );
       return;
     }
     final titulo = TextEditingController();
@@ -51,8 +53,7 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
               ),
               TextField(
                 controller: titulo,
-                decoration:
-                    const InputDecoration(labelText: 'O que revisar'),
+                decoration: const InputDecoration(labelText: 'O que revisar'),
               ),
               const SizedBox(height: 8),
               InkWell(
@@ -80,7 +81,9 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
             FilledButton(
               onPressed: () async {
                 if (titulo.text.trim().isEmpty) return;
-                await ref.read(revisaoUseCaseProvider).criarManual(
+                await ref
+                    .read(revisaoUseCaseProvider)
+                    .criarManual(
                       materiaId: materiaId,
                       titulo: titulo.text.trim(),
                       data: data,
@@ -102,11 +105,15 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
     if (proxima == null || !mounted) return;
     final motivo = resultado.reforco
         ? 'Acerto ${(resultado.taxaAcerto! * 100).toStringAsFixed(0)}% '
-            'abaixo de 75% — reforço em ${proxima.intervaloDias}d'
+              'abaixo de 75% — reforço em ${proxima.intervaloDias}d'
         : 'Próxima em ${proxima.intervaloDias}d';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content:
-            Text('Feita. $motivo (${formatarData(proxima.dataAgendada)}).')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Feita. $motivo (${formatarData(proxima.dataAgendada)}).',
+        ),
+      ),
+    );
   }
 
   Future<void> _adiar(Revisao revisao, int dias) =>
@@ -119,8 +126,7 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
     final materias = ref.watch(materiasProvider);
     final materiasPorId = {for (final m in materias) m.id: m};
 
-    final visiveis =
-        revisoes.where((r) => r.feita == _mostrarFeitas).toList();
+    final visiveis = revisoes.where((r) => r.feita == _mostrarFeitas).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Revisões')),
@@ -130,109 +136,120 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
       ),
       body: ConteudoCentral(
         child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('Pendentes')),
-                ButtonSegment(value: true, label: Text('Feitas')),
-              ],
-              selected: {_mostrarFeitas},
-              onSelectionChanged: (s) =>
-                  setState(() => _mostrarFeitas = s.first),
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Pendentes')),
+                  ButtonSegment(value: true, label: Text('Feitas')),
+                ],
+                selected: {_mostrarFeitas},
+                onSelectionChanged: (s) =>
+                    setState(() => _mostrarFeitas = s.first),
+              ),
             ),
-          ),
-          Expanded(
-            child: visiveis.isEmpty
-                ? Center(
-                    child: Text(
+            Expanded(
+              child: visiveis.isEmpty
+                  ? Center(
+                      child: Text(
                         _mostrarFeitas
                             ? 'Nenhuma revisão concluída ainda.'
                             : 'Nada pendente. Salve sessões de estudo para gerar revisões.',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: VizColors.muted)))
-                : ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 88),
-                    itemCount: visiveis.length,
-                    itemBuilder: (context, i) {
-                      final revisao = visiveis[i];
-                      final status = revisao.statusEm(hoje);
-                      final materia = materiasPorId[revisao.materiaId];
-                      final (corStatus, icone, rotulo) = switch (status) {
-                        RevisaoStatus.atrasada => (
+                        style: const TextStyle(color: VizColors.muted),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 88),
+                      itemCount: visiveis.length,
+                      itemBuilder: (context, i) {
+                        final revisao = visiveis[i];
+                        final status = revisao.statusEm(hoje);
+                        final materia = materiasPorId[revisao.materiaId];
+                        final (corStatus, icone, rotulo) = switch (status) {
+                          RevisaoStatus.atrasada => (
                             StatusColors.critico,
                             Icons.error_outline,
-                            'Atrasada'
+                            'Atrasada',
                           ),
-                        RevisaoStatus.aFazer => (
+                          RevisaoStatus.aFazer => (
                             StatusColors.atencao,
                             Icons.schedule,
-                            'A fazer'
+                            'A fazer',
                           ),
-                        RevisaoStatus.feita => (
+                          RevisaoStatus.feita => (
                             StatusColors.bom,
                             Icons.check_circle_outline,
-                            'Feita'
+                            'Feita',
                           ),
-                      };
-                      return ListTile(
-                        leading: CircleAvatar(
-                          radius: 10,
-                          backgroundColor: corDaSerie(materia?.corSlot ?? 0),
-                        ),
-                        title: Text(revisao.titulo,
-                            maxLines: 2, overflow: TextOverflow.ellipsis),
-                        subtitle: Row(
-                          children: [
-                            Icon(icone, size: 14, color: corStatus),
-                            const SizedBox(width: 4),
-                            Text('$rotulo · ${formatarData(revisao.dataAgendada)}',
-                                style: TextStyle(color: corStatus)),
-                          ],
-                        ),
-                        trailing: _mostrarFeitas
-                            ? IconButton(
-                                tooltip: 'Excluir',
-                                icon: const Icon(Icons.delete_outline),
-                                onPressed: () => ref
-                                    .read(revisoesProvider.notifier)
-                                    .remover(revisao.id),
-                              )
-                            : Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  PopupMenuButton<int>(
-                                    tooltip: 'Adiar',
-                                    icon: const Icon(Icons.schedule_send,
-                                        color: VizColors.muted),
-                                    onSelected: (dias) =>
-                                        _adiar(revisao, dias),
-                                    itemBuilder: (_) => const [
-                                      PopupMenuItem(
-                                          value: 1,
-                                          child: Text('Adiar 1 dia')),
-                                      PopupMenuItem(
-                                          value: 3,
-                                          child: Text('Adiar 3 dias')),
-                                      PopupMenuItem(
-                                          value: 7,
-                                          child: Text('Adiar 7 dias')),
-                                    ],
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Concluir',
-                                    icon: const Icon(Icons.check_circle,
-                                        color: StatusColors.bom),
-                                    onPressed: () => _concluir(revisao),
-                                  ),
-                                ],
+                        };
+                        return ListTile(
+                          leading: AvatarCor(slot: materia?.corSlot ?? 0),
+                          title: Text(
+                            revisao.titulo,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Row(
+                            children: [
+                              Icon(icone, size: 14, color: corStatus),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$rotulo · ${formatarData(revisao.dataAgendada)}',
+                                style: TextStyle(color: corStatus),
                               ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                            ],
+                          ),
+                          trailing: _mostrarFeitas
+                              ? IconButton(
+                                  tooltip: 'Excluir',
+                                  icon: const Icon(Icons.delete_outline),
+                                  onPressed: () => ref
+                                      .read(revisoesProvider.notifier)
+                                      .remover(revisao.id),
+                                )
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    PopupMenuButton<int>(
+                                      tooltip: 'Adiar',
+                                      icon: const Icon(
+                                        Icons.schedule_send,
+                                        color: VizColors.muted,
+                                      ),
+                                      onSelected: (dias) =>
+                                          _adiar(revisao, dias),
+                                      itemBuilder: (_) => const [
+                                        PopupMenuItem(
+                                          value: 1,
+                                          child: Text('Adiar 1 dia'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 3,
+                                          child: Text('Adiar 3 dias'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 7,
+                                          child: Text('Adiar 7 dias'),
+                                        ),
+                                      ],
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Concluir',
+                                      icon: const Icon(
+                                        Icons.check_circle,
+                                        color: StatusColors.bom,
+                                      ),
+                                      onPressed: () => _concluir(revisao),
+                                    ),
+                                  ],
+                                ),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
       ),
     );
