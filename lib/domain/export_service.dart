@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:archive/archive.dart';
 
 import '../data/models/ambiente.dart';
 import '../data/models/aula.dart';
@@ -84,6 +87,144 @@ class ExportService {
       buffer.write('\r\n');
     }
     return buffer.toString();
+  }
+
+  /// Modelo estrela para BI (Power BI/DAX): 1 tabela fato no grão sessão
+  /// (só chaves e medidas) + dimensões normalizadas. Nome de arquivo →
+  /// conteúdo CSV (separador ',', decimal ponto, datas ISO, snake_case).
+  /// A dim_data cobre do primeiro ao último registro — relacionamento
+  /// 1:* pronto, sem CALENDARAUTO.
+  static Map<String, String> modeloEstrela({
+    required List<RegistroHora> registros,
+    required List<Materia> materias,
+    required List<Topico> topicos,
+    required List<Ambiente> ambientes,
+  }) {
+    final fato = StringBuffer(
+      'registro_id,data,materia_id,topico_id,aula_id,tipo,minutos,horas,'
+      'paginas_lidas,questoes,acertos,erros,taxa_acerto\r\n',
+    );
+    final ordenados = [...registros]..sort((a, b) => a.data.compareTo(b.data));
+    for (final r in ordenados) {
+      final erros = (r.questoes != null && r.acertos != null)
+          ? r.questoes! - r.acertos!
+          : null;
+      fato.write(
+        [
+          r.id,
+          _iso(r.data),
+          r.materiaId,
+          r.topicoId ?? '',
+          r.aulaId ?? '',
+          r.tipo.name,
+          '${r.minutos}',
+          (r.minutos / 60.0).toStringAsFixed(4),
+          r.paginasLidas?.toString() ?? '',
+          r.questoes?.toString() ?? '',
+          r.acertos?.toString() ?? '',
+          erros?.toString() ?? '',
+          r.taxaAcerto?.toStringAsFixed(4) ?? '',
+        ].join(','),
+      );
+      fato.write('\r\n');
+    }
+
+    final dimMateria = StringBuffer(
+      'materia_id,nome,ambiente_id,peso,intimidade,questoes_prova,minimo,'
+      'arquivada\r\n',
+    );
+    for (final m in materias) {
+      dimMateria.write(
+        [
+          m.id,
+          _campoBi(m.nome),
+          m.ambienteId,
+          '${m.peso}',
+          '${m.intimidade}',
+          m.questoes?.toString() ?? '',
+          m.minimo?.toString() ?? '',
+          '${m.arquivada}',
+        ].join(','),
+      );
+      dimMateria.write('\r\n');
+    }
+
+    final dimTopico = StringBuffer('topico_id,materia_id,nome,concluido\r\n');
+    for (final t in topicos) {
+      dimTopico.write(
+        [t.id, t.materiaId, _campoBi(t.nome), '${t.concluido}'].join(','),
+      );
+      dimTopico.write('\r\n');
+    }
+
+    final dimAmbiente = StringBuffer('ambiente_id,nome,data_prova\r\n');
+    for (final a in ambientes) {
+      dimAmbiente.write(
+        [
+          a.id,
+          _campoBi(a.nome),
+          a.dataProva == null ? '' : _iso(a.dataProva!),
+        ].join(','),
+      );
+      dimAmbiente.write('\r\n');
+    }
+
+    final dimData = StringBuffer(
+      'data,ano,mes,nome_mes,dia,dia_semana,nome_dia_semana,semana_inicio,'
+      'trimestre,eh_fim_de_semana\r\n',
+    );
+    if (ordenados.isNotEmpty) {
+      const nomesMes = [
+        'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', //
+        'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+      ];
+      const nomesDia = [
+        'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', //
+        'domingo',
+      ];
+      final primeiro = StatsService.dataSemHora(ordenados.first.data);
+      final ultimo = StatsService.dataSemHora(ordenados.last.data);
+      for (
+        var d = primeiro;
+        !d.isAfter(ultimo);
+        d = DateTime(d.year, d.month, d.day + 1)
+      ) {
+        dimData.write(
+          [
+            _iso(d),
+            '${d.year}',
+            '${d.month}',
+            nomesMes[d.month - 1],
+            '${d.day}',
+            '${d.weekday}',
+            nomesDia[d.weekday - 1],
+            _iso(StatsService.inicioDaSemana(d)),
+            '${(d.month - 1) ~/ 3 + 1}',
+            '${d.weekday >= 6}',
+          ].join(','),
+        );
+        dimData.write('\r\n');
+      }
+    }
+
+    return {
+      'fato_registros.csv': fato.toString(),
+      'dim_materia.csv': dimMateria.toString(),
+      'dim_topico.csv': dimTopico.toString(),
+      'dim_ambiente.csv': dimAmbiente.toString(),
+      'dim_data.csv': dimData.toString(),
+    };
+  }
+
+  /// Zipa o modelo estrela (1 arquivo por tabela) para compartilhar de uma
+  /// vez — o pacote archive já é dependência (leitor .xlsx).
+  static Uint8List zipModeloEstrela(Map<String, String> tabelas) {
+    final archive = Archive();
+    for (final e in tabelas.entries) {
+      final bytes = utf8.encode(e.value);
+      archive.addFile(ArchiveFile(e.key, bytes.length, bytes));
+    }
+    return Uint8List.fromList(ZipEncoder().encode(archive));
   }
 
   static String _iso(DateTime d) =>

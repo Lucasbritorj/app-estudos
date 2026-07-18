@@ -154,6 +154,30 @@ class ExportarScreen extends ConsumerWidget {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.schema_outlined),
+              title: const Text('ZIP — modelo estrela (Power BI)'),
+              subtitle: const Text(
+                'Tabela fato + dimensões (matéria, tópico, ambiente, '
+                'calendário) prontas p/ relacionamento e DAX',
+              ),
+              onTap: () {
+                final zip = ExportService.zipModeloEstrela(
+                  ExportService.modeloEstrela(
+                    registros: ref.read(registrosProvider),
+                    materias: ref.read(materiasProvider),
+                    topicos: ref.read(topicosProvider),
+                    ambientes: ref.read(ambientesProvider),
+                  ),
+                );
+                _compartilharBytes(
+                  context,
+                  zip,
+                  'estudos_modelo_estrela_$_carimbo.zip',
+                  'application/zip',
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.data_object),
               title: const Text('JSON — backup completo'),
               subtitle: const Text(
