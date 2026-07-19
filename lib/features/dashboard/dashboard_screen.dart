@@ -49,11 +49,17 @@ class DashboardScreen extends ConsumerWidget {
       body: vazio
           ? const _EstadoVazio()
           : ConteudoCentral(
-              maxWidth: 1280,
+              // 1560 abre espaço para o modo 3 colunas em monitor largo;
+              // até 1359 de conteúdo o layout segue em 2 colunas.
+              maxWidth: 1560,
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  // Tela larga: cards em 2 colunas — usa o monitor em vez
-                  // de empilhar tudo numa coluna com sobra dos lados.
+                  // Descompressão por hierarquia: topo fixo (missão, hero,
+                  // avisos) e três grupos por prioridade — ação de hoje,
+                  // progresso/gráficos, contexto longitudinal. A largura
+                  // decide 1, 2 ou 3 colunas; no mobile a ordem de rolagem
+                  // segue a mesma prioridade.
+                  final tresColunas = constraints.maxWidth >= 1360;
                   final duasColunas = constraints.maxWidth >= 980;
                   final topo = <Widget>[
                     Padding(
@@ -77,62 +83,64 @@ class DashboardScreen extends ConsumerWidget {
                     const CardMelhorarHoje(),
                     const SizedBox(height: 10),
                   ];
-                  final colunaA = <Widget>[
-                    const CardRankings(),
-                    const SizedBox(height: 10),
+                  final acao = _comEspaco([
+                    const CardQuests(),
                     const CardPlano(),
-                    const SizedBox(height: 10),
                     const CardDesempenho(),
-                    const SizedBox(height: 10),
+                  ]);
+                  final progresso = _comEspaco([
                     const CardGrafico(
                       titulo: 'Horas da semana por matéria',
                       child: BarrasSemana(),
                     ),
-                    const SizedBox(height: 10),
-                    const TilesResumo(),
-                    const SizedBox(height: 10),
-                  ];
-                  final colunaB = <Widget>[
-                    if (ambienteAtivo == null) ...[
-                      const CardAmbientes(),
-                      const SizedBox(height: 10),
-                    ],
-                    const CardQuests(),
-                    const SizedBox(height: 10),
                     const CardHeatmapConstancia(),
-                    const SizedBox(height: 10),
-                    const CardSimulados(),
-                    const SizedBox(height: 10),
                     const CardGrafico(
                       titulo: 'Evolução — últimos 14 dias',
                       child: LinhaEvolucao(),
                     ),
-                    const SizedBox(height: 10),
                     const CardGrafico(
                       titulo: 'Distribuição total por matéria',
                       child: DonutDistribuicao(),
                     ),
-                    const SizedBox(height: 10),
+                  ]);
+                  final contexto = _comEspaco([
+                    if (ambienteAtivo == null) const CardAmbientes(),
+                    const CardRankings(),
+                    const CardSimulados(),
                     const CardGamificacao(),
-                    const SizedBox(height: 10),
                     const CardAnos(),
-                  ];
+                    const TilesResumo(),
+                  ]);
                   return ListView(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 88),
                     children: [
                       ...topo,
-                      if (duasColunas)
+                      if (tresColunas)
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(child: Column(children: colunaA)),
+                            Expanded(child: Column(children: acao)),
                             const SizedBox(width: 10),
-                            Expanded(child: Column(children: colunaB)),
+                            Expanded(child: Column(children: progresso)),
+                            const SizedBox(width: 10),
+                            Expanded(child: Column(children: contexto)),
+                          ],
+                        )
+                      else if (duasColunas)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(children: [...acao, ...progresso]),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(child: Column(children: contexto)),
                           ],
                         )
                       else ...[
-                        ...colunaA,
-                        ...colunaB,
+                        ...acao,
+                        ...progresso,
+                        ...contexto,
                       ],
                     ],
                   );
@@ -142,6 +150,15 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 }
+
+/// Intercala o espaçador padrão do dashboard entre os cards do grupo —
+/// ponto único do vão de 10px (antes repetido à mão a cada card).
+List<Widget> _comEspaco(List<Widget> cards) => [
+  for (var i = 0; i < cards.length; i++) ...[
+    if (i > 0) const SizedBox(height: 10),
+    cards[i],
+  ],
+];
 
 /// Frase do dia: 366 frases em frases_do_dia.dart, indexadas pelo
 /// dia-do-ano — cada dia do ano tem a SUA frase, sem repetir no ano.
