@@ -27,12 +27,7 @@ class CardDesempenho extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Text(
-                  'Desempenho em questões',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: VizColors.inkSecondary,
-                  ),
-                ),
+                Text('Desempenho em questões', style: LuminaText.cardTitle),
                 const Spacer(),
                 if (geral != null)
                   Text(

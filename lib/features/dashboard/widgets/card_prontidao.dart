@@ -22,6 +22,8 @@ class CardProntidao extends ConsumerWidget {
     final minutosSemanais = dados.minutosSemanais;
     final prontidaoHoje = dados.prontidaoHoje;
     final prontidaoProva = dados.prontidaoProva;
+    final ajustada = dados.prontidaoAjustada;
+    final cobertura = dados.coberturaConfiavel;
     final emRisco = dados.emRisco;
     final semMedicao = dados.semMedicao;
 
@@ -29,7 +31,7 @@ class CardProntidao extends ConsumerWidget {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -38,9 +40,7 @@ class CardProntidao extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     'Prontidão para a prova',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: VizColors.inkSecondary,
-                    ),
+                    style: LuminaText.cardTitle,
                   ),
                 ),
                 Text(
@@ -60,28 +60,40 @@ class CardProntidao extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: Spacing.md),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 _Percentual(
                   rotulo: 'Hoje',
                   valor: prontidaoHoje,
-                  cor: VizColors.inkPrimary,
+                  cor: VizColors.inkSecondary,
+                  tamanho: 20,
                 ),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  padding: EdgeInsets.symmetric(horizontal: Spacing.md),
                   child: Icon(
                     Icons.arrow_forward,
                     size: 16,
                     color: VizColors.muted,
                   ),
                 ),
+                // Âncora: a projeção AJUSTADA ao risco é o número grande.
                 _Percentual(
-                  rotulo: 'Na prova (ritmo atual)',
-                  valor: prontidaoProva,
+                  rotulo: 'Na prova (ajustada)',
+                  valor: ajustada,
                   cor: corProjecao,
+                  tamanho: 34,
                 ),
               ],
+            ),
+            const SizedBox(height: Spacing.sm),
+            // Faixa de confiança: quanto da projeção é evidência vs palpite,
+            // e a diferença entre a média crua e a ajustada ao risco.
+            _FaixaConfianca(
+              projecaoCrua: prontidaoProva,
+              ajustada: ajustada,
+              cobertura: cobertura,
             ),
             if (minutosSemanais <= 0) ...[
               const SizedBox(height: 8),
@@ -127,30 +139,88 @@ class _Percentual extends StatelessWidget {
   final String rotulo;
   final double valor;
   final Color cor;
+  final double tamanho;
 
   const _Percentual({
     required this.rotulo,
     required this.valor,
     required this.cor,
+    this.tamanho = 22,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           '${(valor * 100).toStringAsFixed(0)}%',
-          style: TextStyle(
-            color: cor,
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-          ),
+          style: LuminaText.numeroHero.copyWith(color: cor, fontSize: tamanho),
         ),
         Text(
           rotulo,
           style: const TextStyle(color: VizColors.muted, fontSize: 11),
         ),
+      ],
+    );
+  }
+}
+
+/// Faixa de confiança da prontidão: % do peso do edital com evidência (Elo
+/// confiável) e o "desconto de risco" entre a projeção crua e a ajustada
+/// por dispersão — o que o número único escondia.
+class _FaixaConfianca extends StatelessWidget {
+  final double projecaoCrua;
+  final double ajustada;
+  final double cobertura;
+
+  const _FaixaConfianca({
+    required this.projecaoCrua,
+    required this.ajustada,
+    required this.cobertura,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final descontoPct = ((projecaoCrua - ajustada) * 100).round();
+    final coberturaPct = (cobertura * 100).round();
+    return Wrap(
+      spacing: Spacing.md,
+      runSpacing: Spacing.xs,
+      children: [
+        _Chip(
+          icone: Icons.verified_outlined,
+          texto: '$coberturaPct% do peso com evidência',
+          cor: cobertura >= 0.5 ? StatusColors.bom : StatusColors.atencao,
+        ),
+        if (descontoPct > 0)
+          _Chip(
+            icone: Icons.balance,
+            texto: 'crua ${(projecaoCrua * 100).toStringAsFixed(0)}% · '
+                '−$descontoPct% de risco (dispersão)',
+            cor: VizColors.muted,
+          ),
+      ],
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final IconData icone;
+  final String texto;
+  final Color cor;
+
+  const _Chip({required this.icone, required this.texto, required this.cor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icone, size: 13, color: cor),
+        const SizedBox(width: 4),
+        Text(texto, style: TextStyle(color: cor, fontSize: 11)),
       ],
     );
   }

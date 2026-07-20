@@ -22,13 +22,8 @@ class CardGrafico extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              titulo,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: VizColors.inkSecondary),
-            ),
-            const SizedBox(height: 16),
+            Text(titulo, style: LuminaText.cardTitle),
+            const SizedBox(height: Spacing.lg),
             child,
           ],
         ),
@@ -88,7 +83,7 @@ class BarrasSemana extends ConsumerWidget {
               drawVerticalLine: false,
               horizontalInterval: (maxMinutos / 3).clamp(15, double.infinity),
               getDrawingHorizontalLine: (_) =>
-                  const FlLine(color: VizColors.gridline, strokeWidth: 1),
+                  const FlLine(color: VizColors.baseline, strokeWidth: 1),
             ),
             borderData: FlBorderData(show: false),
             titlesData: FlTitlesData(
@@ -188,7 +183,7 @@ class LinhaEvolucao extends ConsumerWidget {
               drawVerticalLine: false,
               horizontalInterval: (tetoY / 3).clamp(0.5, double.infinity),
               getDrawingHorizontalLine: (_) =>
-                  const FlLine(color: VizColors.gridline, strokeWidth: 1),
+                  const FlLine(color: VizColors.baseline, strokeWidth: 1),
             ),
             borderData: FlBorderData(show: false),
             titlesData: FlTitlesData(
@@ -234,17 +229,46 @@ class LinhaEvolucao extends ConsumerWidget {
                 ),
               ),
             ),
-            lineTouchData: const LineTouchData(enabled: true),
+            lineTouchData: LineTouchData(
+              touchTooltipData: LineTouchTooltipData(
+                getTooltipColor: (_) => VizColors.surface,
+                tooltipBorder: const BorderSide(color: VizColors.bordaSutil),
+                getTooltipItems: (spots) => [
+                  for (final s in spots)
+                    LineTooltipItem(
+                      '${s.y.toStringAsFixed(1)}h',
+                      const TextStyle(
+                        color: VizColors.inkPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                ],
+              ),
+            ),
             lineBarsData: [
               LineChartBarData(
                 spots: [
                   for (var i = 0; i < serie.length; i++)
                     FlSpot(i.toDouble(), horas[i]),
                 ],
-                color: seriesColors[0],
+                color: LuminaColors.safiraClara,
                 barWidth: 2,
                 isCurved: false,
                 dotData: const FlDotData(show: false),
+                // Área com gradiente safira→transparente: reforça a leitura
+                // de magnitude acumulada sob a linha.
+                belowBarData: BarAreaData(
+                  show: true,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      LuminaColors.safiraClara.withValues(alpha: 0.28),
+                      LuminaColors.safiraClara.withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),

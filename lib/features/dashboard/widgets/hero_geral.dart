@@ -8,220 +8,224 @@ import '../../registro/registro_form.dart';
 import '../dashboard_providers.dart';
 import 'chama_streak.dart';
 
-/// "Geralzão": o dia inteiro de relance no topo — números, meta da semana
-/// e atalhos. Tudo clicável (navega pelas abas via abaProvider).
+/// "Geralzão": a faixa de KPIs do topo — o dia inteiro de relance, em números
+/// grandes na voz tipográfica de marca (Display tabular). Cada tile é
+/// clicável e navega pela aba correspondente.
 class HeroGeral extends ConsumerWidget {
   const HeroGeral({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final resumo = ref.watch(resumoGeralProvider);
-    final minutosHoje = resumo.minutosHoje;
-    final minutosSemana = resumo.minutosSemana;
-    final streak = resumo.streak;
-    final total = resumo.total;
-    final metaSemana = resumo.metaSemana;
     final progressoMeta = resumo.progressoMeta;
-    final pendentes = resumo.pendentes;
-    final atrasadas = resumo.atrasadas;
 
     void irPara(int aba) => ref.read(abaProvider.notifier).ir(aba);
 
-    final corRevisoes = atrasadas > 0
+    final corRevisoes = resumo.atrasadas > 0
         ? StatusColors.critico
-        : (pendentes > 0 ? StatusColors.atencao : StatusColors.bom);
+        : (resumo.pendentes > 0 ? StatusColors.atencao : StatusColors.bom);
 
-    // Tile tintado (pastel adaptado ao escuro): cor identifica a métrica,
-    // texto continua branco por contraste.
-    Widget stat(
-      String rotulo,
-      String valor,
-      Color tinta, {
-      Widget? icone,
-      VoidCallback? onTap,
-    }) {
-      return Material(
-        color: tinta.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: tinta.withValues(alpha: 0.28)),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (icone != null) ...[icone, const SizedBox(width: 4)],
-                    Text(
-                      rotulo,
-                      style: const TextStyle(
-                        color: VizColors.muted,
-                        fontSize: 11,
-                      ),
-                    ),
-                    if (onTap != null) ...[
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.arrow_outward,
-                        size: 11,
-                        color: VizColors.muted,
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                // Troca de valor com fade curto — vida sem exagero.
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 350),
-                  child: Text(
-                    valor,
-                    key: ValueKey(valor),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: VizColors.inkPrimary,
-                      fontWeight: FontWeight.w600,
-                      // Dígitos de largura fixa: valor troca sem o tile
-                      // "dançar" de largura.
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    final tiles = <Widget>[
+      _Kpi(
+        rotulo: 'Hoje',
+        valor: formatarMinutos(resumo.minutosHoje),
+        tinta: LuminaColors.safiraClara,
+        onTap: () => irPara(Abas.cronometro),
+      ),
+      _Kpi(
+        rotulo: 'Semana',
+        valor: formatarMinutos(resumo.minutosSemana),
+        tinta: seriesColors[1],
+        onTap: () => irPara(Abas.cronometro),
+      ),
+      _Kpi(
+        rotulo: resumo.streakEmRisco
+            ? 'Streak · estude hoje'
+            : (resumo.streakCongelados > 0
+                  ? 'Streak · ${resumo.streakCongelados} protegido'
+                        '${resumo.streakCongelados == 1 ? '' : 's'}'
+                  : 'Streak'),
+        valor: '${resumo.streak}',
+        sufixo: resumo.streak == 1 ? 'dia' : 'dias',
+        tinta: LuminaColors.chama,
+        icone: ChamaAnimada(emRisco: resumo.streakEmRisco),
+      ),
+      _Kpi(
+        rotulo: 'Total',
+        valor: formatarMinutos(resumo.total),
+        tinta: seriesColors[4],
+      ),
+      _Kpi(
+        rotulo: 'Revisões',
+        valor: resumo.pendentes == 0 ? 'em dia' : '${resumo.pendentes}',
+        sufixo: resumo.pendentes > 0 && resumo.atrasadas > 0
+            ? '${resumo.atrasadas} atrasadas'
+            : null,
+        tinta: corRevisoes,
+        icone: Icon(Icons.event_repeat, size: 13, color: corRevisoes),
+        onTap: () => irPara(Abas.revisoes),
+      ),
+      _Kpi(
+        rotulo: 'Matérias',
+        valor: '${resumo.qtdMaterias}',
+        tinta: seriesColors[6],
+        onTap: () => irPara(Abas.materias),
+      ),
+    ];
 
-    // Sombra em camadas só no hero: é a superfície principal da tela e a
-    // única que "flutua" — nos demais cards viraria ruído.
+    // Sombra em camadas só no hero: é a superfície principal e a única que
+    // "flutua" — nos demais cards viraria ruído.
     return DecoratedBox(
       decoration: const BoxDecoration(
-        borderRadius: BorderRadius.all(Radius.circular(14)),
+        borderRadius: BorderRadius.all(Radius.circular(Radii.lg)),
         boxShadow: LuminaElevation.cardEmCamadas,
       ),
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+          padding: const EdgeInsets.all(Spacing.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              LayoutBuilder(
+                builder: (context, c) {
+                  // Grade fluida de KPIs: largura mínima por tile, quebra
+                  // sozinha — sem "dança" de largura (números tabulares).
+                  final cols = (c.maxWidth / 150).floor().clamp(2, 6);
+                  final larguraTile =
+                      (c.maxWidth - (cols - 1) * Spacing.sm) / cols;
+                  return Wrap(
+                    spacing: Spacing.sm,
+                    runSpacing: Spacing.sm,
+                    children: [
+                      for (final t in tiles)
+                        SizedBox(width: larguraTile, child: t),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: Spacing.lg),
+              _BarraMeta(
+                progresso: progressoMeta,
+                minutosSemana: resumo.minutosSemana,
+                metaSemana: resumo.metaSemana,
+              ),
+              const SizedBox(height: Spacing.md),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: Spacing.sm,
                 children: [
-                  stat(
-                    'Hoje',
-                    formatarMinutos(minutosHoje),
-                    LuminaColors.safiraClara,
-                    onTap: () => irPara(Abas.cronometro),
+                  ActionChip(
+                    avatar: const Icon(Icons.add, size: 16),
+                    label: const Text('Registrar sessão'),
+                    onPressed: () => mostrarFormularioRegistro(context),
                   ),
-                  stat(
-                    'Semana',
-                    formatarMinutos(minutosSemana),
-                    seriesColors[1],
-                    onTap: () => irPara(Abas.cronometro),
-                  ),
-                  stat(
-                    // Em risco fala primeiro; congelamento informa depois.
-                    resumo.streakEmRisco
-                        ? 'Streak — estude hoje'
-                        : (resumo.streakCongelados > 0
-                              ? 'Streak · ${resumo.streakCongelados} '
-                                    'protegido${resumo.streakCongelados == 1 ? '' : 's'}'
-                              : 'Streak'),
-                    '$streak ${streak == 1 ? 'dia' : 'dias'}',
-                    LuminaColors.chama,
-                    icone: ChamaAnimada(emRisco: resumo.streakEmRisco),
-                  ),
-                  stat('Total', formatarMinutos(total), seriesColors[4]),
-                  stat(
-                    'Revisões',
-                    pendentes == 0
-                        ? 'em dia'
-                        : '$pendentes${atrasadas > 0 ? ' ($atrasadas atrasadas)' : ''}',
-                    corRevisoes,
-                    icone: Icon(
-                      Icons.event_repeat,
-                      size: 13,
-                      color: corRevisoes,
-                    ),
-                    onTap: () => irPara(Abas.revisoes),
-                  ),
-                  stat(
-                    'Matérias',
-                    '${resumo.qtdMaterias}',
-                    seriesColors[6],
-                    onTap: () => irPara(Abas.materias),
+                  ActionChip(
+                    avatar: const Icon(Icons.timer_outlined, size: 16),
+                    label: const Text('Cronômetro'),
+                    onPressed: () => irPara(Abas.cronometro),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Meta batida = barra dourada com glow (celebração sutil,
-                    // mesmo canal do streak/XP).
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        boxShadow: progressoMeta >= 1.0
-                            ? LuminaElevation.glow(
-                                LuminaColors.ouro,
-                                alpha: 0.30,
-                              )
-                            : null,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progressoMeta,
-                          minHeight: 8,
-                          backgroundColor: VizColors.gridline,
-                          color: progressoMeta >= 1.0
-                              ? LuminaColors.ouro
-                              : LuminaColors.safiraClara,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Meta da semana: ${formatarMinutos(minutosSemana)} de '
-                      '${formatarMinutos(metaSemana)} '
-                      '(${(progressoMeta * 100).toStringAsFixed(0)}%)',
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tile de KPI: rótulo pequeno + número grande na fonte Display tabular.
+/// Cor identifica a métrica; o número fica branco por contraste.
+class _Kpi extends StatelessWidget {
+  final String rotulo;
+  final String valor;
+  final String? sufixo;
+  final Color tinta;
+  final Widget? icone;
+  final VoidCallback? onTap;
+
+  const _Kpi({
+    required this.rotulo,
+    required this.valor,
+    required this.tinta,
+    this.sufixo,
+    this.icone,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: tinta.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(Radii.md),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Radii.md),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(Radii.md),
+            border: Border.all(color: tinta.withValues(alpha: 0.28)),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.sm + 2,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icone != null) ...[icone!, const SizedBox(width: 4)],
+                  Flexible(
+                    child: Text(
+                      rotulo,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: VizColors.muted,
                         fontSize: 11,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  if (onTap != null)
+                    const Icon(
+                      Icons.arrow_outward,
+                      size: 11,
+                      color: VizColors.muted,
+                    ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Wrap(
-                  spacing: 8,
+              const SizedBox(height: Spacing.xs),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                child: Row(
+                  key: ValueKey('$valor$sufixo'),
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    ActionChip(
-                      avatar: const Icon(Icons.add, size: 16),
-                      label: const Text('Registrar sessão'),
-                      onPressed: () => mostrarFormularioRegistro(context),
+                    Flexible(
+                      child: Text(
+                        valor,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: LuminaText.numeroHero.copyWith(
+                          fontSize: 24,
+                          color: VizColors.inkPrimary,
+                        ),
+                      ),
                     ),
-                    ActionChip(
-                      avatar: const Icon(Icons.timer_outlined, size: 16),
-                      label: const Text('Cronômetro'),
-                      onPressed: () => irPara(Abas.cronometro),
-                    ),
+                    if (sufixo != null) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        sufixo!,
+                        style: const TextStyle(
+                          color: VizColors.muted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -229,6 +233,54 @@ class HeroGeral extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Barra de progresso da meta semanal — dourada com glow quando batida
+/// (mesmo canal de celebração do streak/XP).
+class _BarraMeta extends StatelessWidget {
+  final double progresso;
+  final int minutosSemana;
+  final int metaSemana;
+
+  const _BarraMeta({
+    required this.progresso,
+    required this.minutosSemana,
+    required this.metaSemana,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final batida = progresso >= 1.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(Radii.sm),
+            boxShadow: batida
+                ? LuminaElevation.glow(LuminaColors.ouro, alpha: 0.30)
+                : null,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(Radii.sm),
+            child: LinearProgressIndicator(
+              value: progresso,
+              minHeight: 8,
+              backgroundColor: VizColors.gridline,
+              color: batida ? LuminaColors.ouro : LuminaColors.safiraClara,
+            ),
+          ),
+        ),
+        const SizedBox(height: Spacing.xs),
+        Text(
+          'Meta da semana: ${formatarMinutos(minutosSemana)} de '
+          '${formatarMinutos(metaSemana)} '
+          '(${(progresso * 100).toStringAsFixed(0)}%)',
+          style: const TextStyle(color: VizColors.muted, fontSize: 11),
+        ),
+      ],
     );
   }
 }

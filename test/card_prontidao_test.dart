@@ -68,7 +68,9 @@ void main() {
 
     expect(find.text('Prontidão para a prova'), findsOneWidget);
     expect(find.text('Hoje'), findsOneWidget);
-    expect(find.text('Na prova (ritmo atual)'), findsOneWidget);
+    expect(find.text('Na prova (ajustada)'), findsOneWidget);
+    // Faixa de confiança nova: % do peso com evidência.
+    expect(find.textContaining('do peso com evidência'), findsOneWidget);
     expect(find.textContaining('faltam'), findsOneWidget);
     // Sem questões registradas: matéria entra na chamada de calibração.
     expect(find.textContaining('registre 10+'), findsOneWidget);

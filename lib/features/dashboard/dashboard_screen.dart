@@ -17,7 +17,9 @@ import 'widgets/card_melhorar_hoje.dart';
 import 'widgets/card_plano.dart';
 import 'widgets/card_prontidao.dart';
 import 'widgets/card_quests.dart';
+import 'widgets/card_forecast_revisao.dart';
 import 'widgets/card_rankings.dart';
+import 'widgets/card_true_retention.dart';
 import 'widgets/heatmap_constancia.dart';
 import 'widgets/card_simulados.dart';
 import 'widgets/graficos.dart';
@@ -61,9 +63,23 @@ class DashboardScreen extends ConsumerWidget {
                   // segue a mesma prioridade.
                   final tresColunas = constraints.maxWidth >= 1360;
                   final duasColunas = constraints.maxWidth >= 980;
+
+                  // Visibilidade dos cards que se auto-escondem — decidida
+                  // AQUI (via providers) para não deixar "gaps fantasma" nas
+                  // colunas quando um card vira SizedBox.shrink.
+                  final temQuests =
+                      ref.watch(questsDoDiaProvider).isNotEmpty;
+                  final temDesempenho =
+                      ref.watch(desempenhoPorMateriaProvider).isNotEmpty;
+                  final temRetencao =
+                      ref.watch(trueRetentionProvider).geral != null;
+                  final temForecast = ref
+                      .watch(forecastRevisaoProvider)
+                      .any((d) => d.quantidade > 0);
+
                   final topo = <Widget>[
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.only(bottom: Spacing.md),
                       child: Text(
                         _mensagemDoDia(hoje),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -75,73 +91,76 @@ class DashboardScreen extends ConsumerWidget {
                     // Próximo passo primeiro: a missão responde "o que
                     // estudar agora" antes de qualquer estatística.
                     const HeroMissaoHoje(),
-                    // Geralzão: tudo de relance, clicável, sem rolar.
+                    const SizedBox(height: Spacing.md),
+                    // Geralzão: faixa de KPIs, tudo de relance e clicável.
                     const HeroGeral(),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: Spacing.md),
                     const CardProntidao(),
                     const CardAlertas(),
                     const CardMelhorarHoje(),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: Spacing.md),
                   ];
-                  final acao = _comEspaco([
-                    const CardQuests(),
+                  final acao = <Widget>[
+                    if (temQuests) const CardQuests(),
                     const CardPlano(),
-                    const CardDesempenho(),
-                  ]);
-                  final progresso = _comEspaco([
+                    if (temDesempenho) const CardDesempenho(),
+                  ];
+                  final progresso = <Widget>[
                     const CardGrafico(
                       titulo: 'Horas da semana por matéria',
                       child: BarrasSemana(),
                     ),
                     const CardHeatmapConstancia(),
+                    if (temForecast) const CardForecastRevisao(),
                     const CardGrafico(
                       titulo: 'Evolução — últimos 14 dias',
                       child: LinhaEvolucao(),
                     ),
+                    if (temRetencao) const CardTrueRetention(),
                     const CardGrafico(
                       titulo: 'Distribuição total por matéria',
                       child: DonutDistribuicao(),
                     ),
-                  ]);
-                  final contexto = _comEspaco([
+                  ];
+                  final contexto = <Widget>[
                     if (ambienteAtivo == null) const CardAmbientes(),
                     const CardRankings(),
                     const CardSimulados(),
                     const CardGamificacao(),
                     const CardAnos(),
                     const TilesResumo(),
-                  ]);
+                  ];
                   return ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 88),
+                    padding: const EdgeInsets.fromLTRB(
+                      Spacing.lg,
+                      Spacing.xs,
+                      Spacing.lg,
+                      88,
+                    ),
                     children: [
                       ...topo,
                       if (tresColunas)
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(child: Column(children: acao)),
-                            const SizedBox(width: 10),
-                            Expanded(child: Column(children: progresso)),
-                            const SizedBox(width: 10),
-                            Expanded(child: Column(children: contexto)),
+                            Expanded(child: _coluna(acao)),
+                            const SizedBox(width: Spacing.md),
+                            Expanded(child: _coluna(progresso)),
+                            const SizedBox(width: Spacing.md),
+                            Expanded(child: _coluna(contexto)),
                           ],
                         )
                       else if (duasColunas)
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Column(children: [...acao, ...progresso]),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(child: Column(children: contexto)),
+                            Expanded(child: _coluna([...acao, ...progresso])),
+                            const SizedBox(width: Spacing.md),
+                            Expanded(child: _coluna(contexto)),
                           ],
                         )
-                      else ...[
-                        ...acao,
-                        ...progresso,
-                        ...contexto,
-                      ],
+                      else
+                        _coluna([...acao, ...progresso, ...contexto]),
                     ],
                   );
                 },
@@ -151,14 +170,18 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-/// Intercala o espaçador padrão do dashboard entre os cards do grupo —
-/// ponto único do vão de 10px (antes repetido à mão a cada card).
-List<Widget> _comEspaco(List<Widget> cards) => [
-  for (var i = 0; i < cards.length; i++) ...[
-    if (i > 0) const SizedBox(height: 10),
-    cards[i],
+/// Coluna de cards com o vão padrão entre eles (token Spacing.md). Os cards
+/// já chegam FILTRADOS (só os visíveis), então não há espaçador antes de um
+/// card ausente — fim do "gap fantasma" das colunas.
+Widget _coluna(List<Widget> cards) => Column(
+  crossAxisAlignment: CrossAxisAlignment.stretch,
+  children: [
+    for (var i = 0; i < cards.length; i++) ...[
+      if (i > 0) const SizedBox(height: Spacing.md),
+      cards[i],
+    ],
   ],
-];
+);
 
 /// Frase do dia: 366 frases em frases_do_dia.dart, indexadas pelo
 /// dia-do-ano — cada dia do ano tem a SUA frase, sem repetir no ano.

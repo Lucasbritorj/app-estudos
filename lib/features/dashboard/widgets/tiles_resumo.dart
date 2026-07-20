@@ -31,9 +31,9 @@ class TilesResumo extends ConsumerWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 210,
-        mainAxisExtent: 62,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
+        mainAxisExtent: 66,
+        mainAxisSpacing: Spacing.sm,
+        crossAxisSpacing: Spacing.sm,
       ),
       children: [
         for (final (rotulo, valor) in tiles)
@@ -50,15 +50,20 @@ class TilesResumo extends ConsumerWidget {
                       context,
                     ).textTheme.labelMedium?.copyWith(color: VizColors.muted),
                   ),
+                  const SizedBox(height: 2),
                   // Troca de valor com fade curto — vida sem exagero.
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 350),
                     child: Text(
                       valor,
                       key: ValueKey(valor),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      // numeroHero: Display tabular com height 1.0 (controla a
+                      // altura no tile fixo, não estoura como o titleLarge).
+                      style: LuminaText.numeroHero.copyWith(
+                        fontSize: 19,
                         color: VizColors.inkPrimary,
-                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                   ),

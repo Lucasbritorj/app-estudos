@@ -15,6 +15,8 @@ import '../../domain/mapa_estudos_service.dart';
 import '../../domain/planejamento_service.dart';
 import '../../domain/prontidao_service.dart';
 import '../../domain/quests_service.dart';
+import '../../domain/retencao_service.dart';
+import '../../domain/revisao_service.dart';
 import '../../domain/stats_service.dart';
 
 /// Camada de agregados derivados do dashboard (item 2 da auditoria).
@@ -116,6 +118,8 @@ final dominioPorMateriaProvider = Provider<Map<String, MedicaoDominio?>>(
   (ref) => DominioService.dominioPorMateria(
     ref.watch(registrosDoAmbienteProvider),
     ref.watch(materiasDoAmbienteProvider).map((m) => m.id),
+    // Staleness: domínio de matéria parada há tempo regride ao neutro.
+    referencia: ref.watch(hojeProvider),
   ),
 );
 
@@ -123,6 +127,32 @@ final dominioPorMateriaProvider = Provider<Map<String, MedicaoDominio?>>(
 final taxaAcertoGeralProvider = Provider<double?>(
   (ref) => StatsService.taxaAcertoGeral(ref.watch(registrosDoAmbienteProvider)),
 );
+
+/// True retention: taxa de acerto NAS REVISÕES (recall no vencimento), geral
+/// e por matéria — mede se o intervalo de SR está calibrado. Escopo do
+/// ambiente ativo. null geral quando ainda não há revisão concluída.
+typedef TrueRetention = ({
+  double? geral,
+  Map<String, ({int questoes, int acertos, double taxa})> porMateria,
+});
+
+final trueRetentionProvider = Provider<TrueRetention>((ref) {
+  final registros = ref.watch(registrosDoAmbienteProvider);
+  return (
+    geral: RetencaoService.geral(registros),
+    porMateria: RetencaoService.porMateria(registros),
+  );
+});
+
+/// Forecast de carga de revisão dos próximos 30 dias (escopo do ambiente) —
+/// antecipa picos de backlog. Base do gráfico de barras "o que vem aí".
+final forecastRevisaoProvider =
+    Provider<List<({DateTime dia, int quantidade})>>((ref) {
+  return RevisaoService.forecastCarga(
+    ref.watch(revisoesDoAmbienteProvider),
+    ref.watch(hojeProvider),
+  );
+});
 
 typedef Rankings = ({
   ({String materiaId, int minutos})? maisEstudada,
@@ -208,6 +238,7 @@ final sugestaoHojeProvider = Provider<SugestaoHoje?>((ref) {
     planejado,
     materias,
     registros,
+    referencia: hoje,
   );
   final feito = StatsService.minutosPorMateria(
     registros,
@@ -353,6 +384,8 @@ typedef ProntidaoResumo = ({
   int diasAteProva,
   double prontidaoHoje,
   double prontidaoProva,
+  double prontidaoAjustada,
+  double coberturaConfiavel,
   int minutosSemanais,
   List<({Materia materia, double projetado})> emRisco,
   List<Materia> semMedicao,
@@ -393,12 +426,19 @@ final prontidaoProvider = Provider<ProntidaoResumo?>((ref) {
   final prontidaoHoje = ProntidaoService.prontidao(materias, dominiosHoje);
   final prontidaoProva = ProntidaoService.prontidao(materias, projetados);
   if (prontidaoHoje == null || prontidaoProva == null) return null;
+  // Ajustada ao risco (penaliza dispersão) + % do peso com Elo confiável —
+  // a projeção honesta que o número único escondia (M2).
+  final ajustada =
+      ProntidaoService.prontidaoAjustada(materias, projetados) ?? prontidaoProva;
+  final cobertura = ProntidaoService.coberturaConfiavel(materias, medidos);
 
   return (
     dataProva: dataProva,
     diasAteProva: diasAteProva,
     prontidaoHoje: prontidaoHoje,
     prontidaoProva: prontidaoProva,
+    prontidaoAjustada: ajustada,
+    coberturaConfiavel: cobertura,
     minutosSemanais: minutosSemanais,
     emRisco: ProntidaoService.materiasEmRisco(materias, projetados),
     semMedicao: ProntidaoService.semMedicao(materias, medidos),
