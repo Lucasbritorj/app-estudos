@@ -76,6 +76,15 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Voz tipográfica Lumina: Space Grotesk (OFL, asset local — nunca CDN, p/
+  # não mexer na CSP calibrada p/ CanvasKit). Fonte variável (eixo wght
+  # 300-700); o FontWeight do TextStyle seleciona o peso. Usada SÓ em
+  # títulos/herói/números-grandes; corpo e dados densos seguem em Roboto.
+  fonts:
+    - family: Display
+      fonts:
+        - asset: fonts/SpaceGrotesk-Variable.ttf
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

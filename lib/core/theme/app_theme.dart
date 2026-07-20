@@ -1,5 +1,24 @@
 import 'package:flutter/material.dart';
 
+/// Escala de espaçamento em grade 4/8pt — ritmo vertical previsível, fim do
+/// `SizedBox(10)` ad-hoc. Um único vocabulário de vãos no app inteiro.
+class Spacing {
+  static const double xs = 4;
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 24;
+  static const double xxl = 32;
+}
+
+/// Raios de canto padronizados — antes 14/10/9/22 misturados. `lg` é o raio
+/// de card (vidro Lumina); `md`/`sm` para elementos internos menores.
+class Radii {
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+}
+
 /// Paleta categórica validada (modo escuro) — ordem fixa é o mecanismo de
 /// segurança para daltonismo; nunca reordenar nem ciclar.
 const seriesColors = <Color>[
@@ -94,6 +113,27 @@ class LuminaText {
     letterSpacing: 0.8,
     fontWeight: FontWeight.w600,
   );
+
+  /// Título de card — voz única (fonte Display, cor e peso fixos) para todo
+  /// título de card do dashboard. Antes metade em inkSecondary, metade em
+  /// inkPrimary com brilho desigual lado a lado.
+  static const cardTitle = TextStyle(
+    fontFamily: 'Display',
+    color: VizColors.inkPrimary,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.2,
+  );
+
+  /// Número-herói: valor grande dos KPIs/herói. Fonte Display + dígitos
+  /// tabulares (largura fixa: não "dança" ao mudar). Tamanho no call site.
+  static const numeroHero = TextStyle(
+    fontFamily: 'Display',
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.5,
+    height: 1.0,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
 }
 
 /// Chrome do gráfico (superfícies e tintas do modo escuro).
@@ -128,23 +168,34 @@ ThemeData buildDarkTheme() {
     // grande = tracking negativo + linha justa; corpo = mais respiro de
     // linha; hierarquia vem de peso/tracking, não só de tamanho. Estilos
     // parciais (sem cor) — o ThemeData mescla com os defaults M3.
+    // Fonte 'Display' (Space Grotesk) SÓ nos títulos — corpo/labels/dados
+    // seguem no default (Roboto) com dígitos tabulares onde há número. Par
+    // por eixo de contraste (geométrica × neo-grotesca), não duas sans
+    // parecidas.
     textTheme: const TextTheme(
       headlineLarge: TextStyle(
+        fontFamily: 'Display',
         letterSpacing: -1.0,
         fontWeight: FontWeight.w600,
         height: 1.05,
       ),
       headlineMedium: TextStyle(
+        fontFamily: 'Display',
         letterSpacing: -0.75,
         fontWeight: FontWeight.w600,
         height: 1.05,
       ),
       headlineSmall: TextStyle(
+        fontFamily: 'Display',
         letterSpacing: -0.5,
         fontWeight: FontWeight.w600,
         height: 1.1,
       ),
-      titleLarge: TextStyle(letterSpacing: -0.25, fontWeight: FontWeight.w600),
+      titleLarge: TextStyle(
+        fontFamily: 'Display',
+        letterSpacing: -0.25,
+        fontWeight: FontWeight.w600,
+      ),
       bodyLarge: TextStyle(height: 1.55),
       bodyMedium: TextStyle(height: 1.45),
       labelSmall: TextStyle(letterSpacing: 1.2, fontWeight: FontWeight.w600),
@@ -162,7 +213,7 @@ ThemeData buildDarkTheme() {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(14)),
+        borderRadius: BorderRadius.all(Radius.circular(Radii.lg)),
         side: BorderSide(color: Color(0x24FFFFFF)),
       ),
     ),
