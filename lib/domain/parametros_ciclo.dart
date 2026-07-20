@@ -9,4 +9,10 @@ abstract final class ParametrosCiclo {
 
   /// Quanto um bloco inteiro eleva o domínio efetivo (satura em 1.0).
   static const passoPorBloco = 0.02;
+
+  /// Piso de utilidade por peso para matéria dominada: garante manutenção
+  /// (spaced repetition não deixa memória a zero). Só passa a valer quando
+  /// (1 − domínio) cai abaixo dele, ou seja, domínio ≳ 0.92 — matéria
+  /// realmente dominada ganha uma fatia mínima em vez de tempo zero.
+  static const pisoManutencao = 0.08;
 }

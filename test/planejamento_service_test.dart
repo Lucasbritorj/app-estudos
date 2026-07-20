@@ -98,6 +98,32 @@ void main() {
       expect(resultado['b'], 30); // 0.5 efetivo perde só para déficit maior
     });
 
+    test('piso de manutenção: matéria totalmente dominada ganha fatia mínima '
+        'em vez de zero (spaced repetition)', () {
+      // 'zzz' (dom 1.0, déficit 0) perde os desempates para 'aaa' pelo nome.
+      // Sem piso 'zzz' fica com 0 (aaa, ainda com déficit, soca tudo). Com o
+      // piso, quando aaa passa de 0.92 (déficit < piso), zzz entra na fila.
+      final materias = [materia('aaa', 1), materia('zzz', 1)];
+      final semPiso = PlanejamentoService.distribuirPorUtilidade(
+          75, materias, {'aaa': 0.86, 'zzz': 1.0});
+      final comPiso = PlanejamentoService.distribuirPorUtilidade(
+          75, materias, {'aaa': 0.86, 'zzz': 1.0}, pisoManutencao: 0.08);
+      expect(semPiso['zzz'], 0);
+      expect(comPiso['zzz'], greaterThan(0));
+      // A soma continua exata com o total nos dois casos.
+      expect(comPiso.values.fold(0, (x, y) => x + y), 75);
+    });
+
+    test('piso pequeno NÃO afeta matéria a 0.8 (déficit 0.2 > piso)', () {
+      // Garante que o piso 0.08 não muda a alocação clássica (dominada 0.8).
+      final resultado = PlanejamentoService.distribuirPorUtilidade(
+          120, [materia('fraca', 1), materia('dominada', 1)],
+          {'fraca': 0.2, 'dominada': 0.8},
+          pisoManutencao: 0.08);
+      expect(resultado['fraca'], 120);
+      expect(resultado['dominada'], 0);
+    });
+
     test('arquivada fora; sem minutos ou sem matérias retorna vazio', () {
       expect(
           PlanejamentoService.distribuirPorUtilidade(

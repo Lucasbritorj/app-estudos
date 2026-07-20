@@ -110,6 +110,27 @@ class StatsService {
     return streak;
   }
 
+  /// Maior sequência de dias consecutivos de estudo em TODO o histórico
+  /// (recorde pessoal). Base de gamificação monótona: a conquista deriva do
+  /// pico, então perder o streak atual nunca rebaixa o XP nem revoga badge —
+  /// e continua 100% derivado dos registros (nada persistido).
+  static int streakPico(List<RegistroHora> registros) {
+    final dias = registros.map((r) => dataSemHora(r.data)).toSet();
+    var pico = 0;
+    for (final d in dias) {
+      // Só conta a partir do início de um run (dia sem antecessor no set).
+      if (dias.contains(DateTime(d.year, d.month, d.day - 1))) continue;
+      var run = 0;
+      var atual = d;
+      while (dias.contains(atual)) {
+        run++;
+        atual = DateTime(atual.year, atual.month, atual.day + 1);
+      }
+      if (run > pico) pico = run;
+    }
+    return pico;
+  }
+
   /// Dias de estudo exigidos na semana ANTERIOR para ganhar 1 congelamento.
   static const metaDiasParaCongelamento = 5;
 

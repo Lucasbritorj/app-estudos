@@ -21,6 +21,10 @@ class ProntidaoService {
   /// Abaixo disso na projeção, a matéria entra na lista de risco.
   static const limiarRisco = 0.75;
 
+  /// Peso da penalização por dispersão na prontidão ajustada: meio desvio-
+  /// padrão ponderado abaixo da média. Calibrável.
+  static const kDispersao = 0.5;
+
   /// Prontidão = média de domínio ponderada pelo peso do edital.
   /// Null sem matérias ativas (sem dados, sem número inventado).
   static double? prontidao(
@@ -37,6 +41,45 @@ class ProntidaoService {
     }
     if (somaPesos <= 0) return null;
     return soma / somaPesos;
+  }
+
+  /// Prontidão ajustada ao risco: a média ponderada MENOS [kDispersao]
+  /// desvios-padrão ponderados do domínio. Dois editais com a mesma média
+  /// mas um com as matérias PESADAS fracas (perfil bimodal) recebem
+  /// prontidões ajustadas diferentes — o número único escondia esse risco.
+  /// Null sem matérias ativas.
+  static double? prontidaoAjustada(
+    List<Materia> materias,
+    Map<String, double> dominios,
+  ) {
+    final media = prontidao(materias, dominios);
+    if (media == null) return null;
+    var somaPesos = 0.0;
+    var somaVar = 0.0;
+    for (final m in materias.where((m) => !m.arquivada)) {
+      final d = dominios[m.id] ?? 0.5;
+      somaVar += m.peso * (d - media) * (d - media);
+      somaPesos += m.peso;
+    }
+    if (somaPesos <= 0) return null;
+    final desvio = sqrt(somaVar / somaPesos);
+    return (media - kDispersao * desvio).clamp(0.0, 1.0);
+  }
+
+  /// Fração do peso do edital cujo domínio vem de Elo confiável (>=10
+  /// questões) — quanto da prontidão é evidência e quanto é palpite de
+  /// intimidade. 0..1; 0 sem matérias (nunca divide por zero).
+  static double coberturaConfiavel(
+    List<Materia> materias,
+    Map<String, MedicaoDominio?> medidos,
+  ) {
+    var total = 0.0;
+    var confiavel = 0.0;
+    for (final m in materias.where((m) => !m.arquivada)) {
+      total += m.peso;
+      if (medidos[m.id]?.confiavel ?? false) confiavel += m.peso;
+    }
+    return total <= 0 ? 0.0 : confiavel / total;
   }
 
   /// Domínio atual por matéria: Elo confiável ou prior de intimidade —
@@ -76,6 +119,8 @@ class ProntidaoService {
         minutosDaSemana,
         materias,
         dominios,
+        // Coerência com cicloPorUtilidade: mesma manutenção de dominadas.
+        pisoManutencao: ParametrosCiclo.pisoManutencao,
       );
       for (final e in alocacao.entries) {
         final ganho = _passoPorBloco * e.value / _blocoMinutos;

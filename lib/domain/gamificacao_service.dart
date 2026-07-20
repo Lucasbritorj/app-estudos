@@ -45,8 +45,11 @@ class GamificacaoService {
   }
 
   /// XP global com bônus: minutos ponderados por peso + 50 por revisão
-  /// concluída + 10 por dia de streak (dias contados + recuperados pela
-  /// regra 24h). Tudo derivado, recalculado a cada leitura.
+  /// concluída + 10 por dia do MAIOR streak já alcançado. Tudo derivado e
+  /// MONÓTONO: base (minutos) e revisões só crescem, e o bônus de streak usa
+  /// o pico histórico ([StatsService.streakPico]) em vez do streak atual —
+  /// assim o XP total nunca cai de um dia pro outro ao perder o streak
+  /// (antes caía, e badges eram revogadas). Continua 100% derivado.
   static ({int base, int bonusRevisoes, int bonusStreak, int total})
   xpDetalhado(
     List<RegistroHora> registros,
@@ -57,8 +60,7 @@ class GamificacaoService {
     final base = xpPonderado(registros, pesoPorMateria);
     final bonusRevisoes =
         revisoes.where((r) => r.feita).length * xpPorRevisaoFeita;
-    final streak = StatsService.streakDetalhado(registros, hoje);
-    final bonusStreak = (streak.dias + streak.recuperados) * xpPorDiaDeStreak;
+    final bonusStreak = StatsService.streakPico(registros) * xpPorDiaDeStreak;
     return (
       base: base,
       bonusRevisoes: bonusRevisoes,
@@ -91,8 +93,9 @@ class GamificacaoService {
     DateTime hoje,
   ) {
     final totalMinutos = xpTotal(registros);
-    // Streak com congelamento: badge não cai por 1 dia protegido.
-    final streak = StatsService.streakDetalhado(registros, hoje).dias;
+    // Badge de streak deriva do PICO histórico — conquistou uma vez, não
+    // perde. Perder o streak atual não revoga "Semana cheia"/"Mês de ferro".
+    final streak = StatsService.streakPico(registros);
     final temRevisoes = revisoes.isNotEmpty;
     final nenhumaAtrasada = revisoes
         .where((r) => r.statusEm(hoje) == RevisaoStatus.atrasada)

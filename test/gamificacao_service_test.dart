@@ -78,15 +78,28 @@ void main() {
       expect(GamificacaoService.xpPonderado(registros, {'outra': 5}), 100);
     });
 
-    test('recuperação 24h entra no bônus de streak', () {
-      // Run de 4 dias, buraco ontem (sem proteção), voltou hoje:
-      // streak 1 + metade do run perdido (2) = 3 dias de bônus.
+    test('bônus de streak usa o PICO histórico (monótono, não o atual)', () {
+      // Run de 4 dias (4-7/7), buraco 8/7, voltou hoje (9/7, run de 1). O
+      // bônus reflete o recorde (4 dias = 40 XP), não o streak atual (1).
       final registros = [
         reg(hoje, 60), // 9/7; 8/7 = buraco
         for (var d = 4; d <= 7; d++) reg(DateTime(2026, 7, d), 30),
       ];
       final xp = GamificacaoService.xpDetalhado(registros, [], hoje);
-      expect(xp.bonusStreak, 30);
+      expect(xp.bonusStreak, 40);
+    });
+
+    test('XP total é monótono: perder o streak não derruba o XP', () {
+      // Base: 5 dias seguidos. Depois: mesmos 5 dias + um estudo isolado
+      // muito depois (streak atual = 1, mas o pico segue 5).
+      final base = [for (var d = 1; d <= 5; d++) reg(DateTime(2026, 7, d), 30)];
+      final comQuebra = [...base, reg(DateTime(2026, 8, 1), 30)];
+      final xpBase = GamificacaoService.xpDetalhado(base, [], hoje);
+      final xpDepois =
+          GamificacaoService.xpDetalhado(comQuebra, [], DateTime(2026, 8, 1));
+      // O pico (5) segue valendo; base cresce; total nunca cai.
+      expect(xpDepois.bonusStreak, xpBase.bonusStreak); // pico intacto
+      expect(xpDepois.total, greaterThanOrEqualTo(xpBase.total));
     });
   });
 
@@ -118,6 +131,15 @@ void main() {
       final b = conquistadas(registros, []);
       expect(b['streak-7'], true);
       expect(b['streak-30'], false);
+    });
+
+    test('badge de streak NÃO é revogada ao quebrar o streak (pico)', () {
+      // 7 dias seguidos em janeiro; hoje (julho) o streak atual é 0, mas a
+      // badge "Semana cheia" persiste porque deriva do recorde.
+      final registros = [
+        for (var d = 1; d <= 7; d++) reg(DateTime(2026, 1, d, 8), 30),
+      ];
+      expect(conquistadas(registros, [])['streak-7'], true);
     });
 
     test('revisões: primeira feita e em dia', () {

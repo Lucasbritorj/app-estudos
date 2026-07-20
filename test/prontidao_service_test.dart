@@ -49,6 +49,48 @@ void main() {
     });
   });
 
+  group('prontidaoAjustada (penaliza dispersão)', () {
+    test('perfil uniforme: ajustada = média (desvio zero)', () {
+      final materias = [materia('a', 1), materia('b', 1)];
+      final dom = {'a': 0.7, 'b': 0.7};
+      expect(ProntidaoService.prontidaoAjustada(materias, dom),
+          closeTo(0.7, 0.001));
+    });
+
+    test('mesmo valor médio, perfil bimodal (pesada fraca) fica ABAIXO do '
+        'uniforme — o ponto único escondia o risco', () {
+      // média 0.7 nos dois; o bimodal tem a matéria peso-3 mais fraca.
+      final uniforme = ProntidaoService.prontidaoAjustada(
+          [materia('a', 1), materia('b', 1)], {'a': 0.7, 'b': 0.7})!;
+      final bimodal = ProntidaoService.prontidaoAjustada(
+          [materia('a', 3), materia('b', 1)], {'a': 0.6, 'b': 1.0})!;
+      expect(bimodal, lessThan(uniforme));
+      // nunca acima da média nem fora de [0,1]
+      expect(bimodal, lessThan(0.7));
+      expect(bimodal, greaterThan(0.0));
+    });
+
+    test('sem matérias ativas: null', () {
+      expect(ProntidaoService.prontidaoAjustada([], {}), isNull);
+    });
+  });
+
+  group('coberturaConfiavel (% do peso com Elo confiável)', () {
+    test('fração ponderada pelo peso do edital', () {
+      final materias = [materia('medida', 3), materia('palpite', 1)];
+      final registros = [sessao('medida', 12, 9), sessao('palpite', 4, 4)];
+      // medida (peso 3) confiável, palpite (peso 1) não -> 3/4.
+      expect(
+          ProntidaoService.coberturaConfiavel(
+              materias, medir(materias, registros)),
+          closeTo(0.75, 0.001));
+    });
+
+    test('sem matérias: 0, nunca divide por zero', () {
+      expect(ProntidaoService.coberturaConfiavel([], {}), 0.0);
+    });
+  });
+
   group('projetarDominios', () {
     test('sem cronograma ou sem dias: projeção = hoje', () {
       final hoje = {'a': 0.5};

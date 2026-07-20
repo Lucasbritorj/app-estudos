@@ -200,4 +200,28 @@ void main() {
       expect(StatsService.projecaoAno(registros, hoje), 300);
     });
   });
+
+  group('streakPico', () {
+    test('sem registros: 0', () {
+      expect(StatsService.streakPico([]), 0);
+    });
+
+    test('recorde é o maior run consecutivo, não o mais recente', () {
+      // Run de 5 dias (jan) e run de 2 dias (jul): pico = 5.
+      final registros = [
+        for (var d = 1; d <= 5; d++) reg(DateTime(2026, 1, d), 30),
+        for (var d = 8; d <= 9; d++) reg(DateTime(2026, 7, d), 30),
+      ];
+      expect(StatsService.streakPico(registros), 5);
+    });
+
+    test('múltiplos registros no mesmo dia contam como 1 dia', () {
+      final registros = [
+        reg(DateTime(2026, 7, 1, 8), 30),
+        reg(DateTime(2026, 7, 1, 20), 30),
+        reg(DateTime(2026, 7, 2, 9), 30),
+      ];
+      expect(StatsService.streakPico(registros), 2);
+    });
+  });
 }

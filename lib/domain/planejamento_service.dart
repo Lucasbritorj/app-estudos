@@ -54,20 +54,23 @@ class PlanejamentoService {
 
   /// Ponto único do ciclo para as telas (Planejamento e Sugestão de hoje
   /// NUNCA podem divergir): domínio Elo da matéria com prior de intimidade,
-  /// distribuído por utilidade.
+  /// distribuído por utilidade. [referencia] (hoje) aplica o esquecimento
+  /// temporal do domínio (M1) — matéria parada há tempo volta à fila.
   static Map<String, int> cicloPorUtilidade(
     int minutosTotais,
     List<Materia> materias,
-    List<RegistroHora> registros,
-  ) {
+    List<RegistroHora> registros, {
+    DateTime? referencia,
+  }) {
     final medidos = DominioService.dominioPorMateria(
       registros,
       materias.map((m) => m.id),
+      referencia: referencia,
     );
     return distribuirPorUtilidade(minutosTotais, materias, {
       for (final m in materias)
         m.id: dominioInicial(m.intimidade, medidos[m.id]),
-    });
+    }, pisoManutencao: ParametrosCiclo.pisoManutencao);
   }
 
   /// Ciclo por utilidade marginal decrescente (mochila gulosa): cada bloco
@@ -83,6 +86,8 @@ class PlanejamentoService {
     Map<String, double> dominioPorMateria, {
     int blocoMinutos = ParametrosCiclo.blocoMinutos,
     double passoPorBloco = ParametrosCiclo.passoPorBloco,
+    double expoenteUtilidade = 1.0,
+    double pisoManutencao = 0.0,
   }) {
     final ativas = materias.where((m) => !m.arquivada).toList()
       ..sort((a, b) {
@@ -104,7 +109,15 @@ class PlanejamentoService {
       var escolhida = ativas.first;
       var melhor = double.negativeInfinity;
       for (final m in ativas) {
-        final utilidade = m.peso * (1 - dominioEfetivo[m.id]!);
+        // Utilidade = peso × (1−domínio)^expoente. Piso de manutenção para
+        // não zerar dominada (spaced repetition), decaindo com o que a
+        // matéria já recebeu no ciclo — assim a fatia mínima RODA entre as
+        // dominadas em vez de concentrar toda numa só (o piso puro empataria
+        // e o desempate determinístico daria tudo à primeira).
+        final deficit = pow(1 - dominioEfetivo[m.id]!, expoenteUtilidade)
+            .toDouble();
+        final manutencao = pisoManutencao * (1 - resultado[m.id]! / minutosTotais);
+        final utilidade = (m.peso * max(deficit, manutencao)).toDouble();
         if (utilidade > melhor) {
           melhor = utilidade;
           escolhida = m;

@@ -92,4 +92,42 @@ void main() {
     expect(d.questoes, 10);
     expect(d.dominio, greaterThan(0.5));
   });
+
+  group('recência temporal (decaimento por tempo, não só ordem)', () {
+    test('staleness: sem referência não decai; com referência distante '
+        'regride em direção ao neutro (0.5)', () {
+      final registros = [
+        sessao('r1', DateTime(2026, 1, 1), questoes: 10, acertos: 10),
+      ];
+      final semRef = DominioService.dominioDoTopico(registros, 't1')!;
+      // Referência 180 dias depois: 3 meias-vidas (H=60) -> rating cai a 1/8,
+      // domínio muito mais perto de 0.5 do que o medido sem referência.
+      final comRef = DominioService.dominioDoTopico(
+        registros,
+        't1',
+        referencia: DateTime(2026, 6, 30),
+      )!;
+      expect(semRef.dominio, closeTo(0.5987, 0.0005));
+      expect(comRef.dominio, lessThan(semRef.dominio));
+      expect(comRef.dominio, greaterThan(0.5)); // regride ao neutro, não passa
+      expect((comRef.dominio - 0.5).abs(),
+          lessThan((semRef.dominio - 0.5).abs()));
+    });
+
+    test('lacuna longa antes de evidência recente: o recente domina mais do '
+        'que domina quando as sessões são coladas', () {
+      // Bom-antigo depois ruim-recente. Com lacuna grande, o bom-antigo já
+      // regrediu quando o ruim chega -> domínio final mais baixo (o ruim
+      // recente pesa mais) do que quando as duas são no mesmo dia.
+      final comLacuna = DominioService.dominioDoTopico([
+        sessao('bom', DateTime(2026, 1, 1), questoes: 10, acertos: 10),
+        sessao('ruim', DateTime(2026, 6, 1), questoes: 10, acertos: 3),
+      ], 't1')!;
+      final coladas = DominioService.dominioDoTopico([
+        sessao('bom', DateTime(2026, 6, 1), questoes: 10, acertos: 10),
+        sessao('ruim', DateTime(2026, 6, 2), questoes: 10, acertos: 3),
+      ], 't1')!;
+      expect(comLacuna.dominio, lessThan(coladas.dominio));
+    });
+  });
 }

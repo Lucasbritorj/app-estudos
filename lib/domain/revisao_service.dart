@@ -30,6 +30,35 @@ class RevisaoService {
     return alteradas;
   }
 
+  /// Forecast de carga: quantas revisões PENDENTES caem em cada um dos
+  /// próximos [dias] dias a partir de [hoje]. Atrasadas (agendadas antes de
+  /// hoje) e as de hoje entram no dia 0 — é a fila que o usuário enfrenta
+  /// agora. Base do gráfico "o que vem aí" (antecipar picos, evitar backlog).
+  static List<({DateTime dia, int quantidade})> forecastCarga(
+    List<Revisao> revisoes,
+    DateTime hoje, {
+    int dias = 30,
+  }) {
+    final base = DateTime(hoje.year, hoje.month, hoje.day);
+    final contagem = <DateTime, int>{};
+    for (final r in revisoes) {
+      if (r.feita) continue;
+      final agendada = DateTime(
+        r.dataAgendada.year,
+        r.dataAgendada.month,
+        r.dataAgendada.day,
+      );
+      final alvo = agendada.isBefore(base) ? base : agendada;
+      final offset = alvo.difference(base).inDays;
+      if (offset < 0 || offset >= dias) continue;
+      contagem[alvo] = (contagem[alvo] ?? 0) + 1;
+    }
+    return List.generate(dias, (i) {
+      final dia = DateTime(base.year, base.month, base.day + i);
+      return (dia: dia, quantidade: contagem[dia] ?? 0);
+    });
+  }
+
   /// Próximo intervalo da cadeia (ex.: 7 -> 15 -> 30 -> 60). Retorna o menor
   /// intervalo configurado maior que [atual]; null quando a cadeia termina.
   /// Revisão manual (intervalo 0) entra no início da cadeia.
@@ -71,27 +100,6 @@ class RevisaoService {
     return acertos / questoes;
   }
 
-  /// Passo adaptativo ao concluir uma revisão:
-  /// - acerto < 75%: reforço em 3 dias, SEM avançar a cadeia;
-  /// - 75% a 84%: repete o intervalo atual (consolida antes de espaçar);
-  /// - >= 85% ou sem questões registradas: segue a cadeia normal.
-  /// null = cadeia terminou (nada a agendar).
-  static ({int dias, int intervalo, bool reforco})? proximoPasso(
-    List<int> intervalosConfigurados,
-    int atual,
-    double? taxaAcerto,
-  ) {
-    if (taxaAcerto != null && taxaAcerto < 0.75) {
-      return (dias: 3, intervalo: atual, reforco: true);
-    }
-    if (taxaAcerto != null && taxaAcerto < 0.85 && atual > 0) {
-      return (dias: atual, intervalo: atual, reforco: false);
-    }
-    final proximo = proximoIntervalo(intervalosConfigurados, atual);
-    if (proximo == null) return null;
-    return (dias: proximo, intervalo: proximo, reforco: false);
-  }
-
   // --- FSRS-lite -----------------------------------------------------------
   // Curva de potência do FSRS: R(t) = 1 / (1 + t / (9S)). Em t = S a
   // retrievabilidade é 90% — o intervalo com retenção alvo de 90% é a
@@ -102,14 +110,39 @@ class RevisaoService {
   /// Semente de estabilidade para revisão manual (intervalo 0) sem estado.
   static const _sementeManualDias = 3.0;
 
-  /// Crescimento em condição neutra (dificuldade 5, revisada em dia):
-  /// multiplica a estabilidade por ~2.1 — reproduz a progressão 7→15→30
-  /// da cadeia clássica quando o desempenho é bom.
+  /// Crescimento em condição neutra (dificuldade 5, revisada em dia), ANTES
+  /// do freio de estabilidade. Com o freio, a progressão fica sub-geométrica
+  /// (ex.: 7→13→~21…), não uma PA geométrica pura que super-espaça.
   static const _crescimentoBase = 0.9;
+
+  /// Freio de estabilidade (equivalente ao w9 do FSRS real): o ganho encolhe
+  /// conforme a estabilidade cresce — `crescimento *= S^(-w9)`. Sem ele,
+  /// cards já fortes dobravam o intervalo indefinidamente (super-espaçamento).
+  static const _freioEstabilidade = 0.15;
+
+  /// Reversão à média da dificuldade: a cada passo D é puxado de volta ao
+  /// neutro ([_dificuldadeInicial]). Evita D encravar em 10 (a dinâmica
+  /// antiga só somava no lapso/difícil, nunca amortecia).
+  static const _taxaReversaoDificuldade = 0.1;
+
+  /// Retenção-alvo padrão (probabilidade de lembrar no vencimento). Em 0.9 o
+  /// intervalo é a própria estabilidade; reduzir alonga os intervalos (menos
+  /// revisões, mais esquecimento tolerado). Exposto como knob calibrável.
+  static const retencaoAlvoPadrao = 0.9;
 
   /// Intervalo acima disso encerra a cadeia: memória consolidada, tópico
   /// fica só na manutenção do mapa.
   static const tetoDiasFsrs = 120;
+
+  static double _reverterDificuldade(double d) =>
+      (d + _taxaReversaoDificuldade * (_dificuldadeInicial - d)).clamp(
+        1.0,
+        10.0,
+      );
+
+  /// Dias de intervalo por unidade de estabilidade para atingir [retencao] na
+  /// curva R(t)=1/(1+t/9S): t = 9·S·(1/R − 1). Em R=0.9 dá 1.0 (intervalo=S).
+  static double _fatorIntervalo(double retencao) => 9 * (1 / retencao - 1);
 
   /// Passo adaptativo FSRS-lite ao concluir uma revisão. O estado
   /// (estabilidade em dias, dificuldade 1-10) viaja gravado na própria
@@ -135,6 +168,7 @@ class RevisaoService {
     required int intervaloAtual,
     int diasDeAtraso = 0,
     required double? taxaAcerto,
+    double retencaoAlvo = retencaoAlvoPadrao,
   }) {
     final s =
         estabilidade ??
@@ -157,21 +191,24 @@ class RevisaoService {
     final double novaD;
     if (errou) {
       novaS = max(1.0, s * 0.4);
-      novaD = min(10.0, d + 1.0);
+      novaD = _reverterDificuldade(d + 1.0);
     } else {
       final bonusEsquecimento = 1 + 2.0 * (1 - r);
       final fatorFacilidade = (11 - d) / 6; // dificuldade 5 -> 1.0
       var crescimento = _crescimentoBase * fatorFacilidade * bonusEsquecimento;
+      // Freio S^(-w9): ganho de estabilidade encolhe conforme S cresce.
+      crescimento *= pow(s, -_freioEstabilidade).toDouble();
       if (dificil) {
         crescimento *= 0.5;
-        novaD = min(10.0, d + 0.5);
+        novaD = _reverterDificuldade(d + 0.5);
       } else {
-        novaD = max(1.0, d - 0.3);
+        novaD = _reverterDificuldade(d - 0.3);
       }
       novaS = s * (1 + crescimento);
     }
 
-    final diasCalculados = novaS.round();
+    // Intervalo agendado = estabilidade convertida pela retenção-alvo.
+    final diasCalculados = (novaS * _fatorIntervalo(retencaoAlvo)).round();
     if (!errou && diasCalculados > tetoDiasFsrs) return null;
     final dias = diasCalculados.clamp(1, tetoDiasFsrs);
     return (

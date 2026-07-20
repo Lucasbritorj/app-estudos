@@ -99,60 +99,19 @@ void main() {
     });
   });
 
-  group('proximoPasso (adaptativa)', () {
-    test('acerto < 75%: reforço em 3 dias SEM avançar a cadeia', () {
-      final passo = RevisaoService.proximoPasso(intervalos, 7, 0.6)!;
-      expect(passo.dias, 3);
-      expect(passo.intervalo, 7); // continua de onde estava
-      expect(passo.reforco, true);
-    });
-
-    test('75-84%: repete o intervalo atual', () {
-      final passo = RevisaoService.proximoPasso(intervalos, 15, 0.80)!;
-      expect(passo.dias, 15);
-      expect(passo.intervalo, 15);
-      expect(passo.reforco, false);
-    });
-
-    test('>= 85%: segue a cadeia normal', () {
-      final passo = RevisaoService.proximoPasso(intervalos, 7, 0.9)!;
-      expect(passo.dias, 15);
-      expect(passo.intervalo, 15);
-      expect(passo.reforco, false);
-    });
-
-    test('sem questões (taxa null): cadeia normal', () {
-      final passo = RevisaoService.proximoPasso(intervalos, 7, null)!;
-      expect(passo.dias, 15);
-      expect(passo.reforco, false);
-    });
-
-    test('75-84% em revisão manual (intervalo 0): entra na cadeia', () {
-      final passo = RevisaoService.proximoPasso(intervalos, 0, 0.8)!;
-      expect(passo.dias, 7);
-      expect(passo.intervalo, 7);
-    });
-
-    test('fim da cadeia com bom desempenho: null (nada a agendar)', () {
-      expect(RevisaoService.proximoPasso(intervalos, 60, 0.95), isNull);
-    });
-
-    test('fim da cadeia com desempenho ruim AINDA gera reforço', () {
-      final passo = RevisaoService.proximoPasso(intervalos, 60, 0.5)!;
-      expect(passo.dias, 3);
-      expect(passo.reforco, true);
-    });
-  });
-
   group('proximoPassoFsrs', () {
-    test('em dia com bom desempenho ~dobra o intervalo (7 vira 15)', () {
+    // Valores recalculados após o freio de estabilidade S^(-0.15) e a
+    // reversão à média da dificuldade (0.1): a progressão fica sub-geométrica
+    // (7→13 em vez de 7→15) — de propósito, o modelo antigo super-espaçava.
+    test('em dia com bom desempenho cresce sub-geométrico (7 vira 13)', () {
       final passo = RevisaoService.proximoPassoFsrs(
           intervaloAtual: 7, taxaAcerto: 0.9)!;
-      // R(7, S=7) = 0.9; crescimento = 0.9 * 1.0 * 1.2 -> S' = 14.56
-      expect(passo.dias, 15);
+      // cresc = 0.9*1.0*1.2*7^-0.15 = 0.8066 -> S' = 7*1.8066 = 12.65
+      expect(passo.dias, 13);
       expect(passo.reforco, false);
-      expect(passo.estabilidade, closeTo(14.56, 0.01));
-      expect(passo.dificuldade, closeTo(4.7, 0.001));
+      expect(passo.estabilidade, closeTo(12.646, 0.01));
+      // 4.7 puxado à média: 4.7 + 0.1*(5-4.7) = 4.73
+      expect(passo.dificuldade, closeTo(4.73, 0.001));
     });
 
     test('errou (<75%): estabilidade despenca, reforço curto', () {
@@ -160,30 +119,44 @@ void main() {
           intervaloAtual: 7, taxaAcerto: 0.6)!;
       expect(passo.dias, 3); // 7 * 0.4 = 2.8
       expect(passo.reforco, true);
-      expect(passo.dificuldade, closeTo(6.0, 0.001));
+      // 6.0 puxado à média: 6.0 + 0.1*(5-6) = 5.9
+      expect(passo.dificuldade, closeTo(5.9, 0.001));
     });
 
     test('difícil (75-84%): cresce na metade do ritmo', () {
       final passo = RevisaoService.proximoPassoFsrs(
           intervaloAtual: 7, taxaAcerto: 0.8)!;
-      expect(passo.dias, 11); // 7 * 1.54 = 10.78
+      expect(passo.dias, 10); // 7 * (1 + 0.4033) = 9.82
       expect(passo.reforco, false);
-      expect(passo.dificuldade, closeTo(5.5, 0.001));
+      // 5.5 puxado à média: 5.5 + 0.1*(5-5.5) = 5.45
+      expect(passo.dificuldade, closeTo(5.45, 0.001));
     });
 
     test('sem questões (taxa null): cresce pleno como a cadeia clássica', () {
       final passo = RevisaoService.proximoPassoFsrs(
           intervaloAtual: 7, taxaAcerto: null)!;
-      expect(passo.dias, 15);
+      expect(passo.dias, 13);
       expect(passo.reforco, false);
     });
 
     test('revisada atrasada com sucesso consolida mais (espaçamento)', () {
+      // O efeito de espaçamento vive na ESTABILIDADE (o arredondamento em
+      // dias pode empatar após o freio); a estabilidade da atrasada é maior.
       final emDia = RevisaoService.proximoPassoFsrs(
           intervaloAtual: 7, taxaAcerto: 0.9)!;
       final atrasada = RevisaoService.proximoPassoFsrs(
           intervaloAtual: 7, diasDeAtraso: 7, taxaAcerto: 0.9)!;
-      expect(atrasada.dias, greaterThan(emDia.dias));
+      expect(atrasada.estabilidade, greaterThan(emDia.estabilidade));
+    });
+
+    test('retenção-alvo menor alonga o intervalo (menos revisões)', () {
+      final alvo90 = RevisaoService.proximoPassoFsrs(
+          intervaloAtual: 7, taxaAcerto: 0.9, retencaoAlvo: 0.9)!;
+      final alvo80 = RevisaoService.proximoPassoFsrs(
+          intervaloAtual: 7, taxaAcerto: 0.9, retencaoAlvo: 0.8)!;
+      expect(alvo80.dias, greaterThan(alvo90.dias));
+      // mesma estabilidade; só o intervalo agendado muda com a retenção-alvo.
+      expect(alvo80.estabilidade, closeTo(alvo90.estabilidade, 0.001));
     });
 
     test('estado gravado tem precedência sobre a semente do intervalo', () {
