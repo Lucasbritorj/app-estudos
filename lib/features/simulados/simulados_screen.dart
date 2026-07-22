@@ -33,6 +33,7 @@ class SimuladosScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Simulados & Provas')),
       floatingActionButton: FloatingActionButton(
+        tooltip: 'Novo simulado ou prova',
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const _SimuladoForm()),
@@ -486,7 +487,11 @@ class _SimuladoFormState extends ConsumerState<_SimuladoForm> {
                   child: Text(
                     _previa,
                     style: const TextStyle(
-                      color: LuminaColors.safiraClara,
+                      // Era LuminaColors.safiraClara: ~3.85:1 contra o fundo
+                      // do form, abaixo do mínimo AA (4.5:1) p/ texto
+                      // pequeno. inkSecondary já é usado em corpo/legendas
+                      // e passa (~10:1) sem introduzir tom novo.
+                      color: VizColors.inkSecondary,
                       fontSize: 13,
                     ),
                   ),

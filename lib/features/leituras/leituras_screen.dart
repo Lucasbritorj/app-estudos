@@ -93,7 +93,11 @@ Future<void> registrarSessaoLeitura(
                     child: Text(
                       previa,
                       style: const TextStyle(
-                        color: LuminaColors.safiraClara,
+                        // Era LuminaColors.safiraClara: ~3.85:1 contra o fundo
+                        // do diálogo, abaixo do mínimo AA (4.5:1) p/ texto
+                        // pequeno. inkSecondary já é usado em corpo/legendas
+                        // e passa (~10:1) sem introduzir tom novo.
+                        color: VizColors.inkSecondary,
                         fontSize: 12,
                       ),
                     ),
@@ -269,6 +273,7 @@ class LeiturasScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Leituras')),
       floatingActionButton: FloatingActionButton(
+        tooltip: 'Nova leitura',
         onPressed: () => _novaLeitura(context, ref),
         child: const Icon(Icons.add),
       ),

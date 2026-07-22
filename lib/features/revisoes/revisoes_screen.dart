@@ -234,6 +234,7 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Revisões')),
       floatingActionButton: FloatingActionButton(
+        tooltip: 'Nova revisão',
         onPressed: _novaRevisaoManual,
         child: const Icon(Icons.add),
       ),

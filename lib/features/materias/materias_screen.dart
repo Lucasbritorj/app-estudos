@@ -40,6 +40,7 @@ class MateriasScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        tooltip: 'Nova matéria',
         onPressed: () => mostrarDialogoMateria(context, ref),
         child: const Icon(Icons.add),
       ),
@@ -123,6 +124,7 @@ class _MenuMateria extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<String>(
+      tooltip: 'Mais opções — ${materia.nome}',
       onSelected: (acao) async {
         if (acao == 'editar') {
           await mostrarDialogoMateria(context, ref, existente: materia);
