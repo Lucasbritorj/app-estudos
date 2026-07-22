@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -36,11 +37,20 @@ abstract class _HiveRepositorio<T> extends Notifier<List<T>> {
   @override
   List<T> build() => _carregar();
 
+  // Isola erro por registro: Hive não tem transação entre boxes, então um
+  // crash no meio de uma escrita anterior pode deixar um item malformado no
+  // disco. Sem isso, um único registro corrompido derrubava a leitura da
+  // coleção inteira (toda tela que dependesse dela quebrava).
   List<T> _carregar() {
-    final itens = _box.values
-        .map((raw) => fromJson(Map<String, dynamic>.from(raw)))
-        .where((item) => !estaExcluido(item))
-        .toList();
+    final itens = <T>[];
+    for (final raw in _box.values) {
+      try {
+        final item = fromJson(Map<String, dynamic>.from(raw));
+        if (!estaExcluido(item)) itens.add(item);
+      } catch (e) {
+        debugPrint('$boxName: registro corrompido ignorado ($e)');
+      }
+    }
     itens.sort(comparar);
     return itens;
   }

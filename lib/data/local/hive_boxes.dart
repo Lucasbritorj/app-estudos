@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -69,12 +70,15 @@ class HiveBoxes {
   static Future<void> migrar() async {
     final boxConfig = Hive.box<Map>(config);
     final versao = (boxConfig.get(_chaveSchema)?['v'] as num?)?.toInt() ?? 0;
-    if (versao >= schemaVersion) return;
-
-    if (versao < 1) await migrarAmbientes();
-    if (versao < 2) await repararOrfaos();
-
-    await boxConfig.put(_chaveSchema, {'v': schemaVersion});
+    if (versao < schemaVersion) {
+      if (versao < 1) await migrarAmbientes();
+      await boxConfig.put(_chaveSchema, {'v': schemaVersion});
+    }
+    // Idempotente por definição (só recria revisão quando nenhuma existe pra
+    // aula) — roda em TODO boot, não só na migração de schema, pra religar
+    // órfãos que um crash entre escritas multi-box pode criar a qualquer
+    // momento (Hive não tem transação), não só na atualização única de v1->v2.
+    await repararOrfaos();
   }
 
   /// Religa invariantes quebradas por crash entre escritas multi-box (Hive
@@ -106,7 +110,13 @@ class HiveBoxes {
     }
 
     for (final raw in Hive.box<Map>(aulas).values) {
-      final aula = Aula.fromJson(Map<String, dynamic>.from(raw));
+      Aula aula;
+      try {
+        aula = Aula.fromJson(Map<String, dynamic>.from(raw));
+      } catch (e) {
+        debugPrint('repararOrfaos: aula corrompida ignorada ($e)');
+        continue;
+      }
       if (!aula.concluida || aula.dataConclusao == null) continue;
       if (aulasComRevisao.contains(aula.id)) continue;
 

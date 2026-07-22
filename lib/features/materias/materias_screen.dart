@@ -151,7 +151,25 @@ class _MenuMateria extends ConsumerWidget {
             ),
           );
           if (confirmado == true) {
-            await ref.read(materiaUseCaseProvider).excluirEmCascata(materia.id);
+            try {
+              await ref
+                  .read(materiaUseCaseProvider)
+                  .excluirEmCascata(materia.id);
+            } catch (e) {
+              // Hive não tem transação entre boxes: uma falha no meio da
+              // cascata pode deixar exclusão parcial. Sem isso, o erro
+              // desaparecia sem o usuário saber que precisa conferir/repetir.
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Não foi possível excluir "${materia.nome}" por '
+                      'completo — confira e tente de novo.',
+                    ),
+                  ),
+                );
+              }
+            }
           }
         }
       },
