@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/revisao_use_case.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar_cor.dart';
+import '../../core/widgets/estado_vazio.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/revisao.dart';
 import '../../data/repositories/ambiente_filtros.dart';
@@ -253,14 +254,16 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
             ),
             Expanded(
               child: visiveis.isEmpty
-                  ? Center(
-                      child: Text(
-                        _mostrarFeitas
-                            ? 'Nenhuma revisão concluída ainda.'
-                            : 'Nada pendente. Salve sessões de estudo para gerar revisões.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: VizColors.muted),
-                      ),
+                  ? EstadoVazio(
+                      icone: _mostrarFeitas
+                          ? Icons.task_alt
+                          : Icons.inbox_outlined,
+                      titulo: _mostrarFeitas
+                          ? 'Nenhuma revisão concluída ainda'
+                          : 'Nada pendente',
+                      descricao: _mostrarFeitas
+                          ? 'Revisões concluídas aparecem aqui.'
+                          : 'Salve sessões de estudo para gerar revisões.',
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.only(bottom: 88),

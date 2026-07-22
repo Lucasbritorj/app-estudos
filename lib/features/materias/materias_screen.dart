@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/materia_use_case.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar_cor.dart';
+import '../../core/widgets/estado_vazio.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/materia.dart';
 import '../../data/repositories/ambiente_filtros.dart';
@@ -43,7 +44,18 @@ class MateriasScreen extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: materias.isEmpty
-          ? const Center(child: Text('Sem matérias. Toque em + para começar.'))
+          ? EstadoVazio(
+              icone: Icons.menu_book_outlined,
+              titulo: 'Nenhuma matéria ainda',
+              descricao:
+                  'Cadastre as matérias do seu edital para organizar '
+                  'sessões, plano e domínio por assunto.',
+              cta: FilledButton.icon(
+                onPressed: () => mostrarDialogoMateria(context, ref),
+                icon: const Icon(Icons.add),
+                label: const Text('Nova matéria'),
+              ),
+            )
           : ConteudoCentral(
               child: ListView.builder(
                 itemCount: materias.length,

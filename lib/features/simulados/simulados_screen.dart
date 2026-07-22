@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar_cor.dart';
+import '../../core/widgets/estado_vazio.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/haptica.dart';
 import '../../data/models/ambiente.dart';
@@ -39,15 +40,19 @@ class SimuladosScreen extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: simulados.isEmpty
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Nenhum simulado ou prova registrado.\n'
+          ? EstadoVazio(
+              icone: Icons.assignment_outlined,
+              titulo: 'Nenhum simulado ou prova registrado',
+              descricao:
                   'Toque em + e informe questões e acertos por matéria — '
                   'a taxa, os erros e o tempo por questão o app calcula.',
-                  textAlign: TextAlign.center,
+              cta: FilledButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const _SimuladoForm()),
                 ),
+                icon: const Icon(Icons.add),
+                label: const Text('Novo simulado'),
               ),
             )
           : ConteudoCentral(

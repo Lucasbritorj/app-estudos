@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/estado_vazio.dart';
 import '../../data/repositories/ambiente_filtros.dart';
 import '../ambientes/ambiente_selector.dart';
 import '../registro/registro_form.dart';
@@ -56,17 +58,28 @@ class DashboardScreen extends ConsumerWidget {
               maxWidth: 1560,
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  // Descompressão por hierarquia: topo fixo (missão, hero,
-                  // avisos) e três grupos por prioridade — ação de hoje,
-                  // progresso/gráficos, contexto longitudinal. A largura
-                  // decide 1, 2 ou 3 colunas; no mobile a ordem de rolagem
-                  // segue a mesma prioridade.
-                  final tresColunas = constraints.maxWidth >= 1360;
-                  final duasColunas = constraints.maxWidth >= 980;
+                  // Nº de colunas pela largura (o cap de 1560 já foi aplicado
+                  // pelo ConteudoCentral acima). A grade masonry equilibra a
+                  // altura sozinha — cada card entra na coluna mais CURTA no
+                  // momento — então os rodapés alinham e a grade reflui ao
+                  // ganhar/perder cards. Fim do vazio embaixo da coluna curta.
+                  final colunas = constraints.maxWidth >= 1360
+                      ? 3
+                      : constraints.maxWidth >= 980
+                          ? 2
+                          : 1;
 
-                  // Visibilidade dos cards que se auto-escondem — decidida
-                  // AQUI (via providers) para não deixar "gaps fantasma" nas
-                  // colunas quando um card vira SizedBox.shrink.
+                  // Cards que se auto-escondem virariam "célula fantasma" na
+                  // masonry (slot de altura zero deslocando o balanço), então
+                  // entram na lista SÓ quando têm conteúdo — decidido AQUI via
+                  // providers.
+                  final temMissao =
+                      ref.watch(sugestaoHojeProvider) != null;
+                  final alertas = ref.watch(alertasProvider);
+                  final temAlertas = alertas.atrasadasPorMateria.isNotEmpty ||
+                      alertas.falsoDominio.isNotEmpty;
+                  final temProntidao =
+                      ref.watch(prontidaoProvider) != null;
                   final temQuests =
                       ref.watch(questsDoDiaProvider).isNotEmpty;
                   final temDesempenho =
@@ -77,35 +90,16 @@ class DashboardScreen extends ConsumerWidget {
                       .watch(forecastRevisaoProvider)
                       .any((d) => d.quantidade > 0);
 
-                  final topo = <Widget>[
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Spacing.md),
-                      child: Text(
-                        _mensagemDoDia(hoje),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: VizColors.inkSecondary,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                    // Próximo passo primeiro: a missão responde "o que
-                    // estudar agora" antes de qualquer estatística.
-                    const HeroMissaoHoje(),
-                    const SizedBox(height: Spacing.md),
-                    // Geralzão: faixa de KPIs, tudo de relance e clicável.
-                    const HeroGeral(),
-                    const SizedBox(height: Spacing.md),
-                    const CardProntidao(),
-                    const CardAlertas(),
+                  // Cards que fluem na grade, em ordem de prioridade de leitura
+                  // (ação → progresso/gráficos → contexto). A masonry usa a
+                  // ordem só para decidir quem entra primeiro; a ALTURA ela
+                  // equilibra sozinha.
+                  final cards = <Widget>[
                     const CardMelhorarHoje(),
-                    const SizedBox(height: Spacing.md),
-                  ];
-                  final acao = <Widget>[
+                    if (temProntidao) const CardProntidao(),
                     if (temQuests) const CardQuests(),
                     const CardPlano(),
                     if (temDesempenho) const CardDesempenho(),
-                  ];
-                  final progresso = <Widget>[
                     const CardGrafico(
                       titulo: 'Horas da semana por matéria',
                       child: BarrasSemana(),
@@ -121,8 +115,6 @@ class DashboardScreen extends ConsumerWidget {
                       titulo: 'Distribuição total por matéria',
                       child: DonutDistribuicao(),
                     ),
-                  ];
-                  final contexto = <Widget>[
                     if (ambienteAtivo == null) const CardAmbientes(),
                     const CardRankings(),
                     const CardSimulados(),
@@ -130,37 +122,70 @@ class DashboardScreen extends ConsumerWidget {
                     const CardAnos(),
                     const TilesResumo(),
                   ];
-                  return ListView(
-                    padding: const EdgeInsets.fromLTRB(
-                      Spacing.lg,
-                      Spacing.xs,
-                      Spacing.lg,
-                      88,
-                    ),
-                    children: [
-                      ...topo,
-                      if (tresColunas)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _coluna(acao)),
-                            const SizedBox(width: Spacing.md),
-                            Expanded(child: _coluna(progresso)),
-                            const SizedBox(width: Spacing.md),
-                            Expanded(child: _coluna(contexto)),
-                          ],
-                        )
-                      else if (duasColunas)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _coluna([...acao, ...progresso])),
-                            const SizedBox(width: Spacing.md),
-                            Expanded(child: _coluna(contexto)),
-                          ],
-                        )
-                      else
-                        _coluna([...acao, ...progresso, ...contexto]),
+
+                  return CustomScrollView(
+                    slivers: [
+                      // Topo enxuto e em largura total: frase + próximo passo
+                      // (missão) + faixa de KPIs + alertas. Curto de propósito
+                      // — sobe a grade e mantém a visão de relance acima da
+                      // dobra. Missão/alertas se auto-escondem: só entram (com
+                      // seu vão) quando há conteúdo, sem gap fantasma.
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Spacing.lg,
+                          Spacing.xs,
+                          Spacing.lg,
+                          Spacing.md,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: Spacing.md,
+                                ),
+                                child: Text(
+                                  _mensagemDoDia(hoje),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        color: VizColors.inkSecondary,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                ),
+                              ),
+                              // Próximo passo primeiro: "o que estudar agora"
+                              // antes de qualquer estatística. Tem vão próprio.
+                              if (temMissao) const HeroMissaoHoje(),
+                              // Geralzão: faixa de KPIs, tudo de relance.
+                              const HeroGeral(),
+                              // Alertas ficam no topo (urgência tem de ser
+                              // vista sem rolar); somem quando não há nada.
+                              if (temAlertas) ...[
+                                const SizedBox(height: Spacing.md),
+                                const CardAlertas(),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Spacing.lg,
+                          0,
+                          Spacing.lg,
+                          88,
+                        ),
+                        sliver: SliverMasonryGrid.count(
+                          crossAxisCount: colunas,
+                          mainAxisSpacing: Spacing.md,
+                          crossAxisSpacing: Spacing.md,
+                          childCount: cards.length,
+                          itemBuilder: (context, i) => cards[i],
+                        ),
+                      ),
                     ],
                   );
                 },
@@ -169,19 +194,6 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 }
-
-/// Coluna de cards com o vão padrão entre eles (token Spacing.md). Os cards
-/// já chegam FILTRADOS (só os visíveis), então não há espaçador antes de um
-/// card ausente — fim do "gap fantasma" das colunas.
-Widget _coluna(List<Widget> cards) => Column(
-  crossAxisAlignment: CrossAxisAlignment.stretch,
-  children: [
-    for (var i = 0; i < cards.length; i++) ...[
-      if (i > 0) const SizedBox(height: Spacing.md),
-      cards[i],
-    ],
-  ],
-);
 
 /// Frase do dia: 366 frases em frases_do_dia.dart, indexadas pelo
 /// dia-do-ano — cada dia do ano tem a SUA frase, sem repetir no ano.
@@ -197,50 +209,28 @@ class _EstadoVazio extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 380),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.auto_stories,
-                size: 44,
-                color: LuminaColors.safiraClara,
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Seu dashboard nasce do primeiro registro',
-                textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(color: VizColors.inkPrimary),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Cada sessão de estudo vira horas, gráficos, streak e '
-                'sugestões do dia — tudo calculado automaticamente.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: VizColors.inkSecondary, fontSize: 13),
-              ),
-              const SizedBox(height: 18),
-              FilledButton.icon(
-                onPressed: () => mostrarFormularioRegistro(context),
-                icon: const Icon(Icons.add),
-                label: const Text('Registrar primeira sessão'),
-              ),
-              const SizedBox(height: 6),
-              TextButton.icon(
-                onPressed: () =>
-                    ref.read(abaProvider.notifier).ir(Abas.cronometro),
-                icon: const Icon(Icons.timer_outlined, size: 18),
-                label: const Text('Ou estude agora com o cronômetro'),
-              ),
-            ],
+    return EstadoVazio(
+      icone: Icons.auto_stories,
+      titulo: 'Seu dashboard nasce do primeiro registro',
+      descricao:
+          'Cada sessão de estudo vira horas, gráficos, streak e '
+          'sugestões do dia — tudo calculado automaticamente.',
+      cta: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FilledButton.icon(
+            onPressed: () => mostrarFormularioRegistro(context),
+            icon: const Icon(Icons.add),
+            label: const Text('Registrar primeira sessão'),
           ),
-        ),
+          const SizedBox(height: 6),
+          TextButton.icon(
+            onPressed: () =>
+                ref.read(abaProvider.notifier).ir(Abas.cronometro),
+            icon: const Icon(Icons.timer_outlined, size: 18),
+            label: const Text('Ou estude agora com o cronômetro'),
+          ),
+        ],
       ),
     );
   }

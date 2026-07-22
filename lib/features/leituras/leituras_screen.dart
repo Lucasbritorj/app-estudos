@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/haptica.dart';
+import '../../core/widgets/estado_vazio.dart';
 import '../../data/models/leitura.dart';
 import '../../data/repositories/repositorios.dart';
 import '../../domain/leitura_service.dart';
@@ -272,10 +273,16 @@ class LeiturasScreen extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: leituras.isEmpty
-          ? const Center(
-              child: Text(
-                'Sem leituras. Toque em + para dividir um PDF.',
-                style: TextStyle(color: VizColors.muted),
+          ? EstadoVazio(
+              icone: Icons.menu_book,
+              titulo: 'Nenhuma leitura ainda',
+              descricao:
+                  'Divida um PDF em blocos e acompanhe páginas, tempo '
+                  'e ritmo de leitura.',
+              cta: FilledButton.icon(
+                onPressed: () => _novaLeitura(context, ref),
+                icon: const Icon(Icons.add),
+                label: const Text('Dividir PDF'),
               ),
             )
           : ConteudoCentral(
