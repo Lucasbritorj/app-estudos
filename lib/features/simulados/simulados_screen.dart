@@ -88,11 +88,19 @@ class SimuladosScreen extends ConsumerWidget {
                               ),
                             ),
                             if (taxa != null)
+                              // fontSize 19 + bold: cruza o limiar de "texto
+                              // grande" da WCAG AA (~18.66px), onde o
+                              // contraste real da cor de status (3-4:1) já
+                              // é suficiente (min. 3:1) — sem isso, este
+                              // era o único sinal de desempenho de relance
+                              // da lista, então trocar pra cor neutra
+                              // custaria o proposito do numero colorido.
                               Text(
                                 '${(taxa * 100).toStringAsFixed(0)}%',
                                 style: TextStyle(
                                   color: _corTaxa(taxa),
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 19,
                                 ),
                               ),
                           ],
@@ -123,13 +131,15 @@ class SimuladosScreen extends ConsumerWidget {
                               title: Text(
                                 materiasPorId[r.materiaId]?.nome ?? '—',
                               ),
+                              // Detalhe dentro do card já expandido — os
+                              // números falam por si; cor de status como
+                              // texto pequeno (3-4:1) ficava abaixo do
+                              // minimo AA de 4.5:1.
                               trailing: Text(
                                 '${r.acertos}/${r.questoes} · '
                                 '${r.taxa == null ? '—' : '${(r.taxa! * 100).toStringAsFixed(0)}%'}',
-                                style: TextStyle(
-                                  color: r.taxa == null
-                                      ? VizColors.muted
-                                      : _corTaxa(r.taxa!),
+                                style: const TextStyle(
+                                  color: VizColors.inkSecondary,
                                 ),
                               ),
                             ),

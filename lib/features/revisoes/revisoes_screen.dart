@@ -301,9 +301,16 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
                             children: [
                               Icon(icone, size: 14, color: corStatus),
                               const SizedBox(width: 4),
+                              // Cor do status fica só no ícone (3:1, ok pra
+                              // grafismo pequeno); o rótulo já é o nome do
+                              // status por extenso, então em corStatus como
+                              // texto normal (~3.3-3.9:1) ficava abaixo do
+                              // minimo AA de 4.5:1 sem perder informação.
                               Text(
                                 '$rotulo · ${formatarData(revisao.dataAgendada)}',
-                                style: TextStyle(color: corStatus),
+                                style: const TextStyle(
+                                  color: VizColors.inkSecondary,
+                                ),
                               ),
                             ],
                           ),
