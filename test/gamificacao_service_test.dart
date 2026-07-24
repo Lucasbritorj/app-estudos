@@ -117,7 +117,12 @@ void main() {
     });
 
     test('primeira sessão e 50 horas', () {
-      final b = conquistadas([reg(hoje, 50 * 60)], []);
+      // 50h distribuídas em sessões plausíveis: uma única sessão de 50h agora
+      // é clampada em 16h pelo teto de sanidade do modelo (M-09).
+      final b = conquistadas(
+        [for (var i = 0; i < 50; i++) reg(DateTime(2026, 5, 1 + i), 60)],
+        [],
+      );
       expect(b['primeira-sessao'], true);
       expect(b['horas-50'], true);
       expect(b['horas-100'], false);

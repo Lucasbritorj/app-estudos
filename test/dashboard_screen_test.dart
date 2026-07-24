@@ -62,6 +62,17 @@ void main() {
 
     expect(find.textContaining('Meta da semana'), findsOneWidget);
     expect(find.text('Hoje'), findsWidgets);
+    // O diagnóstico do dia abre a leitura, acima da grade. Com 1h em 1 único
+    // dia dos últimos 14, a régua de constância crava o veredito crítico —
+    // determinístico, então dá para afirmar o título exato.
+    expect(find.text('Fora do ritmo — e a conta chegou'), findsOneWidget);
+    // "O que melhorar hoje" agora nasce fora da viewport (a grade é lazy):
+    // rola até ele em vez de afrouxar a asserção.
+    await tester.scrollUntilVisible(
+      find.text('O que melhorar hoje'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('O que melhorar hoje'), findsOneWidget);
     expect(find.text('Seu dashboard nasce do primeiro registro'), findsNothing);
   });

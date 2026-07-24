@@ -8,6 +8,7 @@ import '../../data/repositories/ambiente_filtros.dart';
 import '../../data/repositories/configuracoes_repositorio.dart';
 import '../../data/repositories/planejamento_repositorio.dart';
 import '../../data/repositories/repositorios.dart';
+import '../../domain/diagnostico_service.dart';
 import '../../domain/dominio_service.dart';
 import '../../domain/gamificacao_service.dart';
 import '../../domain/insights_service.dart';
@@ -563,6 +564,41 @@ final heatmapDadosProvider = Provider<HeatmapDados>((ref) {
     minutosPorDia: StatsService.minutosPorDia(registros),
     diasCongelados: StatsService.diasCongeladosDoStreak(registros, hoje),
     hoje: hoje,
+  );
+});
+
+/// Diagnóstico do dia: veredito único, honesto e acionável, derivado dos
+/// agregados que o dashboard já calcula (nenhuma passada extra sobre os
+/// registros — só composição de providers memoizados).
+final diagnosticoProvider = Provider<Diagnostico>((ref) {
+  final resumo = ref.watch(resumoGeralProvider);
+  final serie = ref.watch(serieEvolucaoProvider);
+  final retencao = ref.watch(trueRetentionProvider).geral;
+  final taxa = ref.watch(taxaAcertoGeralProvider);
+  final prontidao = ref.watch(prontidaoProvider);
+  final alertas = ref.watch(alertasProvider);
+  final sugestao = ref.watch(sugestaoHojeProvider);
+
+  final diasEstudados14 = serie
+      .where((d) => d.minutos >= DiagnosticoService.pisoMinutosDia)
+      .length;
+
+  return DiagnosticoService.gerar(
+    totalMinutos: resumo.total,
+    minutosHoje: resumo.minutosHoje,
+    minutosSemana: resumo.minutosSemana,
+    metaSemana: resumo.metaSemana,
+    streak: resumo.streak,
+    streakEmRisco: resumo.streakEmRisco,
+    atrasadas: resumo.atrasadas,
+    diasEstudados14: diasEstudados14,
+    trueRetention: retencao,
+    taxaAcertoGeral: taxa,
+    prontidaoAjustada: prontidao?.prontidaoAjustada,
+    diasAteProva: prontidao?.diasAteProva,
+    falsoDominio: alertas.falsoDominio.length,
+    materiaSugerida: sugestao?.materia.nome,
+    deficitMinutos: sugestao?.deficitMinutos ?? 0,
   );
 });
 

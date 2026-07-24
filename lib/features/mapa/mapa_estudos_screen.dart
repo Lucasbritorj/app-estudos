@@ -270,7 +270,7 @@ class _AulaLinha extends ConsumerWidget {
 
     final detalhe = [
       '${aula.paginasLidas}/${aula.paginasTotais} pág',
-      if (ritmo != null) '${ritmo.toStringAsFixed(1)} pág/h',
+      if (ritmo != null) '${formatarDecimal(ritmo)} pág/h',
       if (!aula.concluida && restante != null && restante > 0)
         'faltam ~${formatarMinutos(restante)}',
       if (aula.concluida && aula.dataConclusao != null)

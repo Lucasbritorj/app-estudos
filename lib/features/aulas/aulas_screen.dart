@@ -172,8 +172,8 @@ class AulasScreen extends ConsumerWidget {
                   final detalhe = [
                     '${aula.paginasLidas}/${aula.paginasTotais} pág',
                     if (minPorPag != null)
-                      '${minPorPag.toStringAsFixed(1)} min/pág',
-                    if (ritmo != null) '${ritmo.toStringAsFixed(1)} pág/h',
+                      '${formatarDecimal(minPorPag)} min/pág',
+                    if (ritmo != null) '${formatarDecimal(ritmo)} pág/h',
                     if (investido > 0)
                       '${formatarMinutos(investido)} investidos',
                     if (!aula.concluida && restante != null && restante > 0)

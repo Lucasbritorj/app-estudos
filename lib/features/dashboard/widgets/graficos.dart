@@ -171,7 +171,7 @@ class LinhaEvolucao extends ConsumerWidget {
       label:
           'Evolução dos últimos 14 dias: '
           '${formatarMinutos(totalMinutos)} no total, '
-          'pico de ${maxHoras.toStringAsFixed(1)} horas num dia',
+          'pico de ${formatarDecimal(maxHoras)} horas num dia',
       child: SizedBox(
         height: 180,
         child: LineChart(
@@ -236,7 +236,7 @@ class LinhaEvolucao extends ConsumerWidget {
                 getTooltipItems: (spots) => [
                   for (final s in spots)
                     LineTooltipItem(
-                      '${s.y.toStringAsFixed(1)}h',
+                      '${formatarDecimal(s.y)}h',
                       const TextStyle(
                         color: VizColors.inkPrimary,
                         fontWeight: FontWeight.w600,

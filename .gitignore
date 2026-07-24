@@ -33,6 +33,9 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# SDK que o buildCommand da Vercel clona para dentro do projeto.
+/flutter/
+
 # Symbolication related
 app.*.symbols
 

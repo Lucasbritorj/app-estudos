@@ -123,7 +123,7 @@ class CardSimulados extends ConsumerWidget {
                         '${formatarDiaMes(s.data)} · '
                         '${s.totalAcertos}/${s.totalQuestoes}'
                         '${s.taxaGeral == null ? '' : ' · ${(s.taxaGeral! * 100).toStringAsFixed(0)}%'}'
-                        '${s.minutosPorQuestao == null ? '' : ' · ${s.minutosPorQuestao!.toStringAsFixed(1)} min/q'}',
+                        '${s.minutosPorQuestao == null ? '' : ' · ${formatarDecimal(s.minutosPorQuestao!)} min/q'}',
                         style: const TextStyle(
                           color: VizColors.muted,
                           fontSize: 12,

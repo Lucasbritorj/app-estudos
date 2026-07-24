@@ -1,0 +1,34 @@
+# Normalização de fim de linha. Sem isto, um checkout no Windows (CRLF no
+# disco) contra um índice em LF marcava os ~200 arquivos do repo como
+# "modified" com inserções == remoções — ruído que torna qualquer diff
+# ilegível e esconde a mudança real.
+#
+# Regra: o repositório guarda SEMPRE LF; o working tree fica com o padrão da
+# plataforma. Arquivos binários são declarados para o git nunca tentar
+# converter.
+* text=auto eol=lf
+
+# Scripts que precisam de CRLF no Windows para rodar.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Scripts que quebram com CRLF.
+*.sh text eol=lf
+gradlew text eol=lf
+
+# Binários — nunca normalizar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.zip binary
+*.jar binary
+*.keystore binary
+*.xlsx binary

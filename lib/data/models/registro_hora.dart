@@ -9,6 +9,9 @@ enum TipoEstudo { teoria, pratica }
 /// Convenção assumida (planilha original indisponível): páginas lidas é
 /// contagem INCLUSIVA — ler da pág. 10 à 20 = 11 páginas.
 class RegistroHora {
+  /// Teto de minutos de UMA sessão (16h). Ver clamp na factory.
+  static const maxMinutosPorSessao = 16 * 60;
+
   final String id;
   final DateTime data;
   final String materiaId;
@@ -96,7 +99,12 @@ class RegistroHora {
       aulaId: aulaId,
       tipo: tipo,
       tarefa: tarefa,
-      minutos: minutos < 0 ? 0 : minutos,
+      // Teto de sanidade (M-09): sem ele um registro de 999999 min dava ~1M
+      // de XP e todas as badges de horas de uma vez. 16h é o limite físico
+      // plausível de UMA sessão; acima disso é erro de digitação ou fraude.
+      minutos: minutos < 0 ? 0 : (minutos > maxMinutosPorSessao
+          ? maxMinutosPorSessao
+          : minutos),
       // Página negativa não existe — vira null para não contaminar
       // paginasLidas/ritmo.
       paginaInicial: (paginaInicial != null && paginaInicial < 0)

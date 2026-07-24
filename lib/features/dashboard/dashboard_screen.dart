@@ -14,6 +14,7 @@ import 'widgets/card_alertas.dart';
 import 'widgets/card_ambientes.dart';
 import 'widgets/card_anos.dart';
 import 'widgets/card_desempenho.dart';
+import 'widgets/card_diagnostico.dart';
 import 'widgets/card_gamificacao.dart';
 import 'widgets/card_melhorar_hoje.dart';
 import 'widgets/card_plano.dart';
@@ -167,6 +168,10 @@ class DashboardScreen extends ConsumerWidget {
                                 const SizedBox(height: Spacing.md),
                                 const CardAlertas(),
                               ],
+                              // Diagnóstico do dia: o veredito honesto vem
+                              // antes da grade de estatísticas. Traz o próprio
+                              // vão e some no estado semDados.
+                              const CardDiagnostico(),
                             ],
                           ),
                         ),

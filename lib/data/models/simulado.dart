@@ -5,11 +5,28 @@ class ResultadoMateria {
   final int questoes;
   final int acertos;
 
-  const ResultadoMateria({
+  const ResultadoMateria._({
     required this.materiaId,
     required this.questoes,
     required this.acertos,
   });
+
+  /// Invariantes na borda do modelo (M-05), espelhando [RegistroHora]: o
+  /// formulário já validava, mas o import de backup construía direto e
+  /// deixava passar `acertos > questoes` (taxa de 300% no card) ou valores
+  /// negativos corrompendo os totais.
+  factory ResultadoMateria({
+    required String materiaId,
+    required int questoes,
+    required int acertos,
+  }) {
+    final q = questoes < 0 ? 0 : questoes;
+    return ResultadoMateria._(
+      materiaId: materiaId,
+      questoes: q,
+      acertos: acertos.clamp(0, q),
+    );
+  }
 
   int get erros => questoes - acertos;
   double? get taxa => questoes <= 0 ? null : acertos / questoes;

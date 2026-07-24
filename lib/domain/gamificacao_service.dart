@@ -22,6 +22,35 @@ class GamificacaoService {
   static const xpPorRevisaoFeita = 50;
   static const xpPorDiaDeStreak = 10;
 
+  /// Teto de revisões que rendem bônus por DIA de conclusão (M-02). Sem ele o
+  /// loop "criar revisão manual → concluir em 1 clique → +50 XP" era infinito:
+  /// 20 revisões fabricadas e concluídas no mesmo minuto valiam 1000 XP.
+  /// Alinhado ao alvo de revisões das quests — 3 revisões/dia é o ritmo real.
+  static const maxRevisoesComBonusPorDia = 3;
+
+  /// Bônus de revisão com teto diário. Revisão feita sem [dataConclusao]
+  /// (dado antigo, pré-carimbo) entra num balde próprio e continua contando —
+  /// o teto não pode revogar XP já conquistado no histórico.
+  static int bonusRevisoes(List<Revisao> revisoes) {
+    var semData = 0;
+    final porDia = <DateTime, int>{};
+    for (final r in revisoes) {
+      if (!r.feita) continue;
+      final d = r.dataConclusao;
+      if (d == null) {
+        semData++;
+        continue;
+      }
+      final dia = DateTime(d.year, d.month, d.day);
+      porDia[dia] = (porDia[dia] ?? 0) + 1;
+    }
+    var contadas = semData;
+    for (final n in porDia.values) {
+      contadas += n > maxRevisoesComBonusPorDia ? maxRevisoesComBonusPorDia : n;
+    }
+    return contadas * xpPorRevisaoFeita;
+  }
+
   /// 1 XP por minuto líquido estudado (XP base, usado no nível por matéria).
   static int xpTotal(List<RegistroHora> registros) =>
       registros.fold(0, (soma, r) => soma + r.minutos);
@@ -58,14 +87,13 @@ class GamificacaoService {
     Map<String, int> pesoPorMateria = const {},
   }) {
     final base = xpPonderado(registros, pesoPorMateria);
-    final bonusRevisoes =
-        revisoes.where((r) => r.feita).length * xpPorRevisaoFeita;
+    final bonus = bonusRevisoes(revisoes);
     final bonusStreak = StatsService.streakPico(registros) * xpPorDiaDeStreak;
     return (
       base: base,
-      bonusRevisoes: bonusRevisoes,
+      bonusRevisoes: bonus,
       bonusStreak: bonusStreak,
-      total: base + bonusRevisoes + bonusStreak,
+      total: base + bonus + bonusStreak,
     );
   }
 

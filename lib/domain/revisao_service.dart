@@ -18,12 +18,16 @@ class RevisaoService {
     for (final r in revisoes) {
       if (r.feita || r.topicoId != topicoId || r.intervaloDias <= 0) continue;
       final nova = DateTime(base.year, base.month, base.day + r.intervaloDias);
-      if (nova !=
-          DateTime(
-            r.dataAgendada.year,
-            r.dataAgendada.month,
-            r.dataAgendada.day,
-          )) {
+      final atual = DateTime(
+        r.dataAgendada.year,
+        r.dataAgendada.month,
+        r.dataAgendada.day,
+      );
+      // Reancoragem só EMPURRA (M-11). Registrar hoje uma sessão retroativa
+      // (ex.: de duas semanas atrás) puxava a revisão para o passado e a
+      // fazia nascer "atrasada" sem o usuário ter perdido nada.
+      if (nova.isBefore(atual)) continue;
+      if (nova != atual) {
         alteradas.add(r.copyWith(dataAgendada: nova));
       }
     }
@@ -179,9 +183,20 @@ class RevisaoService {
     )).toDouble();
 
     // Dias efetivamente decorridos desde o estudo que ancorou a revisão.
+    // [diasDeAtraso] negativo = conclusão ANTECIPADA: o intervalo não passou,
+    // então o decorrido encolhe (antes era clampado em 0, e revisar hoje uma
+    // revisão de 60 dias consolidava como se os 60 dias tivessem passado —
+    // dava para queimar a cadeia inteira num dia).
     final base = intervaloAtual > 0 ? intervaloAtual : s.round();
-    final decorrido = max(1, base + max(0, diasDeAtraso));
+    final decorrido = max(1, base + diasDeAtraso);
     final r = 1 / (1 + decorrido / (9 * s));
+
+    /// Fração do intervalo que de fato transcorreu (1.0 em dia ou atrasada).
+    /// Revisar antes da hora consolida proporcionalmente menos — é o
+    /// espaçamento que consolida, não o clique.
+    final fracaoDecorrida = base <= 0
+        ? 1.0
+        : (decorrido / base).clamp(0.0, 1.0).toDouble();
 
     final errou = taxaAcerto != null && taxaAcerto < 0.75;
     final dificil =
@@ -198,6 +213,8 @@ class RevisaoService {
       var crescimento = _crescimentoBase * fatorFacilidade * bonusEsquecimento;
       // Freio S^(-w9): ganho de estabilidade encolhe conforme S cresce.
       crescimento *= pow(s, -_freioEstabilidade).toDouble();
+      // Freio de antecipação: em dia/atrasada fica 1.0 (nada muda).
+      crescimento *= fracaoDecorrida;
       if (dificil) {
         crescimento *= 0.5;
         novaD = _reverterDificuldade(d + 0.5);

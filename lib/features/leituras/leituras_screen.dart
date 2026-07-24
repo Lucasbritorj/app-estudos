@@ -29,7 +29,7 @@ Future<void> registrarSessaoLeitura(
         final p = int.tryParse(paginas.text);
         final m = int.tryParse(minutos.text);
         final previa = (p != null && p > 0 && m != null && m > 0)
-            ? '${(m / p).toStringAsFixed(1)} min/pág nesta sessão'
+            ? '${formatarDecimal((m / p))} min/pág nesta sessão'
             : '';
         return AlertDialog(
           title: Text('Registrar leitura — ${leitura.titulo}'),
@@ -317,7 +317,7 @@ class LeiturasScreen extends ConsumerWidget {
                         if (leitura.sessoes.isNotEmpty)
                           Text(
                             '${leitura.paginasRegistradas} pág registradas'
-                            '${leitura.minutosPorPagina == null ? '' : ' · ${leitura.minutosPorPagina!.toStringAsFixed(1)} min/pág'}'
+                            '${leitura.minutosPorPagina == null ? '' : ' · ${formatarDecimal(leitura.minutosPorPagina!)} min/pág'}'
                             '${leitura.minutosParaTerminar == null || leitura.minutosParaTerminar == 0 ? '' : ' · ~${formatarMinutos(leitura.minutosParaTerminar!)} p/ terminar'}',
                             style: const TextStyle(
                               color: VizColors.muted,
@@ -422,7 +422,7 @@ class _LeituraDetalhe extends ConsumerWidget {
                     ? 'Registre páginas e tempo por dia — o ritmo é calculado'
                     : '${leitura.paginasRegistradas} pág em '
                           '${formatarMinutos(leitura.minutosRegistrados)}'
-                          '${leitura.minutosPorPagina == null ? '' : ' · ${leitura.minutosPorPagina!.toStringAsFixed(1)} min/pág'}'
+                          '${leitura.minutosPorPagina == null ? '' : ' · ${formatarDecimal(leitura.minutosPorPagina!)} min/pág'}'
                           '${leitura.minutosParaTerminar == null || leitura.minutosParaTerminar == 0 ? '' : ' · ~${formatarMinutos(leitura.minutosParaTerminar!)} p/ terminar'}',
                 style: const TextStyle(fontSize: 12),
               ),
@@ -439,7 +439,7 @@ class _LeituraDetalhe extends ConsumerWidget {
                 title: Text(
                   '${formatarData(sessao.data)} · ${sessao.paginas} pág'
                   '${sessao.minutos == null ? '' : ' · ${formatarMinutos(sessao.minutos!)}'}'
-                  '${sessao.minutosPorPagina == null ? '' : ' · ${sessao.minutosPorPagina!.toStringAsFixed(1)} min/pág'}',
+                  '${sessao.minutosPorPagina == null ? '' : ' · ${formatarDecimal(sessao.minutosPorPagina!)} min/pág'}',
                 ),
                 trailing: IconButton(
                   tooltip: 'Excluir sessão',

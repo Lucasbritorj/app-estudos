@@ -74,12 +74,15 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
   TimeOfDay? _fim;
 
   /// Minutos líquidos entre início e fim; atravessa meia-noite (+24h).
+  /// Início == fim retorna null (obriga correção) — antes o `<= 0` virava
+  /// 1440 min: um toque errado injetava 24h fantasma em horas/meta/XP/streak.
   int? get _minutosDeInicioFim {
     final ini = _inicio;
     final fim = _fim;
     if (ini == null || fim == null) return null;
     var minutos = (fim.hour * 60 + fim.minute) - (ini.hour * 60 + ini.minute);
-    if (minutos <= 0) minutos += 24 * 60;
+    if (minutos == 0) return null;
+    if (minutos < 0) minutos += 24 * 60;
     return minutos;
   }
 
@@ -120,7 +123,7 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
     if (paginas == null) return '';
     if (minutos == null || minutos <= 0) return '$paginas páginas lidas';
     final ritmo = paginas / (minutos / 60.0);
-    return '$paginas páginas · ${ritmo.toStringAsFixed(1)} pág/h';
+    return '$paginas páginas · ${formatarDecimal(ritmo)} pág/h';
   }
 
   Future<void> _salvar() async {
@@ -128,7 +131,9 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
     final minutos = _minutosInformados;
     if (minutos == null || minutos <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe início e fim da sessão.')),
+        const SnackBar(
+          content: Text('Informe início e fim válidos (fim diferente do início).'),
+        ),
       );
       return;
     }

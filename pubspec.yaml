@@ -1,5 +1,5 @@
 name: app_estudos
-description: "A new Flutter project."
+description: "Meu Caminho Aprovado — app local-first de planejamento de estudos para concursos (ciclo de revisões FSRS, dashboard, export Power BI)."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -30,6 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Traduções dos widgets Material/Cupertino (date/time pickers em pt-BR).
+  flutter_localizations:
+    sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -38,7 +41,8 @@ dependencies:
   hive_ce: ^2.19.3
   hive_ce_flutter: ^2.3.4
   fl_chart: ^1.2.0
-  intl: ^0.20.3
+  # ^0.20.2 (não .3): flutter_localizations fixa intl 0.20.2 no SDK.
+  intl: ^0.20.2
   uuid: ^4.5.3
   flutter_local_notifications: ^22.0.1
   timezone: ^0.11.1

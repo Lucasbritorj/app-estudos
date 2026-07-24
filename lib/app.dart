@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
@@ -51,6 +52,16 @@ class AppEstudos extends StatelessWidget {
       title: 'Meu Caminho Aprovado',
       debugShowCheckedModeBanner: false,
       theme: buildDarkTheme(),
+      // App é pt-BR, mas os widgets do Material falavam inglês (U-12): sem os
+      // delegates, showDatePicker/showTimePicker renderizam "OK/Cancel/Select
+      // date" e os leitores de tela anunciam em inglês.
+      locale: const Locale('pt', 'BR'),
+      supportedLocales: const [Locale('pt', 'BR')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       // Gradiente Lumina atrás do Navigator inteiro: scaffolds transparentes
       // deixam o vidro dos cards aparecer em qualquer rota.
       builder: (context, child) =>

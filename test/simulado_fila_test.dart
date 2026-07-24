@@ -27,7 +27,9 @@ void main() {
       cargo: 'Auditor — FGV',
       data: DateTime(2026, 7, 5),
       tempoMinutos: 240,
-      resultados: const [
+      // Deixou de ser const: ResultadoMateria virou factory com invariantes
+      // (clamp de acertos/questões) — M-05.
+      resultados: [
         ResultadoMateria(materiaId: 'm1', questoes: 40, acertos: 30),
         ResultadoMateria(materiaId: 'm2', questoes: 20, acertos: 18),
       ],

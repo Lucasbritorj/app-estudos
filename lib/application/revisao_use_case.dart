@@ -60,11 +60,20 @@ class RevisaoUseCase {
     await _ref.read(revisoesProvider.notifier).salvar(feita);
     await NotificacoesRevisao.sincronizar(feita, config.horaNotificacao);
 
-    final taxa = RevisaoService.taxaAcertoDe(
+    // Desempenho NA revisão é o sinal primário do passo FSRS (M-04): a janela
+    // das últimas 10 sessões diluía um 0/10 do recall entre sessões boas de
+    // outros tópicos — pior ainda nas cadeias de aula, que não têm topicoId e
+    // eram julgadas pela matéria inteira. A janela vira fallback para
+    // conclusão sem questões.
+    final taxaDaRevisao = (questoes != null && questoes > 0 && acertos != null)
+        ? (acertos.clamp(0, questoes)) / questoes
+        : null;
+    final taxaJanela = RevisaoService.taxaAcertoDe(
       _ref.read(registrosProvider),
       materiaId: revisao.materiaId,
       topicoId: revisao.topicoId,
     );
+    final taxa = taxaDaRevisao ?? taxaJanela;
     final agendada = DateTime(
       revisao.dataAgendada.year,
       revisao.dataAgendada.month,

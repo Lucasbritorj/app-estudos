@@ -113,7 +113,7 @@ class SimuladosScreen extends ConsumerWidget {
                                 '(${s.totalErros} erros)',
                             if (s.tempoMinutos != null)
                               '${formatarMinutos(s.tempoMinutos!)}'
-                                  '${s.minutosPorQuestao == null ? '' : ' · ${s.minutosPorQuestao!.toStringAsFixed(1)} min/questão'}',
+                                  '${s.minutosPorQuestao == null ? '' : ' · ${formatarDecimal(s.minutosPorQuestao!)} min/questão'}',
                           ].join(' · '),
                           style: const TextStyle(
                             color: VizColors.muted,
@@ -268,7 +268,7 @@ class _SimuladoFormState extends ConsumerState<_SimuladoForm> {
     final tempo = _int(_tempo);
     return 'Total: $acertos/$questoes · ${(questoes - acertos)} erros · '
         '${taxa.toStringAsFixed(0)}%'
-        '${tempo == null || tempo <= 0 ? '' : ' · ${(tempo / questoes).toStringAsFixed(1)} min/questão'}';
+        '${tempo == null || tempo <= 0 ? '' : ' · ${formatarDecimal((tempo / questoes))} min/questão'}';
   }
 
   Future<void> _salvar() async {

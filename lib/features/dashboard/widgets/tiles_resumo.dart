@@ -21,7 +21,7 @@ class TilesResumo extends ConsumerWidget {
       ('Ontem', formatarMinutos(dados.ontem)),
       ('Média/dia', formatarMinutos(dados.media)),
       ('Melhor dia', formatarMinutos(dados.maximo)),
-      if (ritmo != null) ('Ritmo', '${ritmo.toStringAsFixed(1)} pág/h'),
+      if (ritmo != null) ('Ritmo', '${formatarDecimal(ritmo)} pág/h'),
     ];
 
     // Extent máximo fixo: em tela larga entram 3-4 por linha COMPACTOS —
