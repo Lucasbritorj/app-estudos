@@ -1,0 +1,264 @@
+@Tags(['screenshots'])
+library;
+
+import 'dart:io';
+
+import 'package:app_estudos/core/theme/app_theme.dart';
+import 'package:app_estudos/data/local/hive_boxes.dart';
+import 'package:app_estudos/data/models/aula.dart';
+import 'package:app_estudos/data/models/materia.dart';
+import 'package:app_estudos/data/models/registro_hora.dart';
+import 'package:app_estudos/data/models/revisao.dart';
+import 'package:app_estudos/data/models/topico.dart';
+import 'package:app_estudos/features/dashboard/dashboard_screen.dart';
+import 'package:app_estudos/features/revisoes/revisoes_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hive_ce/hive.dart';
+
+/// Captura de telas para revisão visual — NÃO é teste de regressão.
+/// Roda só sob demanda:
+///   flutter test --tags screenshots --update-goldens
+/// As imagens saem em test/goldens/. Excluído da suíte normal por tag para
+/// não transformar mudança de pixel em build vermelho.
+void main() {
+  late Directory dir;
+
+  setUpAll(() async {
+    // Sem fontes reais o flutter_test desenha caixas no lugar do texto. As do
+    // Material vêm do cache do SDK; o caminho é resolvido em runtime para o
+    // teste não ficar preso à máquina de quem gerou as imagens.
+    final mf = _materialFonts();
+    await _carregarFonte('Roboto', [
+      if (mf != null) ...[
+        '$mf/Roboto-Regular.ttf',
+        '$mf/Roboto-Medium.ttf',
+        '$mf/Roboto-Bold.ttf',
+      ],
+    ]);
+    await _carregarFonte('Display', ['fonts/SpaceGrotesk-Variable.ttf']);
+    await _carregarFonte('MaterialIcons', [
+      if (mf != null) '$mf/MaterialIcons-Regular.otf',
+    ]);
+  });
+
+  setUp(() async {
+    dir = await Directory.systemTemp.createTemp('hive_shot_');
+    Hive.init(dir.path);
+    await HiveBoxes.openAll();
+    await HiveBoxes.migrarAmbientes();
+  });
+
+  tearDown(() async {
+    await Hive.deleteFromDisk();
+    await dir.delete(recursive: true);
+  });
+
+  Future<void> semear() async {
+    final hoje = DateTime.now();
+    DateTime dia(int atras) =>
+        DateTime(hoje.year, hoje.month, hoje.day - atras, 9);
+
+    final materias = [
+      ('m1', 'Direito Constitucional', 5, 0),
+      ('m2', 'Administração Financeira e Orçamentária', 4, 1),
+      ('m3', 'Língua Portuguesa', 3, 2),
+      ('m4', 'Raciocínio Lógico', 2, 3),
+    ];
+    for (final (id, nome, peso, slot) in materias) {
+      await Hive.box<Map>(HiveBoxes.materias).put(
+        id,
+        Materia(
+          id: id,
+          nome: nome,
+          peso: peso,
+          corSlot: slot,
+          intimidade: id == 'm2' ? 4 : 3,
+          criadaEm: dia(120),
+        ).toJson(),
+      );
+    }
+    await Hive.box<Map>(HiveBoxes.topicos).put(
+      't1',
+      Topico(
+        id: 't1',
+        materiaId: 'm1',
+        nome: 'Controle de constitucionalidade',
+      ).toJson(),
+    );
+    await Hive.box<Map>(HiveBoxes.aulas).put(
+      'a1',
+      Aula(
+        id: 'a1',
+        materiaId: 'm1',
+        nome: 'Aula 12 — Remédios constitucionais',
+        paginasTotais: 40,
+        paginasLidas: 40,
+        concluida: true,
+        dataConclusao: dia(9),
+      ).toJson(),
+    );
+
+    // ~6 semanas de estudo com constância boa e desempenho variado.
+    final box = Hive.box<Map>(HiveBoxes.registros);
+    var n = 0;
+    for (var d = 41; d >= 0; d--) {
+      if (d % 7 == 6) continue; // um dia de folga por semana
+      final mid = ['m1', 'm2', 'm3', 'm4'][d % 4];
+      final pratica = d % 3 != 0;
+      final questoes = pratica ? 20 : null;
+      final acertos = pratica ? (mid == 'm2' ? 12 : 17) : null;
+      await box.put(
+        'r${n++}',
+        RegistroHora(
+          id: 'r$n',
+          data: dia(d),
+          materiaId: mid,
+          topicoId: mid == 'm1' ? 't1' : null,
+          tipo: pratica ? TipoEstudo.pratica : TipoEstudo.teoria,
+          tarefa: pratica ? 'Questões' : 'Teoria + resumo',
+          minutos: 95 + (d % 5) * 15,
+          questoes: questoes,
+          acertos: acertos,
+        ).toJson(),
+      );
+    }
+
+    final rb = Hive.box<Map>(HiveBoxes.revisoes);
+    await rb.put(
+      'rv1',
+      Revisao(
+        id: 'rv1',
+        materiaId: 'm1',
+        topicoId: 't1',
+        aulaId: 'a1',
+        titulo: 'Aula 12 — Remédios constitucionais (7d)',
+        dataAgendada: dia(3),
+        intervaloDias: 7,
+      ).toJson(),
+    );
+    await rb.put(
+      'rv2',
+      Revisao(
+        id: 'rv2',
+        materiaId: 'm2',
+        titulo: 'Receita pública (15d)',
+        dataAgendada: dia(1),
+        intervaloDias: 15,
+      ).toJson(),
+    );
+    await rb.put(
+      'rv3',
+      Revisao(
+        id: 'rv3',
+        materiaId: 'm3',
+        titulo: 'Crase (30d)',
+        dataAgendada: dia(-4),
+        intervaloDias: 30,
+      ).toJson(),
+    );
+    await rb.put(
+      'rv4',
+      Revisao(
+        id: 'rv4',
+        materiaId: 'm4',
+        titulo: 'Proposições (7d)',
+        dataAgendada: dia(-1),
+        intervaloDias: 7,
+        feita: true,
+        dataConclusao: dia(1),
+      ).toJson(),
+    );
+  }
+
+  Future<void> capturar(
+    WidgetTester tester,
+    Widget tela,
+    String nome, {
+    Size tamanho = const Size(1180, 1500),
+  }) async {
+    tester.view.physicalSize = tamanho;
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: buildDarkTheme(),
+          locale: const Locale('pt', 'BR'),
+          builder: (context, child) =>
+              LuminaBackground(child: child ?? const SizedBox.shrink()),
+          home: tela,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/$nome.png'),
+    );
+  }
+
+  testWidgets('dashboard com dados', (tester) async {
+    await tester.runAsync(semear);
+    await capturar(tester, const DashboardScreen(), '01_dashboard');
+  });
+
+  testWidgets('dashboard vazio (primeira abertura)', (tester) async {
+    await capturar(
+      tester,
+      const DashboardScreen(),
+      '02_dashboard_vazio',
+      tamanho: const Size(900, 800),
+    );
+  });
+
+  testWidgets('revisões', (tester) async {
+    await tester.runAsync(semear);
+    await capturar(
+      tester,
+      const RevisoesScreen(),
+      '03_revisoes',
+      tamanho: const Size(900, 1000),
+    );
+  });
+}
+
+/// Pasta material_fonts do SDK: FLUTTER_ROOT quando definido, senão deduz a
+/// partir do `flutter` no PATH. null quando não achar (aí o texto sai como
+/// caixa, mas o teste não quebra).
+String? _materialFonts() {
+  final root = Platform.environment['FLUTTER_ROOT'];
+  final candidatos = <String>[
+    if (root != null && root.isNotEmpty) root,
+    for (final p in (Platform.environment['PATH'] ?? '').split(
+      Platform.isWindows ? ';' : ':',
+    ))
+      if (p.endsWith('flutter${Platform.pathSeparator}bin') ||
+          p.endsWith('flutter/bin'))
+        p.substring(0, p.length - 4),
+  ];
+  for (final c in candidatos) {
+    final d = Directory(
+      '$c${Platform.pathSeparator}bin${Platform.pathSeparator}cache'
+      '${Platform.pathSeparator}artifacts${Platform.pathSeparator}material_fonts',
+    );
+    if (d.existsSync()) return d.path;
+  }
+  return null;
+}
+
+Future<void> _carregarFonte(String familia, List<String> caminhos) async {
+  final loader = FontLoader(familia);
+  var algum = false;
+  for (final c in caminhos) {
+    final f = File(c);
+    if (!f.existsSync()) continue;
+    algum = true;
+    final bytes = await f.readAsBytes();
+    loader.addFont(Future.value(ByteData.view(bytes.buffer)));
+  }
+  if (algum) await loader.load();
+}
