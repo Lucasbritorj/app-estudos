@@ -56,6 +56,11 @@ typedef ResumoGeral = ({
   bool streakEmRisco,
   int metaSemana,
   double progressoMeta,
+  // M-18: percentual sem teto, só para exibição — "44h45 de 24h" precisa
+  // dizer 186%, não travar em "100%" (progressoMeta é clampado em 1.0 de
+  // propósito, porque alimenta o `value` do LinearProgressIndicator, que
+  // lança assertion error fora de [0,1]).
+  double progressoMetaReal,
   int pendentes,
   int atrasadas,
   int qtdMaterias,
@@ -97,6 +102,7 @@ final resumoGeralProvider = Provider<ResumoGeral>((ref) {
     progressoMeta: metaSemana == 0
         ? 0.0
         : (minutosSemana / metaSemana).clamp(0.0, 1.0),
+    progressoMetaReal: metaSemana == 0 ? 0.0 : minutosSemana / metaSemana,
     pendentes: pendentes,
     atrasadas: atrasadas,
     qtdMaterias: materias.length,

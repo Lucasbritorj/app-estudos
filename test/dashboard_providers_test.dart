@@ -1,7 +1,10 @@
+import 'package:app_estudos/data/models/configuracoes.dart';
 import 'package:app_estudos/data/models/materia.dart';
 import 'package:app_estudos/data/models/registro_hora.dart';
 import 'package:app_estudos/data/models/revisao.dart';
 import 'package:app_estudos/data/repositories/ambiente_filtros.dart';
+import 'package:app_estudos/data/repositories/configuracoes_repositorio.dart';
+import 'package:app_estudos/data/repositories/planejamento_repositorio.dart';
 import 'package:app_estudos/features/dashboard/dashboard_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -109,4 +112,77 @@ void main() {
     expect(barras.map((e) => e.materiaId).toList(), ['m2', 'm1']);
     expect(barras.first.minutos, 90);
   });
+
+  group('M-18 — percentual da meta não trava em 100% ao ultrapassar', () {
+    ProviderContainer containerComMeta({
+      required List<RegistroHora> registros,
+      required int metaMinutos,
+    }) => ProviderContainer(
+      overrides: [
+        registrosDoAmbienteProvider.overrideWithValue(registros),
+        materiasDoAmbienteProvider.overrideWithValue([mat('m1')]),
+        revisoesDoAmbienteProvider.overrideWithValue(const <Revisao>[]),
+        hojeProvider.overrideWithValue(hoje),
+        planejamentoProvider.overrideWith(_PlanejamentoFake.new),
+        configuracoesProvider.overrideWith(
+          () => _ConfiguracoesFake(
+            Configuracoes(metaSemanalMinutos: metaMinutos),
+          ),
+        ),
+      ],
+    );
+
+    test('186% da meta: barra clampa em 1.0, texto reflete o valor real', () {
+      // 44h45 (2685min) numa meta de 24h (1440min) = 186,458...%. Em 3
+      // sessões (não 1): M-09 clampa qualquer sessão única em 960min (16h).
+      final c = containerComMeta(
+        registros: [
+          reg('r1', 'm1', minutos: 895, data: hoje),
+          reg('r2', 'm1', minutos: 895, data: hoje),
+          reg('r3', 'm1', minutos: 895, data: hoje),
+        ],
+        metaMinutos: 1440,
+      );
+      addTearDown(c.dispose);
+      final resumo = c.read(resumoGeralProvider);
+
+      // Value da LinearProgressIndicator PRECISA ficar em [0,1] (fora disso
+      // é assertion error) — continua clampado, de propósito.
+      expect(resumo.progressoMeta, 1.0);
+      // Mas o percentual exibido ao usuário não pode mentir "100%" quando o
+      // real é 186% — sem teto, só para leitura.
+      expect(resumo.progressoMetaReal, closeTo(895 * 3 / 1440, 0.0001));
+      expect(
+        (resumo.progressoMetaReal * 100).round(),
+        186,
+        reason: 'card_diagnostico e o texto da barra usam este número; '
+            'se voltar a usar progressoMeta (clampado), trava em 100',
+      );
+    });
+
+    test('abaixo da meta: real e clampado coincidem (sem regressão)', () {
+      final c = containerComMeta(
+        registros: [reg('r1', 'm1', minutos: 300, data: hoje)],
+        metaMinutos: 1440,
+      );
+      addTearDown(c.dispose);
+      final resumo = c.read(resumoGeralProvider);
+      expect(resumo.progressoMeta, closeTo(300 / 1440, 0.0001));
+      expect(resumo.progressoMetaReal, closeTo(300 / 1440, 0.0001));
+    });
+  });
+}
+
+/// Fakes só para não depender de Hive nestes dois testes: NotifierProvider
+/// (Riverpod 3) não tem overrideWithValue — o override precisa de um Notifier.
+class _PlanejamentoFake extends PlanejamentoRepositorio {
+  @override
+  Map<int, int> build() => const <int, int>{};
+}
+
+class _ConfiguracoesFake extends ConfiguracoesRepositorio {
+  _ConfiguracoesFake(this._valor);
+  final Configuracoes _valor;
+  @override
+  Configuracoes build() => _valor;
 }

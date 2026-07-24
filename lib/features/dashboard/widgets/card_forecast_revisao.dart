@@ -107,6 +107,13 @@ class _Barra extends StatelessWidget {
             alignment: Alignment.bottomCenter,
             // Mínimo visível para dias com carga; zero fica rente à base.
             heightFactor: fracao == 0 ? 0.02 : (0.1 + 0.9 * fracao),
+            // BUG (M-18): sem widthFactor, o DecoratedBox (sem child próprio)
+            // recebe constraints de largura *loose* e colapsa para 0px —
+            // altura certa, largura zero, barra inteiramente invisível.
+            // É por isso que "Revisões — próximos 30 dias" sempre renderizou
+            // com a faixa do gráfico vazia, mesmo com "pico: N em hoje"
+            // correto no rodapé (o dado estava certo; só a barra não pintava).
+            widthFactor: 1.0,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: fracao == 0 ? VizColors.gridline : cor,

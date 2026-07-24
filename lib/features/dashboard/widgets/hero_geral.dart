@@ -106,6 +106,7 @@ class HeroGeral extends ConsumerWidget {
               const SizedBox(height: Spacing.lg),
               _BarraMeta(
                 progresso: progressoMeta,
+                progressoReal: resumo.progressoMetaReal,
                 minutosSemana: resumo.minutosSemana,
                 metaSemana: resumo.metaSemana,
               ),
@@ -241,11 +242,13 @@ class _Kpi extends StatelessWidget {
 /// (mesmo canal de celebração do streak/XP).
 class _BarraMeta extends StatelessWidget {
   final double progresso;
+  final double progressoReal;
   final int minutosSemana;
   final int metaSemana;
 
   const _BarraMeta({
     required this.progresso,
+    required this.progressoReal,
     required this.minutosSemana,
     required this.metaSemana,
   });
@@ -277,7 +280,9 @@ class _BarraMeta extends StatelessWidget {
         Text(
           'Meta da semana: ${formatarMinutos(minutosSemana)} de '
           '${formatarMinutos(metaSemana)} '
-          '(${(progresso * 100).toStringAsFixed(0)}%)',
+          // Percentual SEM teto — a barra visual clampa em 100% (não dá pra
+          // desenhar 186% de largura), mas o texto teria que mentir junto.
+          '(${(progressoReal * 100).toStringAsFixed(0)}%)',
           style: const TextStyle(color: VizColors.muted, fontSize: 11),
         ),
       ],
