@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../data/models/materia.dart';
 import '../../../data/repositories/ambiente_filtros.dart';
 import '../dashboard_providers.dart';
@@ -91,7 +92,8 @@ class _LinhaDesempenho extends StatelessWidget {
               Icon(icone, size: 14, color: corStatus),
               const SizedBox(width: 4),
               Text(
-                '$acertos/$questoes · ${(taxa * 100).toStringAsFixed(0)}% $rotulo',
+                '${formatarInteiro(acertos)}/${formatarInteiro(questoes)} · '
+                '${(taxa * 100).toStringAsFixed(0)}% $rotulo',
                 style: TextStyle(color: corStatus, fontSize: 12),
               ),
             ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/formatters.dart';
 import '../confete_leve.dart';
 import '../dashboard_providers.dart';
 
@@ -70,7 +71,7 @@ class CardGamificacao extends ConsumerWidget {
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 350),
                     child: Text(
-                      '${xp.total} XP',
+                      '${formatarInteiro(xp.total)} XP',
                       key: ValueKey(xp.total),
                       style: const TextStyle(
                         color: VizColors.muted,
@@ -94,8 +95,8 @@ class CardGamificacao extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Faltam ${progresso.xpParaProximo - progresso.xpNoNivel} XP para o nível ${progresso.nivel + 1} · '
-                'estudo ${xp.base} + revisões ${xp.bonusRevisoes} + streak ${xp.bonusStreak}',
+                'Faltam ${formatarInteiro(progresso.xpParaProximo - progresso.xpNoNivel)} XP para o nível ${progresso.nivel + 1} · '
+                'estudo ${formatarInteiro(xp.base)} + revisões ${formatarInteiro(xp.bonusRevisoes)} + streak ${formatarInteiro(xp.bonusStreak)}',
                 style: const TextStyle(color: VizColors.muted, fontSize: 11),
               ),
               const SizedBox(height: 12),

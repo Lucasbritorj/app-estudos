@@ -19,6 +19,10 @@ class Configuracoes {
   /// backups antigos, que não tinham o campo) — o gate mostra o tour uma vez.
   final bool onboardingConcluido;
 
+  /// Sidebar (tela larga) colapsada em modo só-ícones? Falso por padrão (e em
+  /// backups antigos, que não tinham o campo).
+  final bool sidebarColapsada;
+
   const Configuracoes({
     this.intervalosRevisao = const [7, 15, 30],
     this.horaNotificacao = 9,
@@ -26,6 +30,7 @@ class Configuracoes {
     this.horaLembreteEstudo,
     this.ambienteAtivoId,
     this.onboardingConcluido = false,
+    this.sidebarColapsada = false,
   });
 
   Configuracoes copyWith({
@@ -37,6 +42,7 @@ class Configuracoes {
     String? ambienteAtivoId,
     bool limparAmbienteAtivo = false,
     bool? onboardingConcluido,
+    bool? sidebarColapsada,
   }) {
     return Configuracoes(
       intervalosRevisao: intervalosRevisao ?? this.intervalosRevisao,
@@ -49,6 +55,7 @@ class Configuracoes {
           ? null
           : (ambienteAtivoId ?? this.ambienteAtivoId),
       onboardingConcluido: onboardingConcluido ?? this.onboardingConcluido,
+      sidebarColapsada: sidebarColapsada ?? this.sidebarColapsada,
     );
   }
 
@@ -59,6 +66,7 @@ class Configuracoes {
     'horaLembreteEstudo': horaLembreteEstudo,
     'ambienteAtivoId': ambienteAtivoId,
     'onboardingConcluido': onboardingConcluido,
+    'sidebarColapsada': sidebarColapsada,
   };
 
   factory Configuracoes.fromJson(Map<String, dynamic> json) => Configuracoes(
@@ -73,5 +81,6 @@ class Configuracoes {
     horaLembreteEstudo: (json['horaLembreteEstudo'] as num?)?.toInt(),
     ambienteAtivoId: json['ambienteAtivoId'] as String?,
     onboardingConcluido: json['onboardingConcluido'] as bool? ?? false,
+    sidebarColapsada: json['sidebarColapsada'] as bool? ?? false,
   );
 }

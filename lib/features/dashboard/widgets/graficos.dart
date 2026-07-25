@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/models/materia.dart';
 import '../../../data/repositories/ambiente_filtros.dart';
 import '../dashboard_providers.dart';
 
@@ -278,6 +279,18 @@ class LinhaEvolucao extends ConsumerWidget {
   }
 }
 
+/// Acima deste nº de fatias a rosca fica ilegível (fatia fina, cor difícil
+/// de distinguir) — [DonutDistribuicao] troca para barras horizontais.
+const maxFatiasDonut = 5;
+
+/// Acima deste total (100h) o rótulo "NNNNh MMmin" de [formatarMinutos] fica
+/// longo demais para caber no miolo da rosca — troca pro formato compacto.
+const _limiteMinutosCompacto = 6000;
+
+String _formatarDuracao(int minutos) => minutos >= _limiteMinutosCompacto
+    ? formatarHorasCompacto(minutos)
+    : formatarMinutos(minutos);
+
 class DonutDistribuicao extends ConsumerWidget {
   const DonutDistribuicao({super.key});
 
@@ -305,87 +318,207 @@ class DonutDistribuicao extends ConsumerWidget {
               '${(e.minutos * 100 / total).toStringAsFixed(0)}%',
         )
         .join(', ');
+    // Rótulo idêntico nos dois caminhos visuais (rosca ou barras) — só o
+    // desenho muda conforme a quantidade de fatias.
+    final rotuloA11y =
+        'Distribuição total por matéria, '
+        '${formatarMinutos(total)}: $resumoA11y';
+    final usarBarras = linhas.length > maxFatiasDonut;
 
     return Column(
       children: [
         Semantics(
           container: true,
-          label:
-              'Distribuição total por matéria, '
-              '${formatarMinutos(total)}: $resumoA11y',
-          child: SizedBox(
-            height: 180,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                PieChart(
-                  PieChartData(
-                    centerSpaceRadius: 48,
-                    sectionsSpace: 2,
-                    sections: [
-                      for (final e in linhas)
-                        PieChartSectionData(
-                          value: e.minutos.toDouble(),
-                          color: corDaSerie(
-                            materiasPorId[e.materiaId]?.corSlot ?? 0,
-                          ),
-                          radius: 22,
-                          showTitle: false,
+          label: rotuloA11y,
+          child: usarBarras
+              ? _BarrasDistribuicao(
+                  linhas: linhas,
+                  materiasPorId: materiasPorId,
+                  total: total,
+                )
+              : SizedBox(
+                  height: 180,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      PieChart(
+                        PieChartData(
+                          centerSpaceRadius: 52,
+                          sectionsSpace: 2,
+                          sections: [
+                            for (final e in linhas)
+                              PieChartSectionData(
+                                value: e.minutos.toDouble(),
+                                color: corDaSerie(
+                                  materiasPorId[e.materiaId]?.corSlot ?? 0,
+                                ),
+                                radius: 22,
+                                showTitle: false,
+                              ),
+                          ],
                         ),
+                      ),
+                      // Furo de 104px (centerSpaceRadius 52); com total
+                      // >=100h o texto vira compacto (_formatarDuracao) e,
+                      // mesmo assim, o FittedBox encolhe em vez de estourar.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _formatarDuracao(total),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(color: VizColors.inkPrimary),
+                            ),
+                            const Text(
+                              'total',
+                              style: TextStyle(
+                                color: VizColors.muted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                Column(
+        ),
+        // Legenda separada só faz sentido junto da rosca (cor -> matéria);
+        // a lista de barras já embute nome + valor + percentual por linha.
+        if (!usarBarras) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              for (final e in linhas)
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      formatarMinutos(total),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: VizColors.inkPrimary,
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: corDaSerie(
+                          materiasPorId[e.materiaId]?.corSlot ?? 0,
+                        ),
                       ),
                     ),
-                    const Text(
-                      'total',
-                      style: TextStyle(color: VizColors.muted, fontSize: 11),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${materiasPorId[e.materiaId]?.nome ?? '—'} · '
+                      '${(e.minutos * 100 / total).toStringAsFixed(0)}%',
+                      style: const TextStyle(
+                        color: VizColors.inkSecondary,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
-              ],
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Substituto da rosca acima de [maxFatiasDonut] fatias: uma barra
+/// horizontal por matéria (maior primeiro — `donutProvider` já ordena
+/// desc), sempre com nome + valor + percentual em texto, nunca só cor.
+class _BarrasDistribuicao extends StatelessWidget {
+  final MinutosPorMateria linhas;
+  final Map<String, Materia> materiasPorId;
+  final int total;
+
+  const _BarrasDistribuicao({
+    required this.linhas,
+    required this.materiasPorId,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final maxMinutos = linhas.first.minutos;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Total: ${_formatarDuracao(total)}',
+          style: const TextStyle(color: VizColors.muted, fontSize: 11),
+        ),
+        const SizedBox(height: Spacing.sm),
+        for (final e in linhas)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.sm),
+            child: _BarraDistribuicao(
+              nome: materiasPorId[e.materiaId]?.nome ?? '—',
+              cor: corDaSerie(materiasPorId[e.materiaId]?.corSlot ?? 0),
+              valor: _formatarDuracao(e.minutos),
+              fracao: maxMinutos == 0 ? 0 : e.minutos / maxMinutos,
+              percentual: total == 0 ? 0 : e.minutos * 100 / total,
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        // Legenda: identidade + valor em texto, nunca só cor.
-        Wrap(
-          spacing: 16,
-          runSpacing: 8,
+      ],
+    );
+  }
+}
+
+class _BarraDistribuicao extends StatelessWidget {
+  final String nome;
+  final Color cor;
+  final String valor;
+  final double fracao;
+  final double percentual;
+
+  const _BarraDistribuicao({
+    required this.nome,
+    required this.cor,
+    required this.valor,
+    required this.fracao,
+    required this.percentual,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            for (final e in linhas)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: corDaSerie(
-                        materiasPorId[e.materiaId]?.corSlot ?? 0,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${materiasPorId[e.materiaId]?.nome ?? '—'} · '
-                    '${(e.minutos * 100 / total).toStringAsFixed(0)}%',
-                    style: const TextStyle(
-                      color: VizColors.inkSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+            Expanded(
+              child: Text(
+                nome,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: VizColors.inkSecondary,
+                  fontSize: 12,
+                ),
               ),
+            ),
+            const SizedBox(width: Spacing.sm),
+            Text(
+              '$valor · ${percentual.toStringAsFixed(0)}%',
+              style: const TextStyle(
+                color: VizColors.inkPrimary,
+                fontSize: 12,
+              ),
+            ),
           ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: fracao,
+            minHeight: 8,
+            backgroundColor: VizColors.gridline,
+            color: cor,
+          ),
         ),
       ],
     );

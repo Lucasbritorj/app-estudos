@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app.dart';
+import '../../application/apagar_dados_use_case.dart';
 import '../../core/notificacoes/notificacoes_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/repositories/configuracoes_repositorio.dart';
@@ -180,9 +182,130 @@ class _ConfiguracoesScreenState extends ConsumerState<ConfiguracoesScreen> {
             ),
             const SizedBox(height: 24),
             FilledButton(onPressed: _salvar, child: const Text('Salvar')),
+            const SizedBox(height: 40),
+            const Divider(),
+            const SizedBox(height: 16),
+            Text(
+              'Zona de perigo',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: StatusColors.critico,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(
+                  Icons.delete_forever,
+                  color: StatusColors.critico,
+                ),
+                title: const Text('Apagar todos os dados'),
+                subtitle: const Text(
+                  'Remove permanentemente tudo o que você registrou. '
+                  'Não há como desfazer.',
+                ),
+                onTap: () => mostrarDialogoApagarDados(context, ref),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+/// Wipe out com trava dupla: mostra a contagem EXATA do que será perdido
+/// (ApagarDadosUseCase.contarRegistrosParaApagar) e só libera o botão
+/// destrutivo quando o usuário digita "APAGAR" — ação irreversível, sem
+/// undo e sem backup automático (ver ApagarDadosUseCase.apagarTudo).
+Future<void> mostrarDialogoApagarDados(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  final contagem = ref
+      .read(apagarDadosUseCaseProvider)
+      .contarRegistrosParaApagar();
+  final controller = TextEditingController();
+  // Capturados ANTES do showDialog: continuam válidos após o await de
+  // apagarTudo() mesmo que o diálogo/tela por trás já tenham sido fechados
+  // (Navigator/ScaffoldMessenger são compartilhados pelo MaterialApp, não
+  // por Scaffold individual — sobrevivem à navegação entre rotas).
+  final navigator = Navigator.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setStateDialog) {
+        final confirmado = controller.text.trim().toUpperCase() == 'APAGAR';
+        return AlertDialog(
+          title: const Text('Apagar todos os dados'),
+          content: SizedBox(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Isto vai apagar permanentemente ${contagem.registros} '
+                  'registros, ${contagem.materias} matérias, '
+                  '${contagem.topicos} tópicos, ${contagem.aulas} aulas, '
+                  '${contagem.revisoes} revisões, ${contagem.resumos} '
+                  'resumos, ${contagem.leituras} leituras, '
+                  '${contagem.simulados} simulados e ${contagem.ambientes} '
+                  'ambientes.',
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'A ação é irreversível e o app não faz backup automático. '
+                  'Para manter uma cópia, exporte antes em "Exportar & '
+                  'Importar".',
+                  style: TextStyle(
+                    color: StatusColors.critico,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Digite APAGAR para confirmar',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setStateDialog(() {}),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: StatusColors.critico,
+              ),
+              onPressed: confirmado
+                  ? () async {
+                      await ref.read(apagarDadosUseCaseProvider).apagarTudo();
+                      if (!dialogContext.mounted) return;
+                      Navigator.pop(dialogContext);
+                      ref.read(abaProvider.notifier).ir(Abas.dashboard);
+                      if (navigator.canPop()) navigator.pop();
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('Todos os dados foram apagados.'),
+                        ),
+                      );
+                    }
+                  : null,
+              child: const Text('Apagar tudo'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
 }

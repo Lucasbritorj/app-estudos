@@ -371,6 +371,24 @@ final tilesResumoProvider = Provider<TilesResumoDados>((ref) {
   );
 });
 
+/// Comparativo mês corrente vs mesmo trecho do mês anterior (MoM,
+/// parcial-vs-parcial) — base da seta de variação no tile "Mês".
+final comparativoMensalProvider = Provider<Comparativo>((ref) {
+  return StatsService.comparativoMensal(
+    ref.watch(registrosDoAmbienteProvider),
+    ref.watch(hojeProvider),
+  );
+});
+
+/// Comparativo ano corrente vs mesmo trecho do ano anterior (YoY,
+/// parcial-vs-parcial) — base da seta de variação no tile "Ano".
+final comparativoAnualProvider = Provider<Comparativo>((ref) {
+  return StatsService.comparativoAnual(
+    ref.watch(registrosDoAmbienteProvider),
+    ref.watch(hojeProvider),
+  );
+});
+
 typedef AnosResumo = ({Map<int, int> porAno, int total, int projecao, int ano});
 
 /// Horas acumuladas por ano + projeção do ano corrente.

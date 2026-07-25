@@ -119,9 +119,10 @@ class DashboardScreen extends ConsumerWidget {
                     if (ambienteAtivo == null) const CardAmbientes(),
                     const CardRankings(),
                     const CardSimulados(),
+                    // Cards de "status fechado" (consulta, não ação): ficam
+                    // juntos no rodapé da grade, lado a lado.
                     const CardGamificacao(),
                     const CardAnos(),
-                    const TilesResumo(),
                   ];
 
                   return CustomScrollView(
@@ -162,6 +163,12 @@ class DashboardScreen extends ConsumerWidget {
                               if (temMissao) const HeroMissaoHoje(),
                               // Geralzão: faixa de KPIs, tudo de relance.
                               const HeroGeral(),
+                              // Tiles complementares (mês/ano/ontem/média/
+                              // melhor dia/ritmo): vieram do rodapé da grade
+                              // pra área nobre — lá embaixo ficavam
+                              // desalinhados e sem hierarquia com o resto.
+                              const SizedBox(height: Spacing.md),
+                              const TilesResumo(),
                               // Alertas ficam no topo (urgência tem de ser
                               // vista sem rolar); somem quando não há nada.
                               if (temAlertas) ...[

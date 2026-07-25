@@ -17,6 +17,13 @@ String formatarDecimal(double v, {int casas = 1}) =>
 /// Inteiro com separador de milhar pt-BR: 48231 -> "48.231" (U-19).
 String formatarInteiro(int v) => NumberFormat.decimalPattern('pt_BR').format(v);
 
+/// Total grande (>=100h) em formato compacto: despreza os minutos e aplica
+/// separador de milhar pt-BR — 119999 -> "1.999h" em vez de "1999h 59min"
+/// (formatarMinutos estoura em espaços pequenos, ex. o miolo da rosca do
+/// dashboard).
+String formatarHorasCompacto(int minutos) =>
+    '${formatarInteiro(minutos ~/ 60)}h';
+
 String formatarData(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
 
 String formatarDiaMes(DateTime d) => DateFormat('dd/MM').format(d);

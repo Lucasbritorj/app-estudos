@@ -171,6 +171,37 @@ void main() {
       expect(resumo.progressoMetaReal, closeTo(300 / 1440, 0.0001));
     });
   });
+
+  group('Comparativos MoM/YoY (F4 — variação nos tiles Mês/Ano)', () {
+    test('comparativoMensalProvider: variação positiva quando o mês melhora',
+        () {
+      final c = container(registros: [
+        reg('r1', 'm1', minutos: 60, data: DateTime(2026, 7, 10)),
+        reg('r2', 'm1', minutos: 30, data: DateTime(2026, 6, 10)),
+      ], materias: [
+        mat('m1')
+      ]);
+      addTearDown(c.dispose);
+      final comp = c.read(comparativoMensalProvider);
+      expect(comp.atual, 60);
+      expect(comp.anterior, 30);
+      expect(comp.variacao, closeTo(1.0, 0.0001)); // dobrou: +100%
+    });
+
+    test('comparativoAnualProvider: sem base de comparação, variação é null',
+        () {
+      final c = container(registros: [
+        reg('r1', 'm1', minutos: 60, data: DateTime(2026, 3, 1)),
+      ], materias: [
+        mat('m1')
+      ]);
+      addTearDown(c.dispose);
+      final comp = c.read(comparativoAnualProvider);
+      expect(comp.atual, 60);
+      expect(comp.anterior, 0);
+      expect(comp.variacao, isNull);
+    });
+  });
 }
 
 /// Fakes só para não depender de Hive nestes dois testes: NotifierProvider

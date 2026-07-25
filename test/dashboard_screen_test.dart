@@ -4,6 +4,8 @@ import 'package:app_estudos/data/local/hive_boxes.dart';
 import 'package:app_estudos/data/models/materia.dart';
 import 'package:app_estudos/data/models/registro_hora.dart';
 import 'package:app_estudos/features/dashboard/dashboard_screen.dart';
+import 'package:app_estudos/features/dashboard/widgets/card_melhorar_hoje.dart';
+import 'package:app_estudos/features/dashboard/widgets/tiles_resumo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,10 +81,12 @@ void main() {
 
   testWidgets('em tela larga a grade masonry (3 colunas) monta sem overflow',
       (tester) async {
-    // Superfície larga o bastante para o modo 3 colunas (>= 1360). Prova que
-    // o CustomScrollView + SliverMasonryGrid recebe altura limitada e os cards
-    // da grade rendem sem exceção de layout. reset() volta ao padrão no fim.
-    tester.view.physicalSize = const Size(1500, 1000);
+    // Superfície larga o bastante para o modo 3 colunas (>= 1360) e alta o
+    // bastante para caber o topo (hero + TilesResumo + diagnóstico) mais os
+    // primeiros cards da grade sem rolar. Prova que o CustomScrollView +
+    // SliverMasonryGrid recebe altura limitada e os cards da grade rendem
+    // sem exceção de layout. reset() volta ao padrão no fim.
+    tester.view.physicalSize = const Size(1500, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -105,5 +109,39 @@ void main() {
     expect(find.text('O que melhorar hoje'), findsOneWidget);
     expect(find.text('Evolução — últimos 14 dias'), findsOneWidget);
     expect(find.text('Distribuição total por matéria'), findsOneWidget);
+  });
+
+  testWidgets(
+      'TilesResumo fica no sliver de topo, acima do primeiro card da grade',
+      (tester) async {
+    // Viewport alta o bastante pra HeroGeral + TilesResumo + o primeiro card
+    // da grade caberem sem rolar — prova que os tiles migraram do rodapé
+    // (onde dependiam de scroll) pra área nobre, junto do hero.
+    tester.view.physicalSize = const Size(1000, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.runAsync(() async {
+      final materia = Materia(
+          id: 'm1', nome: 'AFO', corSlot: 0, criadaEm: DateTime(2026, 1, 1));
+      await Hive.box<Map>(HiveBoxes.materias)
+          .put(materia.id, materia.toJson());
+      final registro = RegistroHora(
+          id: 'r1', data: DateTime.now(), materiaId: 'm1', minutos: 60);
+      await Hive.box<Map>(HiveBoxes.registros)
+          .put(registro.id, registro.toJson());
+    });
+
+    await montar(tester);
+
+    expect(find.byType(TilesResumo), findsOneWidget);
+    expect(find.byType(CardMelhorarHoje), findsOneWidget);
+    // CardMelhorarHoje é o primeiro item da SliverMasonryGrid: se TilesResumo
+    // está ACIMA dele (dy menor), então saiu do rodapé da grade e está no
+    // sliver de topo, como pedido.
+    final yTiles = tester.getTopLeft(find.byType(TilesResumo)).dy;
+    final yPrimeiroCardDaGrade =
+        tester.getTopLeft(find.byType(CardMelhorarHoje)).dy;
+    expect(yTiles, lessThan(yPrimeiroCardDaGrade));
   });
 }

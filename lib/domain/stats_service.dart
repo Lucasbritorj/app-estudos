@@ -1,5 +1,13 @@
 import '../data/models/registro_hora.dart';
 
+/// Resultado de uma comparação de período (MoM/YoY): minutos do período
+/// atual e do período anterior no MESMO recorte de dias (parcial-vs-parcial
+/// — ver [StatsService.comparativoMensal]), e a variação relativa como
+/// FRAÇÃO (não percentual: multiplique por 100 pra exibir, como as demais
+/// taxas do app). [variacao] é null quando [anterior] é zero — sem base de
+/// comparação, qualquer percentual seria inventado (nunca infinito/100%).
+typedef Comparativo = ({int atual, int anterior, double? variacao});
+
 /// Cálculos puros do dashboard — sem dependência de Flutter, 100% testável.
 /// Regras espelham a aba "Visão Geral" da planilha: hoje, ontem, média,
 /// máximo, mínimo, streak, agregação semanal e por matéria.
@@ -53,6 +61,79 @@ class StatsService {
 
   static int minutosNoAno(List<RegistroHora> registros, int ano) =>
       minutosEntre(registros, DateTime(ano, 1, 1), DateTime(ano, 12, 31));
+
+  /// Comparativo mês corrente vs mês anterior (MoM). PARCIAL-vs-PARCIAL por
+  /// design: comparar o mês corrente ainda em andamento (ex.: dia 24) contra
+  /// o mês anterior INTEIRO sempre mostra queda — não é queda real, é só
+  /// menos dias somados. Por isso o mês anterior também é cortado no dia
+  /// [hoje.day] (ex.: 1 a 24), igualando o número de dias em ambos os lados.
+  /// Mês anterior mais curto (ex.: hoje=31/03 vs fevereiro) clampa no seu
+  /// último dia em vez de estourar para março (`DateTime` normalizaria
+  /// silenciosamente "31/02" para 03/03, corrompendo o intervalo).
+  static Comparativo comparativoMensal(
+    List<RegistroHora> registros,
+    DateTime hoje,
+  ) {
+    final h = dataSemHora(hoje);
+    final atual = minutosEntre(registros, DateTime(h.year, h.month, 1), h);
+    final mesAnteriorRef = DateTime(h.year, h.month - 1, 1);
+    final anterior = minutosEntre(
+      registros,
+      mesAnteriorRef,
+      _fimClampado(mesAnteriorRef, h.day),
+    );
+    return (
+      atual: atual,
+      anterior: anterior,
+      variacao: _variacaoRelativa(atual, anterior),
+    );
+  }
+
+  /// Comparativo ano corrente vs ano anterior (YoY) — mesma lógica parcial-
+  /// vs-parcial de [comparativoMensal]: ambos os anos somam só de 01/01 até
+  /// [hoje] (mês/dia), nunca o ano anterior inteiro contra um ano corrente
+  /// em andamento. Clamp cobre o caso raro de hoje cair em 29/02 bissexto
+  /// sem o ano anterior ser bissexto (cai pro dia 28).
+  static Comparativo comparativoAnual(
+    List<RegistroHora> registros,
+    DateTime hoje,
+  ) {
+    final h = dataSemHora(hoje);
+    final atual = minutosEntre(registros, DateTime(h.year, 1, 1), h);
+    final anoAnteriorRef = DateTime(h.year - 1, 1, 1);
+    final anterior = minutosEntre(
+      registros,
+      anoAnteriorRef,
+      _fimClampado(DateTime(h.year - 1, h.month, 1), h.day),
+    );
+    return (
+      atual: atual,
+      anterior: anterior,
+      variacao: _variacaoRelativa(atual, anterior),
+    );
+  }
+
+  /// Fecha o intervalo no dia [dia] do mês de [primeiroDiaMes] — ou no
+  /// último dia desse mês, o que vier primeiro. Navega por
+  /// `DateTime(ano, mes, 1)` e o truque do dia 0 (nunca `dia - 1` direto:
+  /// um mês de 28/29/30 dias estouraria pro mês seguinte silenciosamente).
+  static DateTime _fimClampado(DateTime primeiroDiaMes, int dia) {
+    final ultimoDia = DateTime(
+      primeiroDiaMes.year,
+      primeiroDiaMes.month + 1,
+      0,
+    ).day;
+    return DateTime(
+      primeiroDiaMes.year,
+      primeiroDiaMes.month,
+      dia > ultimoDia ? ultimoDia : dia,
+    );
+  }
+
+  /// Variação relativa (fração): null com base zero — nunca infinito nem
+  /// um percentual inventado quando não há o que comparar.
+  static double? _variacaoRelativa(int atual, int anterior) =>
+      anterior == 0 ? null : (atual - anterior) / anterior;
 
   /// Horas acumuladas por ano (aba "Visão Geral": 2024..2032 + total).
   /// Só anos com registro, em ordem crescente.

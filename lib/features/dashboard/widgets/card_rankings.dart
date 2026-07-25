@@ -137,7 +137,8 @@ class CardRankings extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          '${linha.acertos}✓ ${linha.questoes - linha.acertos}✗ · '
+                          '${formatarInteiro(linha.acertos)}✓ '
+                          '${formatarInteiro(linha.questoes - linha.acertos)}✗ · '
                           '${(linha.taxa * 100).toStringAsFixed(0)}%',
                           style: const TextStyle(
                             color: VizColors.muted,

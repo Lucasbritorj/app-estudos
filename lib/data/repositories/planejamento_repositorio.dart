@@ -49,6 +49,19 @@ class PlanejamentoRepositorio extends Notifier<Map<int, int>> {
 
   Future<void> substituir(Map<int, int> novo) => _gravar(novo);
 
+  /// Wipe out: limpa o box INTEIRO — a chave global 'semana' E toda chave
+  /// escopada `semana:<id>` de qualquer ambiente, não só a do ambiente
+  /// ativo agora. `substituir({})` sozinho NÃO serve pra isso: `_gravar`
+  /// escreve só na chave do ambiente ativo no momento da chamada, deixando
+  /// as outras (ex.: a global, se o ativo for outro; ou outros ambientes)
+  /// vivas — e como a leitura cai de volta pra elas quando o ambiente ativo
+  /// muda (fallback documentado no build()), o cronograma "apagado"
+  /// reaparecia sozinho depois de limparAmbienteAtivo.
+  Future<void> apagarTudo() async {
+    await _box.clear();
+    state = {};
+  }
+
   Future<void> definirDia(int diaDaSemana, int minutos) {
     final novo = {...state};
     if (minutos <= 0) {
