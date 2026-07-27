@@ -7,6 +7,7 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/aula.dart';
 import '../../data/models/materia.dart';
 import '../../data/repositories/repositorios.dart';
+import '../../application/aula_use_case.dart';
 import '../../application/sessao_estudo_use_case.dart';
 import '../../domain/aula_service.dart';
 import '../registro/registro_form.dart';
@@ -229,7 +230,12 @@ class AulasScreen extends ConsumerWidget {
                         } else if (acao == 'concluir') {
                           _concluirManual(context, ref, aula);
                         } else if (acao == 'excluir') {
-                          ref.read(aulasProvider.notifier).remover(aula.id);
+                          // Cascata (D-04): sem isto, RegistroHora.aulaId e
+                          // Revisao.aulaId ficam órfãos apontando pra uma
+                          // aula que não existe mais.
+                          ref
+                              .read(aulaUseCaseProvider)
+                              .excluirEmCascata(aula.id);
                         }
                       },
                       itemBuilder: (_) => [

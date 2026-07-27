@@ -7,6 +7,7 @@ import '../data/models/ambiente.dart';
 import '../data/models/aula.dart';
 import '../data/models/materia.dart';
 import '../data/models/registro_hora.dart';
+import '../data/models/resumo.dart';
 import '../data/models/revisao.dart';
 import '../data/models/simulado.dart';
 import '../data/models/topico.dart';
@@ -253,8 +254,9 @@ class ExportService {
     return gatilhos.contains(valor[0]) ? "'$valor" : valor;
   }
 
-  /// Dump completo para backup/re-import futuro. `ambientes` é campo
-  /// tolerante: backups antigos sem ele continuam válidos (caem no "Geral").
+  /// Dump completo para backup/re-import futuro. `ambientes` e `resumos` são
+  /// campos tolerantes: backups antigos sem eles continuam válidos (ambiente
+  /// cai no "Geral"; resumos vira lista vazia).
   static String jsonCompleto({
     List<Ambiente> ambientes = const [],
     required List<Materia> materias,
@@ -265,6 +267,7 @@ class ExportService {
     required List<Leitura> leituras,
     required Map<int, int> planejamento,
     List<Simulado> simulados = const [],
+    List<Resumo> resumos = const [],
   }) {
     return const JsonEncoder.withIndent('  ').convert({
       'exportadoEm': DateTime.now().toIso8601String(),
@@ -278,13 +281,18 @@ class ExportService {
       'leituras': leituras.map((l) => l.toJson()).toList(),
       'planejamento': planejamento.map((k, v) => MapEntry(k.toString(), v)),
       'simulados': simulados.map((s) => s.toJson()).toList(),
+      'resumos': resumos.map((r) => r.toJson()).toList(),
     });
   }
 
   /// Backup de UM ambiente: o ambiente + suas matérias e tudo que pende
   /// delas (tópicos, aulas, registros, revisões). Formato = versão 1, então
   /// pode ser importado tanto como substituição quanto como mescla.
-  /// Leituras e planejamento são globais — ficam de fora de propósito.
+  /// Leituras, planejamento e resumos são globais — ficam de fora de
+  /// propósito. `Resumo` não tem `materiaId`/`ambienteId` (ver
+  /// catalogo_materias.dart): a página é casada por nome normalizado com
+  /// QUALQUER matéria do usuário, de qualquer ambiente, então não há como
+  /// filtrar por ambiente sem quebrar esse casamento.
   static String jsonAmbiente({
     required Ambiente ambiente,
     required List<Materia> materias,

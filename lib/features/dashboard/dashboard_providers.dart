@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/ambiente.dart';
@@ -36,11 +38,18 @@ import '../../domain/stats_service.dart';
 /// Data de hoje truncada no dia — base estável para toda a matemática de
 /// datas. Sendo um `Provider` cacheado, mantém a mesma identidade entre
 /// rebuilds (o antigo `DateTime.now()` no `build` mudava a cada frame e
-/// impediria a memoização dos agregados por data). Rola para o novo dia num
-/// rebuild que invalide o provider (reabertura do app) — trade aceito.
+/// impediria a memoização dos agregados por data). M-06: um app aberto às
+/// 23:59 e nunca fechado ficava preso no dia anterior (streak, quests e
+/// "Hoje" mentindo) porque nada reconstruía este provider sozinho — agenda
+/// um `Timer` para a próxima meia-noite e invalida a si mesmo; o Timer é
+/// cancelado em `onDispose` (container encerrado, override em teste, etc.).
 final hojeProvider = Provider<DateTime>((ref) {
   final agora = DateTime.now();
-  return DateTime(agora.year, agora.month, agora.day);
+  final hoje = DateTime(agora.year, agora.month, agora.day);
+  final proximaMeiaNoite = DateTime(hoje.year, hoje.month, hoje.day + 1);
+  final timer = Timer(proximaMeiaNoite.difference(agora), ref.invalidateSelf);
+  ref.onDispose(timer.cancel);
+  return hoje;
 });
 
 // ---------------------------------------------------------------------------

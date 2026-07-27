@@ -5,6 +5,7 @@ import '../data/models/aula.dart';
 import '../data/models/leitura.dart';
 import '../data/models/materia.dart';
 import '../data/models/registro_hora.dart';
+import '../data/models/resumo.dart';
 import '../data/models/revisao.dart';
 import '../data/models/simulado.dart';
 import '../data/models/topico.dart';
@@ -19,6 +20,7 @@ class BackupImportado {
   final List<Leitura> leituras;
   final Map<int, int> planejamento;
   final List<Simulado> simulados;
+  final List<Resumo> resumos;
 
   const BackupImportado({
     this.ambientes = const [],
@@ -30,6 +32,7 @@ class BackupImportado {
     required this.leituras,
     required this.planejamento,
     this.simulados = const [],
+    this.resumos = const [],
   });
 
   /// Ambientes prontos para gravação: backup pré-Ambientes (lista vazia)
@@ -42,7 +45,8 @@ class BackupImportado {
       '${ambientes.length} ambientes, '
       '${materias.length} matérias, ${topicos.length} tópicos, '
       '${aulas.length} aulas, ${registros.length} registros, '
-      '${revisoes.length} revisões, ${leituras.length} leituras';
+      '${revisoes.length} revisões, ${leituras.length} leituras, '
+      '${resumos.length} resumos';
 }
 
 /// Parser do backup JSON gerado pelo próprio app (ExportService.jsonCompleto).
@@ -110,6 +114,8 @@ class ImportService {
       leituras: lista('leituras', Leitura.fromJson),
       planejamento: planejamento,
       simulados: lista('simulados', Simulado.fromJson),
+      // Backups antigos não têm 'resumos' — lista() devolve vazio.
+      resumos: lista('resumos', Resumo.fromJson),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:app_estudos/app.dart';
 import 'package:app_estudos/data/local/hive_boxes.dart';
 import 'package:app_estudos/data/models/configuracoes.dart';
 import 'package:app_estudos/data/repositories/configuracoes_repositorio.dart';
+import 'package:app_estudos/features/dashboard/dashboard_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,7 +54,16 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      final container = ProviderContainer();
+      // hojeProvider.overrideWithValue: sem isto o AppEstudos real (via
+      // Dashboard) constrói o hojeProvider de verdade, que agenda um Timer
+      // (M-06) até a meia-noite seguinte. UncontrolledProviderScope não
+      // dispõe o container sozinho (ao contrário de ProviderScope) — o
+      // widget tree é desmontado pelo framework de teste ANTES do
+      // `addTearDown(container.dispose)` rodar, então o Timer real ainda
+      // vivo dispara "A Timer is still pending" no fim do teste.
+      final container = ProviderContainer(
+        overrides: [hojeProvider.overrideWithValue(DateTime(2026, 7, 16))],
+      );
       addTearDown(container.dispose);
 
       await tester.pumpWidget(

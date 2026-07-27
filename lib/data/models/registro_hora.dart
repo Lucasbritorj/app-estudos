@@ -131,13 +131,23 @@ class RegistroHora {
   RegistroHora comExclusao(DateTime agora) =>
       _clone(atualizadoEm: agora, excluidoEm: agora);
 
-  RegistroHora _clone({required DateTime atualizadoEm, DateTime? excluidoEm}) {
+  /// Cópia sem o vínculo com a aula — cascata de exclusão de aula (D-04): o
+  /// registro é log histórico do usuário e NUNCA é destruído junto com a
+  /// aula, só a referência (que apontaria pra uma aula inexistente) some.
+  RegistroHora semAula(DateTime agora) =>
+      _clone(atualizadoEm: agora, limparAulaId: true);
+
+  RegistroHora _clone({
+    required DateTime atualizadoEm,
+    DateTime? excluidoEm,
+    bool limparAulaId = false,
+  }) {
     return RegistroHora._(
       id: id,
       data: data,
       materiaId: materiaId,
       topicoId: topicoId,
-      aulaId: aulaId,
+      aulaId: limparAulaId ? null : aulaId,
       tipo: tipo,
       tarefa: tarefa,
       minutos: minutos,

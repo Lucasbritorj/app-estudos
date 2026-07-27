@@ -191,12 +191,34 @@ class StatsService {
     return streak;
   }
 
+  /// Piso de minutos no dia para contar como "estudo real" no streak
+  /// (atual e pico) — mesma filosofia de `DiagnosticoService.pisoMinutosDia`
+  /// (não importado daqui de propósito: são serviços de domínio
+  /// independentes, cada um puro e sem dependência cruzada). Sem piso, uma
+  /// sessão-token de 1 min sustentava o streak indefinidamente — gaming
+  /// trivial (M-08).
+  static const pisoMinutosStreak = 15;
+
+  /// Dias em que a soma dos registros bate o piso — só esses contam para o
+  /// streak (atual, pico e elegibilidade de congelamento).
+  static Set<DateTime> _diasComEstudoReal(List<RegistroHora> registros) {
+    final porDia = <DateTime, int>{};
+    for (final r in registros) {
+      final d = dataSemHora(r.data);
+      porDia[d] = (porDia[d] ?? 0) + r.minutos;
+    }
+    return {
+      for (final e in porDia.entries)
+        if (e.value >= pisoMinutosStreak) e.key,
+    };
+  }
+
   /// Maior sequência de dias consecutivos de estudo em TODO o histórico
   /// (recorde pessoal). Base de gamificação monótona: a conquista deriva do
   /// pico, então perder o streak atual nunca rebaixa o XP nem revoga badge —
   /// e continua 100% derivado dos registros (nada persistido).
   static int streakPico(List<RegistroHora> registros) {
-    final dias = registros.map((r) => dataSemHora(r.data)).toSet();
+    final dias = _diasComEstudoReal(registros);
     var pico = 0;
     for (final d in dias) {
       // Só conta a partir do início de um run (dia sem antecessor no set).
@@ -269,7 +291,7 @@ class StatsService {
     DateTime hoje,
     int metaDiasSemana,
   ) {
-    final dias = registros.map((r) => dataSemHora(r.data)).toSet();
+    final dias = _diasComEstudoReal(registros);
     final h = dataSemHora(hoje);
     final temHoje = dias.contains(h);
 

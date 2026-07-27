@@ -10,6 +10,7 @@ import 'package:app_estudos/data/models/materia.dart';
 import 'package:app_estudos/data/models/registro_hora.dart';
 import 'package:app_estudos/data/models/revisao.dart';
 import 'package:app_estudos/data/models/topico.dart';
+import 'package:app_estudos/features/dashboard/dashboard_providers.dart';
 import 'package:app_estudos/features/dashboard/dashboard_screen.dart';
 import 'package:app_estudos/features/revisoes/revisoes_screen.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,13 @@ import 'package:hive_ce/hive.dart';
 ///   flutter test --tags screenshots --update-goldens
 /// As imagens saem em test/goldens/. Excluído da suíte normal por tag para
 /// não transformar mudança de pixel em build vermelho.
+/// Data congelada do cenário. O seed E o `hojeProvider` usam esta mesma data:
+/// antes o seed vinha de `DateTime.now()` enquanto os goldens ficavam gravados
+/// de um dia específico, então heatmap, streak e rótulos de data deslocavam a
+/// cada dia que passava e o teste falhava sozinho sem ninguém ter mexido no
+/// código. Golden que apodrece treina o time a ignorar falha vermelha.
+final _hojeFixo = DateTime(2026, 7, 24);
+
 void main() {
   late Directory dir;
 
@@ -57,7 +65,7 @@ void main() {
   });
 
   Future<void> semear() async {
-    final hoje = DateTime.now();
+    final hoje = _hojeFixo;
     DateTime dia(int atras) =>
         DateTime(hoje.year, hoje.month, hoje.day - atras, 9);
 
@@ -185,6 +193,11 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        // Congela "hoje" na mesma data do seed. Sem isto o app renderizaria a
+        // data real da máquina sobre dados semeados em [_hojeFixo], e o golden
+        // voltaria a deslocar todo dia. Bônus: cancela o Timer de meia-noite
+        // do hojeProvider (M-06), que deixaria timer pendente no teste.
+        overrides: [hojeProvider.overrideWithValue(_hojeFixo)],
         child: MaterialApp(
           theme: buildDarkTheme(),
           locale: const Locale('pt', 'BR'),

@@ -181,7 +181,8 @@ class ExportarScreen extends ConsumerWidget {
               leading: const Icon(Icons.data_object),
               title: const Text('JSON — backup completo'),
               subtitle: const Text(
-                'Matérias, tópicos, registros, revisões, leituras e plano',
+                'Matérias, tópicos, registros, revisões, leituras, resumos e '
+                'plano',
               ),
               onTap: () {
                 final json = ExportService.jsonCompleto(
@@ -194,6 +195,7 @@ class ExportarScreen extends ConsumerWidget {
                   leituras: ref.read(leiturasProvider),
                   planejamento: ref.read(planejamentoProvider),
                   simulados: ref.read(simuladosProvider),
+                  resumos: ref.read(resumosProvider),
                 );
                 _compartilharTexto(
                   context,
@@ -452,6 +454,7 @@ class ExportarScreen extends ConsumerWidget {
               await ref
                   .read(simuladosProvider.notifier)
                   .mesclar(backup.simulados);
+              await ref.read(resumosProvider.notifier).mesclar(backup.resumos);
 
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -555,6 +558,9 @@ class ExportarScreen extends ConsumerWidget {
               await ref
                   .read(simuladosProvider.notifier)
                   .substituirTudo(backup.simulados);
+              await ref
+                  .read(resumosProvider.notifier)
+                  .substituirTudo(backup.resumos);
               await ref
                   .read(planejamentoProvider.notifier)
                   .substituir(backup.planejamento);
