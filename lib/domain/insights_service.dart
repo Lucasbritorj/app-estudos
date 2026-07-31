@@ -130,14 +130,19 @@ class InsightsService {
       }
     }
 
-    final streak = StatsService.streakAtual(registros, hoje);
-    final estudouHoje = StatsService.minutosNoDia(registros, hoje) > 0;
-    if (streak > 0 && !estudouHoje) {
+    // Mesma régua da chama do dashboard: `streakDetalhado` aplica o piso de
+    // minutos e o congelamento, e já expõe `emRisco` (streak vivo + hoje sem
+    // estudo real). Com `streakAtual` (sem piso) o insight anunciava um número
+    // diferente do exibido, e uma sessão de 1 min "cancelava" o alerta sem
+    // sustentar o streak. O tempo citado sai da constante, não de um literal.
+    final streak = StatsService.streakDetalhado(registros, hoje);
+    if (streak.emRisco) {
       acoes.add(
         InsightAcao(
           TipoInsight.streak,
-          'Streak de $streak ${streak == 1 ? 'dia' : 'dias'} em risco — '
-          '25 minutos hoje mantêm a chama acesa.',
+          'Streak de ${streak.dias} ${streak.dias == 1 ? 'dia' : 'dias'} em '
+          'risco — ${StatsService.pisoMinutosStreak} minutos hoje mantêm a '
+          'chama acesa.',
         ),
       );
     }

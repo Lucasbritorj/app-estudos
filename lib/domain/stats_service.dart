@@ -234,6 +234,37 @@ class StatsService {
     return pico;
   }
 
+  /// Recorde de streak medido com a MESMA régua do contador exibido, isto é,
+  /// honrando o congelamento de [streakDetalhado].
+  ///
+  /// [streakPico] só conta dias colados, então quem descansa um dia por semana
+  /// (o padrão que o próprio congelamento existe para premiar) tinha a chama
+  /// marcando 39 dias enquanto o pico travava em 6: a badge de "7 dias
+  /// seguidos" nunca acendia e o bônus de XP pagava por 6 dias para sempre.
+  ///
+  /// Continua 100% derivado e monótono: acrescentar registros só pode fechar
+  /// buracos ou tornar um buraco congelável, nunca encurtar um streak já
+  /// medido. Só os dias que ENCERRAM um run cru entram como candidatos —
+  /// dentro de um run, `streak(d + 1) == streak(d) + 1`, então o último dia
+  /// domina (mantém o custo perto de O(runs × tamanho do streak)).
+  static int streakPicoComCongelamento(
+    List<RegistroHora> registros,
+    DateTime hoje, {
+    int metaDiasSemana = metaDiasParaCongelamento,
+  }) {
+    final dias = _diasComEstudoReal(registros);
+    final limite = dataSemHora(hoje);
+    var pico = 0;
+    for (final d in dias) {
+      if (d.isAfter(limite)) continue;
+      final seguinte = DateTime(d.year, d.month, d.day + 1);
+      if (!seguinte.isAfter(limite) && dias.contains(seguinte)) continue;
+      final streak = _streakCompleto(registros, d, metaDiasSemana).dias;
+      if (streak > pico) pico = streak;
+    }
+    return pico;
+  }
+
   /// Dias de estudo exigidos na semana ANTERIOR para ganhar 1 congelamento.
   static const metaDiasParaCongelamento = 5;
 

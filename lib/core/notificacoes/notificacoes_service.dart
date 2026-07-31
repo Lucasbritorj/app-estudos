@@ -79,6 +79,19 @@ class NotificacoesService {
     }
   }
 
+  /// Cancela TODAS as notificações agendadas pelo app (revisões + lembrete
+  /// diário). Usado no wipe: sem isto o usuário apagava os dados e continuava
+  /// recebendo lembrete de revisão que não existe mais, sem nenhuma tela onde
+  /// desligar.
+  static Future<void> cancelarTodas() async {
+    if (!_pronto) return;
+    try {
+      await _plugin.cancelAll();
+    } catch (erro) {
+      debugPrint('Falha ao cancelar notificações: $erro');
+    }
+  }
+
   static const _idLembreteDiario = 900001;
 
   /// Lembrete diário de estudo na [hora] (repete todo dia); null desliga.

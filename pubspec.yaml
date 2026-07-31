@@ -59,6 +59,10 @@ dependencies:
   # file_picker: o moderno exige win32 ^6 e share_plus 13 trava em ^5.
   file_selector: ^1.1.0
   flutter_staggered_grid_view: ^0.7.0
+  # Foto do enunciado no caderno de erros (F1): tirar foto é o caminho de
+  # menor atrito comparado a digitar a questão inteira. Um pacote só cobre
+  # câmera + galeria em web/Android/iOS.
+  image_picker: ^1.2.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

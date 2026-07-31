@@ -1,3 +1,5 @@
+import 'bancas.dart';
+
 /// Natureza da sessão: teoria (PDF/leitura) ou prática (questões).
 /// Gravada por registro para permitir análises isoladas de tempo.
 enum TipoEstudo { teoria, pratica }
@@ -35,6 +37,12 @@ class RegistroHora {
   final int? questoes;
   final int? acertos;
 
+  /// Banca das questões da sessão (CESPE, FGV, FCC...). Normalizada por
+  /// [Bancas.normalizar] na construção: "cespe", "CESPE/CEBRASPE" e
+  /// "Cebraspe" viram a mesma chave, senão o ranking por banca fragmenta.
+  /// Null/vazio = não informada.
+  final String? banca;
+
   /// Última modificação do registro (metadado de sincronização futura:
   /// resolução last-write-wins). Dados antigos herdam `data`.
   final DateTime atualizadoEm;
@@ -58,6 +66,7 @@ class RegistroHora {
     this.comentario,
     this.questoes,
     this.acertos,
+    this.banca,
     required this.atualizadoEm,
     this.excluidoEm,
   });
@@ -81,6 +90,7 @@ class RegistroHora {
     String? comentario,
     int? questoes,
     int? acertos,
+    String? banca,
     DateTime? atualizadoEm,
     DateTime? excluidoEm,
   }) {
@@ -119,6 +129,7 @@ class RegistroHora {
       comentario: comentario,
       questoes: questoesClamp,
       acertos: acertosClamp,
+      banca: Bancas.normalizar(banca),
       atualizadoEm: atualizadoEm ?? data,
       excluidoEm: excluidoEm,
     );
@@ -157,6 +168,7 @@ class RegistroHora {
       comentario: comentario,
       questoes: questoes,
       acertos: acertos,
+      banca: banca,
       atualizadoEm: atualizadoEm,
       excluidoEm: excluidoEm ?? this.excluidoEm,
     );
@@ -200,6 +212,7 @@ class RegistroHora {
     'comentario': comentario,
     'questoes': questoes,
     'acertos': acertos,
+    'banca': banca,
     'atualizadoEm': atualizadoEm.toIso8601String(),
     'excluidoEm': excluidoEm?.toIso8601String(),
   };
@@ -231,6 +244,7 @@ class RegistroHora {
       comentario: json['comentario'] as String?,
       questoes: questoes,
       acertos: (json['acertos'] as num?)?.toInt(),
+      banca: json['banca'] as String?,
       atualizadoEm: DateTime.tryParse(json['atualizadoEm'] as String? ?? ''),
       excluidoEm: DateTime.tryParse(json['excluidoEm'] as String? ?? ''),
     );

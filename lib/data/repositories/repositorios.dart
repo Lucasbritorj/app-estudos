@@ -5,11 +5,13 @@ import 'package:hive_ce/hive.dart';
 import '../local/hive_boxes.dart';
 import '../models/ambiente.dart';
 import '../models/aula.dart';
+import '../models/execucao_prova.dart';
 import '../models/leitura.dart';
 import '../models/materia.dart';
 import '../models/registro_hora.dart';
 import '../models/resumo.dart';
 import '../models/revisao.dart';
+import '../models/questao_errada.dart';
 import '../models/simulado.dart';
 import '../models/topico.dart';
 
@@ -188,6 +190,27 @@ class MateriasRepositorio extends _HiveRepositorio<Materia> {
     }
     return state.length % 8;
   }
+
+  /// Peso do edital por matéria INCLUINDO as excluídas (tombstone).
+  ///
+  /// A cascata de exclusão preserva os registros de horas de propósito, mas
+  /// tira a matéria do `state` — e o XP ponderado, montado só das vivas,
+  /// degradava aqueles minutos para ×1.0 e DERRUBAVA o XP total (uma matéria
+  /// peso 5 valia −9% do acumulado, podendo rebaixar o nível). O tombstone
+  /// mantém o registro no box, então o peso histórico continua disponível sem
+  /// nada de novo ser persistido e sem ressuscitar a matéria na UI.
+  Map<String, int> pesosHistoricos() {
+    final pesos = <String, int>{};
+    for (final raw in _box.values) {
+      try {
+        final m = Materia.fromJson(Map<String, dynamic>.from(raw));
+        pesos[m.id] = m.peso;
+      } catch (_) {
+        // Registro corrompido já é ignorado na leitura da coleção.
+      }
+    }
+    return pesos;
+  }
 }
 
 class TopicosRepositorio extends _HiveRepositorio<Topico> {
@@ -336,4 +359,166 @@ final registrosProvider =
     );
 final revisoesProvider = NotifierProvider<RevisoesRepositorio, List<Revisao>>(
   RevisoesRepositorio.new,
+);
+
+/// Caderno de erros. Ordem: mais urgente primeiro (data de retomada asc),
+/// desempate pela criação — a tela abre já na fila do dia.
+class QuestoesErradasRepositorio extends _HiveRepositorio<QuestaoErrada> {
+  @override
+  String get boxName => HiveBoxes.questoesErradas;
+  @override
+  QuestaoErrada fromJson(Map<String, dynamic> json) =>
+      QuestaoErrada.fromJson(json);
+  @override
+  Map<String, dynamic> toJson(QuestaoErrada item) => item.toJson();
+  @override
+  String idDe(QuestaoErrada item) => item.id;
+  @override
+  int comparar(QuestaoErrada a, QuestaoErrada b) {
+    final porData = a.proximaTentativa.compareTo(b.proximaTentativa);
+    return porData != 0 ? porData : a.criadaEm.compareTo(b.criadaEm);
+  }
+
+  List<QuestaoErrada> daMateria(String materiaId) => [
+    for (final q in state)
+      if (q.materiaId == materiaId) q,
+  ];
+
+  List<QuestaoErrada> get ativas => [
+    for (final q in state)
+      if (!q.arquivada) q,
+  ];
+}
+
+final questoesErradasProvider =
+    NotifierProvider<QuestoesErradasRepositorio, List<QuestaoErrada>>(
+      QuestoesErradasRepositorio.new,
+    );
+
+/// Execução de prova cronometrada em andamento (ou finalizada, aguardando
+/// correção). NÃO usa `_HiveRepositorio<T>`: não é uma coleção, é um slot
+/// único — só UMA execução ativa por vez. Mesma técnica do
+/// CronometroController (lib/features/cronometro/cronometro_controller.dart):
+/// relógio de parede + Hive; tempo restante sempre recalculado por
+/// diferença de datas na leitura (ProvaService.tempoRestante), nunca por
+/// Stopwatch em memória — fechar o app não pausa a prova.
+class ExecucaoProvaController extends Notifier<ExecucaoProva?> {
+  static const _chave = 'atual';
+
+  Box<Map> get _box => Hive.box<Map>(HiveBoxes.execucaoProva);
+
+  @override
+  ExecucaoProva? build() {
+    final raw = _box.get(_chave);
+    if (raw == null) return null;
+    try {
+      return ExecucaoProva.fromJson(Map<String, dynamic>.from(raw));
+    } catch (e) {
+      // Registro corrompido: mesma filosofia do _carregar() acima — trata
+      // como "sem execução ativa" em vez de derrubar a tela de Simulados.
+      debugPrint(
+        '${HiveBoxes.execucaoProva}: registro corrompido ignorado ($e)',
+      );
+      return null;
+    }
+  }
+
+  /// Começa uma prova nova — substitui qualquer execução ativa anterior
+  /// (só uma por vez). Awaited: a tela só avança pra execução depois que o
+  /// slot está gravado.
+  Future<void> iniciar(ExecucaoProva execucao) async {
+    await _box.put(_chave, execucao.toJson());
+    state = execucao;
+  }
+
+  /// Atualiza a execução ativa (resposta marcada, finalização). O estado em
+  /// memória muda na hora; a gravação em disco é fire-and-forget — mesmo
+  /// trade-off do CronometroController._persistir: travar a UI a cada toque
+  /// de resposta esperando I/O real seria pior que arriscar perder o ÚLTIMO
+  /// toque num kill bem naquele instante.
+  void atualizar(ExecucaoProva execucao) {
+    state = execucao;
+    _box.put(_chave, execucao.toJson());
+  }
+
+  /// Aplica [mutacao] sobre o estado ATUAL, não sobre uma cópia capturada por
+  /// closure na tela.
+  ///
+  /// A tela guarda a `ExecucaoProva` do build corrente e monta a versão nova a
+  /// partir dela; duas edições no MESMO frame (antes de o rebuild propagar o
+  /// estado novo) partiriam ambas da mesma base e a segunda sobrescreveria a
+  /// primeira. Lendo `state` aqui dentro, cada mutação enxerga a anterior.
+  /// No-op quando não há execução ativa.
+  void mutar(ExecucaoProva Function(ExecucaoProva atual) mutacao) {
+    final atual = state;
+    if (atual == null) return;
+    atualizar(mutacao(atual));
+  }
+
+  /// Encerra a execução ativa (virou Simulado — nada mais a reter).
+  Future<void> encerrar() async {
+    await _box.delete(_chave);
+    state = null;
+  }
+}
+
+final execucaoProvaProvider =
+    NotifierProvider<ExecucaoProvaController, ExecucaoProva?>(
+      ExecucaoProvaController.new,
+    );
+
+// ---------------------------------------------------------------------------
+// Anexos do caderno de erros (F1) — foto do enunciado
+// ---------------------------------------------------------------------------
+
+/// Bytes da foto do enunciado, por id de `QuestaoErrada` — ver
+/// `QuestaoErrada.temAnexo` e `HiveBoxes.anexos` para o porquê do box
+/// separado.
+///
+/// Fora do padrão `_HiveRepositorio<T>` de propósito: aquele espelha o box
+/// inteiro em `state` (uma `List<T>` em memória) porque a UI historicamente
+/// lê a coleção completa a cada rebuild — ótimo para JSON pequeno, péssimo
+/// para bytes de imagem. Uma foto comprimida ainda pesa dezenas/centenas de
+/// KB; se ela morasse em algum `state` do Riverpod, TODO provider que
+/// observa `questoesErradasProvider` (fila do dia, ranking, estatísticas —
+/// nenhum deles usa a imagem) recarregaria megabytes de foto à toa a cada
+/// rebuild. Por isso os bytes são lidos/gravados sob demanda, por id, direto
+/// do box — nunca entram em `state`.
+class AnexosQuestaoRepositorio {
+  Box<Uint8List> get _box => Hive.box<Uint8List>(HiveBoxes.anexos);
+
+  /// Bytes da foto, ou null se a questão não tem anexo.
+  Uint8List? ler(String questaoId) => _box.get(questaoId);
+
+  Future<void> salvar(String questaoId, Uint8List bytes) =>
+      _box.put(questaoId, bytes);
+
+  /// Idempotente: apagar quem não tem anexo é um no-op silencioso — quem
+  /// chama (exclusão de questão, botão "remover foto" no diálogo) não
+  /// precisa checar `temAnexo` antes.
+  Future<void> remover(String questaoId) => _box.delete(questaoId);
+
+  /// Todos os anexos atuais (id da questão -> bytes) — insumo do backup
+  /// completo (`ExportService.jsonCompleto`) e do snapshot de rollback.
+  Map<String, Uint8List> todos() => Map<String, Uint8List>.from(_box.toMap());
+
+  /// Restaura backup: apaga tudo e grava os anexos importados. Mesmo
+  /// contrato de `_HiveRepositorio.substituirTudo` — hard delete, sem
+  /// tombstone. Usado tanto por `ApagarDadosUseCase.apagarTudo` (com mapa
+  /// vazio) quanto pela restauração de backup completo.
+  Future<void> substituirTudo(Map<String, Uint8List> anexos) async {
+    await _box.clear();
+    await _box.putAll(anexos);
+  }
+
+  /// Import aditivo: grava/sobrescreve sem apagar o resto — mesmo contrato
+  /// de `_HiveRepositorio.mesclar`.
+  Future<void> mesclar(Map<String, Uint8List> anexos) async {
+    if (anexos.isEmpty) return;
+    await _box.putAll(anexos);
+  }
+}
+
+final anexosQuestaoRepositorioProvider = Provider<AnexosQuestaoRepositorio>(
+  (ref) => AnexosQuestaoRepositorio(),
 );

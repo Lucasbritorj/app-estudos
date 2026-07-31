@@ -23,6 +23,13 @@ class Configuracoes {
   /// backups antigos, que não tinham o campo).
   final bool sidebarColapsada;
 
+  /// Minutos creditados a uma revisão concluída COM questões quando o tempo
+  /// não é informado. Antes era 0 fixo, o que criava uma sessão fantasma sem
+  /// tempo (zerava o "mínimo diário" e inflava a contagem de sessões).
+  /// É uma ESTIMATIVA: infla o total de horas em `valor × revisões`. Zero
+  /// desliga o crédito e volta ao comportamento antigo.
+  final int minutosPadraoRevisao;
+
   const Configuracoes({
     this.intervalosRevisao = const [7, 15, 30],
     this.horaNotificacao = 9,
@@ -31,6 +38,7 @@ class Configuracoes {
     this.ambienteAtivoId,
     this.onboardingConcluido = false,
     this.sidebarColapsada = false,
+    this.minutosPadraoRevisao = 10,
   });
 
   Configuracoes copyWith({
@@ -43,6 +51,7 @@ class Configuracoes {
     bool limparAmbienteAtivo = false,
     bool? onboardingConcluido,
     bool? sidebarColapsada,
+    int? minutosPadraoRevisao,
   }) {
     return Configuracoes(
       intervalosRevisao: intervalosRevisao ?? this.intervalosRevisao,
@@ -56,6 +65,7 @@ class Configuracoes {
           : (ambienteAtivoId ?? this.ambienteAtivoId),
       onboardingConcluido: onboardingConcluido ?? this.onboardingConcluido,
       sidebarColapsada: sidebarColapsada ?? this.sidebarColapsada,
+      minutosPadraoRevisao: minutosPadraoRevisao ?? this.minutosPadraoRevisao,
     );
   }
 
@@ -67,6 +77,7 @@ class Configuracoes {
     'ambienteAtivoId': ambienteAtivoId,
     'onboardingConcluido': onboardingConcluido,
     'sidebarColapsada': sidebarColapsada,
+    'minutosPadraoRevisao': minutosPadraoRevisao,
   };
 
   factory Configuracoes.fromJson(Map<String, dynamic> json) => Configuracoes(
@@ -82,5 +93,8 @@ class Configuracoes {
     ambienteAtivoId: json['ambienteAtivoId'] as String?,
     onboardingConcluido: json['onboardingConcluido'] as bool? ?? false,
     sidebarColapsada: json['sidebarColapsada'] as bool? ?? false,
+    // Negativo viraria crédito de tempo negativo; teto de 1h por revisão.
+    minutosPadraoRevisao:
+        ((json['minutosPadraoRevisao'] as num?)?.toInt() ?? 10).clamp(0, 60),
   );
 }

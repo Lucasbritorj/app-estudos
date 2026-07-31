@@ -33,3 +33,10 @@ String formatarCronometro(Duration d) {
   String dois(int n) => n.toString().padLeft(2, '0');
   return '${dois(d.inHours)}:${dois(d.inMinutes % 60)}:${dois(d.inSeconds % 60)}';
 }
+
+/// "1 erro" / "2 erros" — evita o "1 acertos" que aparecia em toda contagem
+/// montada por interpolação direta. Português tem plural regular no que o app
+/// conta (erro, acerto, questão, dia), então a forma do plural entra explícita
+/// em vez de ser derivada por regra.
+String plural(int n, String singular, String plural) =>
+    '$n ${n == 1 ? singular : plural}';

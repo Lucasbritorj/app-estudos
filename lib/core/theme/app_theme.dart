@@ -56,7 +56,19 @@ class LuminaColors {
 class StatusColors {
   static const bom = Color(0xFF0CA30C);
   static const atencao = Color(0xFFFAB219);
-  static const critico = Color(0xFFD03B3B);
+
+  /// Tinta de estado crítico (texto, ícone, barra) sobre os fundos escuros do
+  /// app. Era #D03B3B, que dá 3,34:1 sobre `VizColors.surface` — reprova o
+  /// mínimo de 4,5:1 da WCAG 2.2 AA (1.4.3) para os rótulos de 11-12px em que
+  /// é usado (desempenho, prontidão, alertas, mapa). #E06A63 mede 4,91:1
+  /// sobre a superfície e 5,77:1 sobre a página.
+  static const critico = Color(0xFFE06A63);
+
+  /// Vermelho de SUPERFÍCIE para ação destrutiva (fundo de botão). Precisa ser
+  /// escuro o bastante para o rótulo branco em cima passar em 4,5:1 (#D03B3B
+  /// dá 4,80:1) — a tinta clara de [critico] só serve como texto sobre fundo
+  /// escuro, e como fundo derrubaria o contraste do rótulo para 3,26:1.
+  static const criticoSuperficie = Color(0xFFD03B3B);
 
   /// Regra Nexus como função única (taxa 0..1) — antes reimplementada em
   /// mapa, simulados, desempenho e prontidão, com risco de limiar divergir.

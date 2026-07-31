@@ -24,9 +24,29 @@ class HiveBoxes {
   static const simulados = 'simulados';
   static const resumos = 'resumos';
 
+  /// Caderno de erros: uma questão errada por chave.
+  static const questoesErradas = 'questoes_erradas';
+
+  /// Foto do enunciado (F1): bytes puros, chave = id da `QuestaoErrada` dona
+  /// (no máximo um anexo por questão). Box SEPARADO de `questoesErradas` de
+  /// propósito — `QuestaoErrada` guarda só `temAnexo` (bool), nunca os
+  /// bytes, porque essa coleção é relida inteira a cada rebuild de provider
+  /// (fila do dia, ranking, estatísticas); embutir a imagem ali faria todo
+  /// esse caminho carregar megabytes de foto que a maioria das telas nunca
+  /// usa. Ver `AnexosQuestaoRepositorio`.
+  static const anexos = 'anexos_questoes';
+
+  /// Slot único com o snapshot JSON gravado ANTES de uma importação
+  /// destrutiva — é o "desfazer" de um `substituirTudo` que não tem undo.
+  static const rollback = 'rollback';
+
   /// Sessão de cronômetro em andamento — persistida para sobreviver a
   /// reload da aba/kill do app (relógio de parede, não Stopwatch em memória).
   static const cronometro = 'cronometro';
+
+  /// Prova cronometrada em andamento (folha de respostas incluída) — mesma
+  /// técnica do cronômetro: relógio de parede + Hive, só um slot ativo.
+  static const execucaoProva = 'execucao_prova';
 
   static Future<void> openAll() async {
     await Future.wait([
@@ -41,7 +61,14 @@ class HiveBoxes {
       Hive.openBox<Map>(leituras),
       Hive.openBox<Map>(simulados),
       Hive.openBox<Map>(resumos),
+      Hive.openBox<Map>(questoesErradas),
+      // Único box de bytes puros (Uint8List) do app — todos os outros
+      // guardam Map (JSON). Hive serializa Uint8List nativamente, sem
+      // adapter, então não há custo extra de codegen aqui.
+      Hive.openBox<Uint8List>(anexos),
+      Hive.openBox<Map>(rollback),
       Hive.openBox<Map>(cronometro),
+      Hive.openBox<Map>(execucaoProva),
     ]);
   }
 

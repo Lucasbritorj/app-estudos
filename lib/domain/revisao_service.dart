@@ -174,10 +174,17 @@ class RevisaoService {
     required double? taxaAcerto,
     double retencaoAlvo = retencaoAlvoPadrao,
   }) {
-    final s =
+    final sBruta =
         estabilidade ??
         (intervaloAtual > 0 ? intervaloAtual.toDouble() : _sementeManualDias);
-    final d = ((dificuldade ?? _dificuldadeInicial).clamp(
+    // Estado corrompido (backup editado à mão, migração futura, bug de
+    // gravação): S <= 0 zera o denominador de R(t)=1/(1+t/9S) e explode o
+    // freio pow(S, -w9) — o resultado virava NaN e `NaN.round()` lança
+    // UnsupportedError DEPOIS de a revisão já ter sido salva como feita,
+    // matando a cadeia em silêncio. Estado inválido cai na semente.
+    final s = (sBruta.isFinite && sBruta > 0) ? sBruta : _sementeManualDias;
+    final dBruta = dificuldade ?? _dificuldadeInicial;
+    final d = ((dBruta.isFinite ? dBruta : _dificuldadeInicial).clamp(
       1.0,
       10.0,
     )).toDouble();

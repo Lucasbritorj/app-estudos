@@ -1,3 +1,5 @@
+import 'bancas.dart';
+
 /// Resultado de UMA matéria dentro de um simulado/prova. Erros e taxa são
 /// derivados — nunca inputados (enforcement por derivação).
 class ResultadoMateria {
@@ -55,8 +57,13 @@ class Simulado {
   final TipoSimulado tipo;
   final String nome;
 
-  /// Cargo/banca — relevante em prova real ("Auditor SEFAZ-RN, FGV").
+  /// Cargo — relevante em prova real ("Auditor SEFAZ-RN").
   final String cargo;
+
+  /// Banca organizadora, normalizada ([Bancas.normalizar]). Campo próprio em
+  /// vez de texto solto dentro de [cargo]: é a dimensão que cruza com as
+  /// sessões de questões no ranking por banca.
+  final String? banca;
   final DateTime data;
 
   /// Duração total gasta, em minutos; null = não cronometrado.
@@ -64,17 +71,18 @@ class Simulado {
   final List<ResultadoMateria> resultados;
   final String comentario;
 
-  const Simulado({
+  Simulado({
     required this.id,
     required this.ambienteId,
     required this.tipo,
     required this.nome,
     this.cargo = '',
+    String? banca,
     required this.data,
     this.tempoMinutos,
     this.resultados = const [],
     this.comentario = '',
-  });
+  }) : banca = Bancas.normalizar(banca);
 
   int get totalQuestoes => resultados.fold(0, (soma, r) => soma + r.questoes);
   int get totalAcertos => resultados.fold(0, (soma, r) => soma + r.acertos);
@@ -95,6 +103,7 @@ class Simulado {
     'tipo': tipo.name,
     'nome': nome,
     'cargo': cargo,
+    'banca': banca,
     'data': data.toIso8601String(),
     'tempoMinutos': tempoMinutos,
     'resultados': resultados.map((r) => r.toJson()).toList(),
@@ -108,6 +117,7 @@ class Simulado {
         TipoSimulado.values.asNameMap()[json['tipo']] ?? TipoSimulado.simulado,
     nome: json['nome'] as String,
     cargo: json['cargo'] as String? ?? '',
+    banca: json['banca'] as String?,
     data: DateTime.parse(json['data'] as String),
     tempoMinutos: (json['tempoMinutos'] as num?)?.toInt(),
     resultados: (json['resultados'] as List? ?? const [])

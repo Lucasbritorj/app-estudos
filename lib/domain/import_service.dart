@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../data/models/ambiente.dart';
+import '../data/models/configuracoes.dart';
 import '../data/models/aula.dart';
 import '../data/models/leitura.dart';
 import '../data/models/materia.dart';
+import '../data/models/questao_errada.dart';
 import '../data/models/registro_hora.dart';
 import '../data/models/resumo.dart';
 import '../data/models/revisao.dart';
@@ -21,6 +24,21 @@ class BackupImportado {
   final Map<int, int> planejamento;
   final List<Simulado> simulados;
   final List<Resumo> resumos;
+  final List<QuestaoErrada> questoesErradas;
+
+  /// Fotos do caderno de erros (F1): id da questão -> bytes JÁ decodificados
+  /// (o base64 é só o formato de transporte dentro do JSON — ver
+  /// `ExportService.jsonCompleto`). Tolerante: backup anterior ao F1 não tem
+  /// a chave e cai no mapa vazio, nunca falha o import.
+  final Map<String, Uint8List> anexos;
+
+  /// Preferências do backup; null em backup antigo (ou de ambiente), e aí a
+  /// configuração local NÃO é tocada.
+  final Configuracoes? configuracoes;
+
+  /// Marca de escopo gravada pelo gerador (`ExportService.escopoAmbiente`
+  /// no backup de um ambiente). Null = backup completo.
+  final String? escopo;
 
   const BackupImportado({
     this.ambientes = const [],
@@ -33,7 +51,17 @@ class BackupImportado {
     required this.planejamento,
     this.simulados = const [],
     this.resumos = const [],
+    this.questoesErradas = const [],
+    this.anexos = const {},
+    this.configuracoes,
+    this.escopo,
   });
+
+  /// Backup de escopo reduzido: leituras, resumos e planejamento estão vazios
+  /// porque ficaram FORA do arquivo, não porque o usuário não os tem. Usar um
+  /// desses para "substituir tudo" apagaria essas coleções sem volta — a UI
+  /// só pode mesclar.
+  bool get parcial => escopo != null;
 
   /// Ambientes prontos para gravação: backup pré-Ambientes (lista vazia)
   /// ganha o "Geral", que é onde as matérias dele caem via fromJson.
@@ -46,7 +74,8 @@ class BackupImportado {
       '${materias.length} matérias, ${topicos.length} tópicos, '
       '${aulas.length} aulas, ${registros.length} registros, '
       '${revisoes.length} revisões, ${leituras.length} leituras, '
-      '${resumos.length} resumos';
+      '${resumos.length} resumos, ${questoesErradas.length} questões erradas'
+      '${anexos.isEmpty ? '' : ', ${anexos.length} fotos'}';
 }
 
 /// Parser do backup JSON gerado pelo próprio app (ExportService.jsonCompleto).
@@ -102,6 +131,27 @@ class ImportService {
       });
     }
 
+    final anexosBrutos = mapa['anexos'];
+    final anexos = <String, Uint8List>{};
+    if (anexosBrutos is Map) {
+      anexosBrutos.forEach((chave, valor) {
+        // Mesmo contrato do `planejamento` acima: entrada inválida vira
+        // FormatException explícita — um `as String` direto lançaria
+        // TypeError e furaria o catch da UI.
+        if (valor is! String) {
+          throw FormatException(
+            'Anexo inválido para a questão "$chave": não é uma string base64.',
+          );
+        }
+        // base64Decode já lança FormatException nativamente para texto
+        // corrompido (caractere/comprimento/padding inválidos) — não precisa
+        // de try/catch próprio aqui, o erro sobe com a mensagem original.
+        anexos[chave.toString()] = base64Decode(valor);
+      });
+    } else if (anexosBrutos != null) {
+      throw const FormatException('Campo "anexos" não é um objeto.');
+    }
+
     return BackupImportado(
       // Backups antigos não têm 'ambientes' — lista() devolve vazio.
       ambientes: lista('ambientes', Ambiente.fromJson),
@@ -116,6 +166,20 @@ class ImportService {
       simulados: lista('simulados', Simulado.fromJson),
       // Backups antigos não têm 'resumos' — lista() devolve vazio.
       resumos: lista('resumos', Resumo.fromJson),
+      // Backups anteriores ao caderno de erros não têm a chave.
+      questoesErradas: lista('questoesErradas', QuestaoErrada.fromJson),
+      // Backups anteriores ao F1 não têm a chave — mapa vazio acima.
+      anexos: anexos,
+      configuracoes: () {
+        final bruta = mapa['configuracoes'];
+        if (bruta is! Map) return null;
+        try {
+          return Configuracoes.fromJson(Map<String, dynamic>.from(bruta));
+        } catch (erro) {
+          throw FormatException('Configurações inválidas no backup: $erro');
+        }
+      }(),
+      escopo: mapa['escopo'] is String ? mapa['escopo'] as String : null,
     );
   }
 }

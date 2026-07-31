@@ -31,13 +31,17 @@ class Topico {
     int? peso,
     bool? concluido,
     String? parentId,
+    /// Promove a tópico raiz. Sem isto, `parentId: null` cai no `??` e mantém
+    /// o pai antigo — o que deixaria o filho apontando para um pai excluído
+    /// (mesma convenção de `Materia.limparMinutosAlvo`).
+    bool limparParent = false,
     String? notas,
     List<String>? prerequisitos,
   }) {
     return Topico(
       id: id,
       materiaId: materiaId,
-      parentId: parentId ?? this.parentId,
+      parentId: limparParent ? null : (parentId ?? this.parentId),
       nome: nome ?? this.nome,
       peso: peso ?? this.peso,
       concluido: concluido ?? this.concluido,

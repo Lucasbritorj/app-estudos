@@ -4,8 +4,10 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 
 import '../data/models/ambiente.dart';
+import '../data/models/configuracoes.dart';
 import '../data/models/aula.dart';
 import '../data/models/materia.dart';
+import '../data/models/questao_errada.dart';
 import '../data/models/registro_hora.dart';
 import '../data/models/resumo.dart';
 import '../data/models/revisao.dart';
@@ -16,6 +18,16 @@ import 'stats_service.dart';
 
 /// Serialização de export — funções puras, testáveis.
 class ExportService {
+  /// Valor do campo `escopo` no backup de um único ambiente. Contrato com
+  /// [ImportService]: backup com essa marca é PARCIAL e não pode substituir
+  /// as coleções globais.
+  static const escopoAmbiente = 'ambiente';
+
+  /// Rótulos das linhas sintéticas de dimensão criadas para chaves que só
+  /// existem no fato (entidade excluída com histórico preservado).
+  static const nomeMateriaExcluida = '(matéria excluída)';
+  static const nomeTopicoExcluido = '(tópico excluído)';
+
   /// CSV com separador ';' e decimal com vírgula (convenção Excel pt-BR).
   static String csvRegistros(
     List<RegistroHora> registros,
@@ -149,11 +161,39 @@ class ExportService {
       );
       dimMateria.write('\r\n');
     }
+    // Chave do fato sem linha na dimensão = relacionamento quebrado no Power
+    // BI (linha em branco, medida que não soma por matéria). Acontece sempre
+    // que uma matéria é excluída: a cascata preserva os registros de propósito
+    // (log histórico), mas a matéria some. Uma linha sintética por chave órfã
+    // mantém a integridade referencial do modelo estrela.
+    final idsMateria = {for (final m in materias) m.id};
+    for (final id in ordenados.map((r) => r.materiaId).toSet()) {
+      if (idsMateria.contains(id)) continue;
+      dimMateria.write(
+        [
+          id,
+          _campoBi(nomeMateriaExcluida),
+          '', // ambiente desconhecido: a matéria não existe mais
+          '', '', '', '', // peso/intimidade/questões/mínimo: sem dado
+          'true', // fora dos filtros de matéria ativa
+        ].join(','),
+      );
+      dimMateria.write('\r\n');
+    }
 
     final dimTopico = StringBuffer('topico_id,materia_id,nome,concluido\r\n');
     for (final t in topicos) {
       dimTopico.write(
         [t.id, t.materiaId, _campoBi(t.nome), '${t.concluido}'].join(','),
+      );
+      dimTopico.write('\r\n');
+    }
+    final idsTopico = {for (final t in topicos) t.id};
+    for (final r in ordenados) {
+      final id = r.topicoId;
+      if (id == null || id.isEmpty || !idsTopico.add(id)) continue;
+      dimTopico.write(
+        [id, r.materiaId, _campoBi(nomeTopicoExcluido), 'false'].join(','),
       );
       dimTopico.write('\r\n');
     }
@@ -268,10 +308,28 @@ class ExportService {
     required Map<int, int> planejamento,
     List<Simulado> simulados = const [],
     List<Resumo> resumos = const [],
+    List<QuestaoErrada> questoesErradas = const [],
+    // Fotos do caderno de erros (F1): id da questão -> bytes crus (NÃO já em
+    // base64 — quem chama passa o mesmo formato que lê de
+    // `AnexosQuestaoRepositorio`, e a codificação fica só aqui dentro,
+    // simétrico ao resto desta classe, que recebe listas de modelos
+    // tipados, não JSON pré-serializado). Campo tolerante, igual
+    // `ambientes`/`resumos`: backup sem foto nenhuma não precisa passar
+    // nada.
+    Map<String, Uint8List> anexos = const {},
+    Configuracoes? configuracoes,
+    String? escopo,
   }) {
     return const JsonEncoder.withIndent('  ').convert({
       'exportadoEm': DateTime.now().toIso8601String(),
       'versao': 1,
+      // Marca de backup PARCIAL (ver jsonAmbiente): as coleções globais
+      // (leituras, resumos, planejamento) saem vazias por escopo, não por o
+      // usuário não ter nada. Sem essa marca, restaurar um backup de ambiente
+      // em modo "substituir" apagava a lista de leituras, os resumos e o
+      // cronograma inteiros — perda irreversível.
+      // ignore: use_null_aware_elements
+      if (escopo != null) 'escopo': escopo,
       'ambientes': ambientes.map((a) => a.toJson()).toList(),
       'materias': materias.map((m) => m.toJson()).toList(),
       'topicos': topicos.map((t) => t.toJson()).toList(),
@@ -282,6 +340,17 @@ class ExportService {
       'planejamento': planejamento.map((k, v) => MapEntry(k.toString(), v)),
       'simulados': simulados.map((s) => s.toJson()).toList(),
       'resumos': resumos.map((r) => r.toJson()).toList(),
+      'questoesErradas': questoesErradas.map((q) => q.toJson()).toList(),
+      // Base64: JSON não tem tipo binário. Custa +33% de tamanho sobre os
+      // bytes crus, mas só entra no arquivo quem de fato tem foto anexada —
+      // é exatamente o trade-off que justifica a compressão obrigatória na
+      // captura (ver `_selecionarFoto` em caderno_screen.dart).
+      'anexos': anexos.map((id, bytes) => MapEntry(id, base64Encode(bytes))),
+      // Preferências do usuário (meta semanal, intervalos, lembretes) faziam
+      // parte do "backup completo" só no nome: restaurar numa instalação nova
+      // devolvia os dados e perdia a configuração. Campo tolerante — backup
+      // sem ele continua válido na versão 1.
+      'configuracoes': configuracoes?.toJson(),
     });
   }
 
@@ -301,11 +370,20 @@ class ExportService {
     required List<RegistroHora> registros,
     required List<Revisao> revisoes,
     List<Simulado> simulados = const [],
+    List<QuestaoErrada> questoesErradas = const [],
+    Map<String, Uint8List> anexos = const {},
   }) {
     final minhasMaterias = materias
         .where((m) => m.ambienteId == ambiente.id)
         .toList();
     final ids = minhasMaterias.map((m) => m.id).toSet();
+    final minhasQuestoes = questoesErradas
+        .where((q) => ids.contains(q.materiaId))
+        .toList();
+    // Só os anexos das questões que de fato entraram neste backup parcial —
+    // sem o filtro, a foto de uma questão de OUTRO ambiente vazaria para
+    // dentro de um arquivo que devia conter só este ambiente.
+    final idsQuestao = minhasQuestoes.map((q) => q.id).toSet();
     return jsonCompleto(
       ambientes: [ambiente],
       materias: minhasMaterias,
@@ -316,6 +394,12 @@ class ExportService {
       leituras: const [],
       planejamento: const {},
       simulados: simulados.where((s) => s.ambienteId == ambiente.id).toList(),
+      questoesErradas: minhasQuestoes,
+      anexos: {
+        for (final e in anexos.entries)
+          if (idsQuestao.contains(e.key)) e.key: e.value,
+      },
+      escopo: escopoAmbiente,
     );
   }
 

@@ -88,7 +88,11 @@ class GamificacaoService {
   }) {
     final base = xpPonderado(registros, pesoPorMateria);
     final bonus = bonusRevisoes(revisoes);
-    final bonusStreak = StatsService.streakPico(registros) * xpPorDiaDeStreak;
+    // Pico medido com a régua do contador exibido (com congelamento): o pico
+    // cru pagava 6 dias a quem tinha 39 na chama.
+    final bonusStreak =
+        StatsService.streakPicoComCongelamento(registros, hoje) *
+        xpPorDiaDeStreak;
     return (
       base: base,
       bonusRevisoes: bonus,
@@ -123,7 +127,9 @@ class GamificacaoService {
     final totalMinutos = xpTotal(registros);
     // Badge de streak deriva do PICO histórico — conquistou uma vez, não
     // perde. Perder o streak atual não revoga "Semana cheia"/"Mês de ferro".
-    final streak = StatsService.streakPico(registros);
+    // O pico usa a mesma régua do contador exibido (com congelamento), senão
+    // quem descansa 1 dia por semana nunca acende "Semana cheia".
+    final streak = StatsService.streakPicoComCongelamento(registros, hoje);
     final temRevisoes = revisoes.isNotEmpty;
     final nenhumaAtrasada = revisoes
         .where((r) => r.statusEm(hoje) == RevisaoStatus.atrasada)
@@ -145,13 +151,15 @@ class GamificacaoService {
       BadgeStatus(
         id: 'streak-7',
         titulo: 'Semana cheia',
-        descricao: '7 dias seguidos de estudo',
+        // "de chama", não "seguidos": o pico honra o congelamento, então um
+        // domingo protegido não quebra a sequência (ver streakPicoComCongelamento).
+        descricao: '7 dias de chama acesa',
         conquistada: streak >= 7,
       ),
       BadgeStatus(
         id: 'streak-30',
         titulo: 'Mês de ferro',
-        descricao: '30 dias seguidos de estudo',
+        descricao: '30 dias de chama acesa',
         conquistada: streak >= 30,
       ),
       BadgeStatus(
