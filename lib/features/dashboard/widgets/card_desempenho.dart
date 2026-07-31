@@ -71,44 +71,59 @@ class _LinhaDesempenho extends StatelessWidget {
         : taxa < 0.85
         ? (StatusColors.atencao, Icons.trending_up, 'evoluindo')
         : (StatusColors.bom, Icons.check_circle_outline, 'dominado');
+    final nome = materia?.nome ?? '—';
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: corDaSerie(materia?.corSlot ?? 0),
+    // Nome, fração, percentual e status viviam em nós separados (a bolinha
+    // colorida e o ícone de status não falam nada sozinhos, mas nome/número
+    // ficavam em Text distintos) — "102/120" também seria lido como "102
+    // barra 120". Um nó só, por extenso: "Português, 102 de 120, 85%,
+    // dominado".
+    final rotuloA11y =
+        '$nome, ${formatarInteiro(acertos)} de ${formatarInteiro(questoes)}, '
+        '${(taxa * 100).toStringAsFixed(0)}%, $rotulo';
+
+    return Semantics(
+      container: true,
+      excludeSemantics: true,
+      label: rotuloA11y,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: corDaSerie(materia?.corSlot ?? 0),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(child: Text(materia?.nome ?? '—')),
-              Icon(icone, size: 14, color: corStatus),
-              const SizedBox(width: 4),
-              Text(
-                '${formatarInteiro(acertos)}/${formatarInteiro(questoes)} · '
-                '${(taxa * 100).toStringAsFixed(0)}% $rotulo',
-                style: TextStyle(color: corStatus, fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: taxa,
-              minHeight: 6,
-              backgroundColor: VizColors.gridline,
-              color: corStatus,
+                const SizedBox(width: 6),
+                Expanded(child: Text(nome)),
+                Icon(icone, size: 14, color: corStatus),
+                const SizedBox(width: 4),
+                Text(
+                  '${formatarInteiro(acertos)}/${formatarInteiro(questoes)} · '
+                  '${(taxa * 100).toStringAsFixed(0)}% $rotulo',
+                  style: TextStyle(color: corStatus, fontSize: 12),
+                ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: taxa,
+                minHeight: 6,
+                backgroundColor: VizColors.gridline,
+                color: corStatus,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

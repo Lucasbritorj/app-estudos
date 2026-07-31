@@ -136,9 +136,15 @@ class CardRankings extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        // Sem ✓/✗ (U+2713/U+2717): Roboto não cobre esses
+                        // glifos e o CanvasKit da build web não faz fallback —
+                        // saíam como caixa vazia (confirmado no golden). O
+                        // formato "acertos/questões" é o mesmo do card de
+                        // desempenho, então também elimina duas gramáticas
+                        // diferentes para o mesmo dado.
                         Text(
-                          '${formatarInteiro(linha.acertos)}✓ '
-                          '${formatarInteiro(linha.questoes - linha.acertos)}✗ · '
+                          '${formatarInteiro(linha.acertos)}/'
+                          '${formatarInteiro(linha.questoes)} · '
                           '${(linha.taxa * 100).toStringAsFixed(0)}%',
                           style: const TextStyle(
                             color: VizColors.muted,

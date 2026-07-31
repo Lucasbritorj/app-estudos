@@ -7,6 +7,7 @@ import '../../../core/utils/formatters.dart';
 import '../../registro/registro_form.dart';
 import '../dashboard_providers.dart';
 import 'chama_streak.dart';
+import 'rotulos_a11y.dart';
 
 /// "Geralzão": a faixa de KPIs do topo — o dia inteiro de relance, em números
 /// grandes na voz tipográfica de marca (Display tabular). Cada tile é
@@ -25,16 +26,38 @@ class HeroGeral extends ConsumerWidget {
         ? StatusColors.critico
         : (resumo.pendentes > 0 ? StatusColors.atencao : StatusColors.bom);
 
+    // Streak: mesmo texto do rótulo visual, mas com o número por extenso —
+    // "estude hoje"/"protegidos" já é falado, só falta o "5 dias" (sem
+    // abreviação de unidade, aqui não tem, mas mantém o padrão dos outros).
+    final streakDiasTexto = '${resumo.streak} '
+        '${resumo.streak == 1 ? 'dia' : 'dias'}';
+    final streakRotuloA11y = resumo.streakEmRisco
+        ? 'Sequência de estudo: $streakDiasTexto, hoje em risco — estude '
+              'para não perder a sequência'
+        : resumo.streakCongelados > 0
+        ? 'Sequência de estudo: $streakDiasTexto, ${resumo.streakCongelados} '
+              '${resumo.streakCongelados == 1 ? 'dia protegido' : 'dias protegidos'} '
+              'pelo congelamento'
+        : 'Sequência de estudo: $streakDiasTexto';
+
+    final revisoesRotuloA11y = resumo.pendentes == 0
+        ? 'Revisões: em dia'
+        : 'Revisões: ${resumo.pendentes} '
+              '${resumo.pendentes == 1 ? 'pendente' : 'pendentes'}'
+              '${resumo.pendentes > 0 && resumo.atrasadas > 0 ? ', ${resumo.atrasadas} ${resumo.atrasadas == 1 ? 'atrasada' : 'atrasadas'}' : ''}';
+
     final tiles = <Widget>[
       _Kpi(
         rotulo: 'Hoje',
         valor: formatarMinutos(resumo.minutosHoje),
+        rotuloA11y: 'Hoje: ${minutosPorExtenso(resumo.minutosHoje)}',
         tinta: LuminaColors.safiraClara,
         onTap: () => irPara(Abas.cronometro),
       ),
       _Kpi(
         rotulo: 'Semana',
         valor: formatarMinutos(resumo.minutosSemana),
+        rotuloA11y: 'Semana: ${minutosPorExtenso(resumo.minutosSemana)}',
         tinta: seriesColors[1],
         onTap: () => irPara(Abas.cronometro),
       ),
@@ -46,6 +69,7 @@ class HeroGeral extends ConsumerWidget {
                         '${resumo.streakCongelados == 1 ? '' : 's'}'
                   : 'Streak'),
         valor: '${resumo.streak}',
+        rotuloA11y: streakRotuloA11y,
         sufixo: resumo.streak == 1 ? 'dia' : 'dias',
         tinta: LuminaColors.chama,
         icone: ChamaAnimada(emRisco: resumo.streakEmRisco),
@@ -53,11 +77,13 @@ class HeroGeral extends ConsumerWidget {
       _Kpi(
         rotulo: 'Total',
         valor: formatarMinutos(resumo.total),
+        rotuloA11y: 'Total: ${minutosPorExtenso(resumo.total)}',
         tinta: seriesColors[4],
       ),
       _Kpi(
         rotulo: 'Revisões',
         valor: resumo.pendentes == 0 ? 'em dia' : '${resumo.pendentes}',
+        rotuloA11y: revisoesRotuloA11y,
         sufixo: resumo.pendentes > 0 && resumo.atrasadas > 0
             ? '${resumo.atrasadas} atrasadas'
             : null,
@@ -68,6 +94,7 @@ class HeroGeral extends ConsumerWidget {
       _Kpi(
         rotulo: 'Matérias',
         valor: '${resumo.qtdMaterias}',
+        rotuloA11y: 'Matérias: ${resumo.qtdMaterias}',
         tinta: seriesColors[6],
         onTap: () => irPara(Abas.materias),
       ),
@@ -139,6 +166,7 @@ class HeroGeral extends ConsumerWidget {
 class _Kpi extends StatelessWidget {
   final String rotulo;
   final String valor;
+  final String rotuloA11y;
   final String? sufixo;
   final Color tinta;
   final Widget? icone;
@@ -147,6 +175,7 @@ class _Kpi extends StatelessWidget {
   const _Kpi({
     required this.rotulo,
     required this.valor,
+    required this.rotuloA11y,
     required this.tinta,
     this.sufixo,
     this.icone,
@@ -155,6 +184,21 @@ class _Kpi extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Sem isto o leitor de tela lia rótulo, número, sufixo e a setinha de
+    // navegação como 4 nós soltos. excludeSemantics apaga tudo por baixo
+    // (inclusive a ação de toque do InkWell) — onTap/button aqui repõem a
+    // tocabilidade para quem usa TalkBack/VoiceOver.
+    return Semantics(
+      container: true,
+      excludeSemantics: true,
+      label: rotuloA11y,
+      button: onTap != null,
+      onTap: onTap,
+      child: _kpiVisual(context),
+    );
+  }
+
+  Widget _kpiVisual(BuildContext context) {
     return Material(
       color: tinta.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(Radii.md),

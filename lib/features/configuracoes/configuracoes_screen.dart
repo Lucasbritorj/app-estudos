@@ -20,6 +20,7 @@ class _ConfiguracoesScreenState extends ConsumerState<ConfiguracoesScreen> {
   late final TextEditingController _metaSemanal;
   late int _hora;
   int? _horaLembreteEstudo;
+  late int _minutosPadraoRevisao;
 
   @override
   void initState() {
@@ -33,6 +34,7 @@ class _ConfiguracoesScreenState extends ConsumerState<ConfiguracoesScreen> {
     );
     _hora = config.horaNotificacao;
     _horaLembreteEstudo = config.horaLembreteEstudo;
+    _minutosPadraoRevisao = config.minutosPadraoRevisao;
   }
 
   @override
@@ -100,6 +102,7 @@ class _ConfiguracoesScreenState extends ConsumerState<ConfiguracoesScreen> {
           metaSemanalMinutos: metaSemanal,
           horaLembreteEstudo: _horaLembreteEstudo,
           desligarLembreteEstudo: _horaLembreteEstudo == null,
+          minutosPadraoRevisao: _minutosPadraoRevisao,
         );
     await ref.read(configuracoesProvider.notifier).salvar(config);
     await NotificacoesService.agendarLembreteDiario(_horaLembreteEstudo);
@@ -180,6 +183,30 @@ class _ConfiguracoesScreenState extends ConsumerState<ConfiguracoesScreen> {
               ],
               onChanged: (v) => setState(() => _horaLembreteEstudo = v),
             ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              initialValue: _minutosPadraoRevisao,
+              decoration: const InputDecoration(
+                labelText: 'Tempo creditado por revisão concluída',
+                helperText:
+                    'ESTIMATIVA: quando você conclui uma revisão informando '
+                    'questões sem informar o tempo, o app credita estes '
+                    'minutos. Isso soma no total de horas sem ter sido '
+                    'cronometrado. "Não creditar" mantém só as questões.',
+                helperMaxLines: 4,
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: 0, child: Text('Não creditar tempo')),
+                DropdownMenuItem(value: 5, child: Text('5 minutos')),
+                DropdownMenuItem(value: 10, child: Text('10 minutos')),
+                DropdownMenuItem(value: 15, child: Text('15 minutos')),
+                DropdownMenuItem(value: 20, child: Text('20 minutos')),
+                DropdownMenuItem(value: 30, child: Text('30 minutos')),
+              ],
+              onChanged: (v) =>
+                  setState(() => _minutosPadraoRevisao = v ?? _minutosPadraoRevisao),
+            ),
             const SizedBox(height: 24),
             FilledButton(onPressed: _salvar, child: const Text('Salvar')),
             const SizedBox(height: 40),
@@ -252,8 +279,12 @@ Future<void> mostrarDialogoApagarDados(
                   '${contagem.topicos} tópicos, ${contagem.aulas} aulas, '
                   '${contagem.revisoes} revisões, ${contagem.resumos} '
                   'resumos, ${contagem.leituras} leituras, '
-                  '${contagem.simulados} simulados e ${contagem.ambientes} '
-                  'ambientes.',
+                  '${contagem.simulados} simulados, '
+                  // O caderno de erros é conteúdo escrito à mão (enunciado e
+                  // motivo do erro): omiti-lo da lista escondia justamente o
+                  // dado mais caro de reproduzir.
+                  '${contagem.questoesErradas} questões do caderno de erros '
+                  'e ${contagem.ambientes} ambientes.',
                 ),
                 const SizedBox(height: 12),
                 const Text(
@@ -285,7 +316,8 @@ Future<void> mostrarDialogoApagarDados(
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: StatusColors.critico,
+                backgroundColor: StatusColors.criticoSuperficie,
+                foregroundColor: Colors.white,
               ),
               onPressed: confirmado
                   ? () async {

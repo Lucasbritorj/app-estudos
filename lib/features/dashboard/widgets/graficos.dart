@@ -72,6 +72,10 @@ class BarrasSemana extends ConsumerWidget {
     return Semantics(
       container: true,
       label: 'Horas da semana por matéria: $resumoA11y',
+      // fl_chart não expõe semântica própria, mas os rótulos dos eixos SÃO
+      // widgets de texto reais — sem isto o leitor varria "AFO", "40min",
+      // "Penal", "30min" soltos por baixo do resumo já falado acima.
+      excludeSemantics: true,
       child: SizedBox(
         height: 200,
         child: BarChart(
@@ -173,6 +177,9 @@ class LinhaEvolucao extends ConsumerWidget {
           'Evolução dos últimos 14 dias: '
           '${formatarMinutos(totalMinutos)} no total, '
           'pico de ${formatarDecimal(maxHoras)} horas num dia',
+      // Idem BarrasSemana: sem isto os rótulos do eixo ("dd/MM", "Nh") e o
+      // tooltip de toque do fl_chart viram ruído solto atrás do resumo.
+      excludeSemantics: true,
       child: SizedBox(
         height: 180,
         child: LineChart(
@@ -330,6 +337,10 @@ class DonutDistribuicao extends ConsumerWidget {
         Semantics(
           container: true,
           label: rotuloA11y,
+          // Some com a leitura da rosca (PieChart) OU das barras/legenda por
+          // baixo — o resumo com todos os nomes+percentuais já está no
+          // label acima, ler os dois é duplicar a mesma informação 2x.
+          excludeSemantics: true,
           child: usarBarras
               ? _BarrasDistribuicao(
                   linhas: linhas,

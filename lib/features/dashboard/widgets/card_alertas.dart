@@ -27,59 +27,70 @@ class CardAlertas extends ConsumerWidget {
       child: Card(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final e in atrasadasPorMateria.entries)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 16,
-                        color: StatusColors.critico,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Você tem ${e.value} '
-                          '${e.value == 1 ? 'revisão atrasada' : 'revisões atrasadas'} '
-                          'de ${materiasPorId[e.key]?.nome ?? 'matéria removida'}',
-                          style: const TextStyle(
-                            color: StatusColors.critico,
-                            fontSize: 13,
+          // Card sem título visível (o ícone colorido de cada linha já dá o
+          // contexto pra quem vê) — sem um rótulo de região, o leitor de tela
+          // cai direto nas frases sem anúncio do que é essa lista. Cada linha
+          // já é uma frase única (ícone decorativo + 1 Text), então
+          // explicitChildNodes preserva as linhas soltas: só acrescenta o
+          // anúncio "Alertas" antes delas, não funde tudo num bloco só.
+          child: Semantics(
+            container: true,
+            label: 'Alertas',
+            explicitChildNodes: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final e in atrasadasPorMateria.entries)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          size: 16,
+                          color: StatusColors.critico,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Você tem ${e.value} '
+                            '${e.value == 1 ? 'revisão atrasada' : 'revisões atrasadas'} '
+                            'de ${materiasPorId[e.key]?.nome ?? 'matéria removida'}',
+                            style: const TextStyle(
+                              color: StatusColors.critico,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              for (final m in falsoDominio)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.warning_amber,
-                        size: 16,
-                        color: StatusColors.atencao,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Falso domínio em ${m.nome}: intimidade alta, '
-                          'acerto abaixo de 75% — reforce questões e revisão',
-                          style: const TextStyle(
-                            color: StatusColors.atencao,
-                            fontSize: 13,
+                for (final m in falsoDominio)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_amber,
+                          size: 16,
+                          color: StatusColors.atencao,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Falso domínio em ${m.nome}: intimidade alta, '
+                            'acerto abaixo de 75% — reforce questões e revisão',
+                            style: const TextStyle(
+                              color: StatusColors.atencao,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

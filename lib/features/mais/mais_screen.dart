@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../ambientes/ambientes_screen.dart';
+import '../busca/busca_screen.dart';
 import '../materias/importar_edital.dart';
 import '../configuracoes/configuracoes_screen.dart';
 import '../exportar/exportar_screen.dart';
@@ -11,6 +12,8 @@ import '../mapa/mapa_estudos_screen.dart';
 import '../planejamento/planejamento_screen.dart';
 import '../resumos/resumos_screen.dart';
 import '../simulados/simulados_screen.dart';
+import '../caderno/caderno_screen.dart';
+import '../edital/edital_screen.dart';
 
 class MaisScreen extends ConsumerWidget {
   const MaisScreen({super.key});
@@ -26,6 +29,15 @@ class MaisScreen extends ConsumerWidget {
       body: ConteudoCentral(
         child: ListView(
           children: [
+            ListTile(
+              leading: const Icon(Icons.search),
+              title: const Text('Buscar'),
+              subtitle: const Text(
+                'Ache matérias, tópicos, questões, resumos, aulas e '
+                'simulados num só lugar',
+              ),
+              onTap: () => _abrir(context, const BuscaScreen()),
+            ),
             ListTile(
               leading: const Icon(Icons.workspaces_outlined),
               title: const Text('Ambientes'),
@@ -43,12 +55,30 @@ class MaisScreen extends ConsumerWidget {
               onTap: () => _abrir(context, const MapaEstudosScreen()),
             ),
             ListTile(
+              leading: const Icon(Icons.checklist_rtl),
+              title: const Text('Edital verticalizado'),
+              subtitle: const Text(
+                'Cobertura por matéria, situação de cada tópico e os buracos '
+                'mais caros',
+              ),
+              onTap: () => _abrir(context, const EditalScreen()),
+            ),
+            ListTile(
               leading: const Icon(Icons.content_paste_go),
               title: const Text('Importar edital (colar texto)'),
               subtitle: const Text(
                 'Copie do PDF e cole — numeração vira hierarquia de tópicos',
               ),
               onTap: () => mostrarImportarEdital(context, ref),
+            ),
+            ListTile(
+              leading: const Icon(Icons.quiz_outlined),
+              title: const Text('Caderno de Erros'),
+              subtitle: const Text(
+                'Questões erradas para refazer, com repetição espaçada até '
+                'dominar',
+              ),
+              onTap: () => _abrir(context, const CadernoScreen()),
             ),
             ListTile(
               leading: const Icon(Icons.fact_check_outlined),

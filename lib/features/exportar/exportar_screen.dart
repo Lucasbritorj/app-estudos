@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../application/backup_use_case.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/compartilhador.dart';
 import '../../core/utils/formatters.dart';
@@ -181,8 +182,11 @@ class ExportarScreen extends ConsumerWidget {
               leading: const Icon(Icons.data_object),
               title: const Text('JSON — backup completo'),
               subtitle: const Text(
-                'Matérias, tópicos, registros, revisões, leituras, resumos e '
-                'plano',
+                'Matérias, tópicos, registros, revisões, leituras, resumos, '
+                'caderno de erros, plano e configurações. Uma prova '
+                'cronometrada em andamento NÃO entra — finalize antes. '
+                'Fotos do enunciado anexadas ao caderno de erros deixam o '
+                'arquivo bem maior.',
               ),
               onTap: () {
                 final json = ExportService.jsonCompleto(
@@ -196,6 +200,9 @@ class ExportarScreen extends ConsumerWidget {
                   planejamento: ref.read(planejamentoProvider),
                   simulados: ref.read(simuladosProvider),
                   resumos: ref.read(resumosProvider),
+                  questoesErradas: ref.read(questoesErradasProvider),
+                  anexos: ref.read(anexosQuestaoRepositorioProvider).todos(),
+                  configuracoes: ref.read(configuracoesProvider),
                 );
                 _compartilharTexto(
                   context,
@@ -209,7 +216,8 @@ class ExportarScreen extends ConsumerWidget {
               leading: const Icon(Icons.workspaces_outlined),
               title: const Text('JSON — backup de UM ambiente'),
               subtitle: const Text(
-                'Só as matérias e o histórico do ambiente escolhido',
+                'Só as matérias e o histórico do ambiente escolhido. Fotos '
+                'do caderno de erros deixam o arquivo maior.',
               ),
               onTap: () => _exportarAmbiente(context, ref),
             ),
@@ -382,6 +390,8 @@ class ExportarScreen extends ConsumerWidget {
       registros: ref.read(registrosProvider),
       revisoes: ref.read(revisoesProvider),
       simulados: ref.read(simuladosProvider),
+      questoesErradas: ref.read(questoesErradasProvider),
+      anexos: ref.read(anexosQuestaoRepositorioProvider).todos(),
     );
     final nomeLimpo = ambiente.nome.toLowerCase().replaceAll(
       RegExp(r'[^a-z0-9]+'),
@@ -455,6 +465,12 @@ class ExportarScreen extends ConsumerWidget {
                   .read(simuladosProvider.notifier)
                   .mesclar(backup.simulados);
               await ref.read(resumosProvider.notifier).mesclar(backup.resumos);
+              await ref
+                  .read(questoesErradasProvider.notifier)
+                  .mesclar(backup.questoesErradas);
+              await ref
+                  .read(anexosQuestaoRepositorioProvider)
+                  .mesclar(backup.anexos);
 
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -506,12 +522,35 @@ class ExportarScreen extends ConsumerWidget {
               }
               Navigator.pop(dialogContext);
 
+              // Backup parcial (de um ambiente) não pode substituir tudo:
+              // leituras, resumos e planejamento não estão no arquivo e
+              // seriam apagados sem volta. Só mesclar faz sentido.
+              if (backup.parcial) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Este é um backup de UM ambiente: substituir tudo '
+                      'apagaria leituras, resumos e o plano, que não estão '
+                      'no arquivo. Use "Importar e mesclar".',
+                    ),
+                  ),
+                );
+                return;
+              }
+
+              // Capturado ANTES do diálogo: depois do await o `context` do
+              // build já pode ter saído da árvore.
+              final messenger = ScaffoldMessenger.of(context);
+              final backupUseCase = ref.read(backupUseCaseProvider);
               final confirmado = await showDialog<bool>(
                 context: context,
                 builder: (confirmContext) => AlertDialog(
                   title: const Text('Substituir todos os dados?'),
                   content: Text(
-                    'O backup contém ${backup.resumo}.\n\nTudo que existe hoje no app será apagado. Não há como desfazer.',
+                    'O backup contém ${backup.resumo}.\n\n'
+                    'Tudo que existe hoje no app será apagado. O app guarda '
+                    'uma cópia do estado atual e oferece "Desfazer" logo '
+                    'depois — mas ela vive só neste aparelho.',
                   ),
                   actions: [
                     TextButton(
@@ -527,51 +566,41 @@ class ExportarScreen extends ConsumerWidget {
               );
               if (confirmado != true) return;
 
-              await ref
-                  .read(ambientesProvider.notifier)
-                  .substituirTudo(backup.ambientesOuGeral(DateTime.now()));
-              // Escopo pode apontar p/ ambiente que não existe mais.
-              final config = ref.read(configuracoesProvider);
-              if (config.ambienteAtivoId != null) {
-                await ref
-                    .read(configuracoesProvider.notifier)
-                    .salvar(config.copyWith(limparAmbienteAtivo: true));
-              }
-              await ref
-                  .read(materiasProvider.notifier)
-                  .substituirTudo(backup.materias);
-              await ref
-                  .read(topicosProvider.notifier)
-                  .substituirTudo(backup.topicos);
-              await ref
-                  .read(aulasProvider.notifier)
-                  .substituirTudo(backup.aulas);
-              await ref
-                  .read(registrosProvider.notifier)
-                  .substituirTudo(backup.registros);
-              await ref
-                  .read(revisoesProvider.notifier)
-                  .substituirTudo(backup.revisoes);
-              await ref
-                  .read(leiturasProvider.notifier)
-                  .substituirTudo(backup.leituras);
-              await ref
-                  .read(simuladosProvider.notifier)
-                  .substituirTudo(backup.simulados);
-              await ref
-                  .read(resumosProvider.notifier)
-                  .substituirTudo(backup.resumos);
-              await ref
-                  .read(planejamentoProvider.notifier)
-                  .substituir(backup.planejamento);
-
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+              try {
+                await backupUseCase.restaurarSubstituindo(backup);
+              } catch (erro) {
+                messenger.showSnackBar(
                   SnackBar(
-                    content: Text('Backup restaurado: ${backup.resumo}.'),
+                    content: Text(
+                      'Falha ao restaurar: $erro. Os dados anteriores foram '
+                      'recolocados.',
+                    ),
                   ),
                 );
+                return;
               }
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('Backup restaurado: ${backup.resumo}.'),
+                  duration: const Duration(seconds: 10),
+                  action: SnackBarAction(
+                    label: 'Desfazer',
+                    onPressed: () async {
+                      final voltou =
+                          await backupUseCase.desfazerUltimaRestauracao();
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            voltou
+                                ? 'Importação desfeita.'
+                                : 'Nada para desfazer.',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
             },
             child: const Text('Validar e importar'),
           ),

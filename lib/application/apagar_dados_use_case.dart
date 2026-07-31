@@ -1,5 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:hive_ce/hive.dart';
+
+import '../core/notificacoes/notificacoes_service.dart';
+import '../data/local/hive_boxes.dart';
 import '../data/repositories/configuracoes_repositorio.dart';
 import '../data/repositories/planejamento_repositorio.dart';
 import '../data/repositories/repositorios.dart';
@@ -18,6 +22,7 @@ typedef ContagemDados = ({
   int leituras,
   int simulados,
   int ambientes,
+  int questoesErradas,
 });
 
 /// Apagar tudo (wipe out): reset total dos dados do usuário — cenário
@@ -40,6 +45,7 @@ class ApagarDadosUseCase {
     leituras: _ref.read(leiturasProvider).length,
     simulados: _ref.read(simuladosProvider).length,
     ambientes: _ref.read(ambientesProvider).length,
+    questoesErradas: _ref.read(questoesErradasProvider).length,
   );
 
   /// Apaga TODOS os dados do usuário. `substituirTudo([])` faz `box.clear()`
@@ -53,6 +59,16 @@ class ApagarDadosUseCase {
   /// isoladamente já funcionaria — mas assim nenhuma leitura no meio do
   /// processo pode ver um filho apontando pra um pai que já sumiu.
   Future<void> apagarTudo() async {
+    await _ref.read(questoesErradasProvider.notifier).substituirTudo([]);
+    // Cascata do caderno de erros (F1): sem isto o wipe apagava as questões
+    // mas deixava as fotos órfãs no box de anexos — bytes que nenhuma tela
+    // referencia mais, ocupando espaço em disco para sempre.
+    await _ref.read(anexosQuestaoRepositorioProvider).substituirTudo(const {});
+    // Boxes de slot único (sem repositório/Notifier): prova em andamento e
+    // cronômetro. Sem isto o wipe deixava uma prova cronometrada viva, que
+    // reaparecia na tela de simulados apontando para matérias já apagadas.
+    await Hive.box<Map>(HiveBoxes.execucaoProva).clear();
+    await Hive.box<Map>(HiveBoxes.cronometro).clear();
     await _ref.read(revisoesProvider.notifier).substituirTudo([]);
     await _ref.read(registrosProvider.notifier).substituirTudo([]);
     await _ref.read(aulasProvider.notifier).substituirTudo([]);
@@ -74,12 +90,10 @@ class ApagarDadosUseCase {
               .copyWith(limparAmbienteAtivo: true),
         );
 
-    // NotificacoesRevisao só expõe sincronizar(revisao, hora) — cancela e
-    // reagenda UMA revisão por vez; NotificacoesService não tem
-    // cancelarTodas/cancelAll (checado antes de escrever isto). O wipe não
-    // cancela notificações pendentes: ficam órfãs até expirar sozinhas
-    // (best-effort, sem crash — NotificacoesService já tolera falha de
-    // plataforma). Ver relatório da onda 1 para essa lacuna.
+    // Sem isto o usuário apagava tudo e continuava recebendo lembrete de
+    // revisão inexistente, sem tela onde desligar. `cancelarTodas` é
+    // best-effort: tolera falha de plataforma sem derrubar o wipe.
+    await NotificacoesService.cancelarTodas();
   }
 }
 

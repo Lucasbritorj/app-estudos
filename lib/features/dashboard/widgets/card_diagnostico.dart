@@ -30,15 +30,21 @@ class CardDiagnostico extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.only(top: Spacing.md),
-      child: Semantics(
-        label: 'Diagnóstico de hoje: ${d.titulo}',
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(Spacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(Spacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Ícone (mudo) + Text(d.titulo) cabem inteiros no rótulo —
+              // sem container/excludeSemantics o Text descendente vazava
+              // como nó irmão e o leitor repetia o título logo depois de
+              // ouvir o rótulo customizado.
+              Semantics(
+                container: true,
+                excludeSemantics: true,
+                label: 'Diagnóstico de hoje: ${d.titulo}',
+                child: Row(
                   children: [
                     Icon(icone, size: 18, color: cor),
                     const SizedBox(width: Spacing.sm),
@@ -50,64 +56,64 @@ class CardDiagnostico extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: Spacing.sm),
-                Text(
-                  d.mensagem,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: VizColors.inkPrimary,
-                    height: 1.45,
-                  ),
+              ),
+              const SizedBox(height: Spacing.sm),
+              Text(
+                d.mensagem,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: VizColors.inkPrimary,
+                  height: 1.45,
                 ),
-                if (d.evidencias.isNotEmpty) ...[
-                  const SizedBox(height: Spacing.md),
-                  for (final e in d.evidencias)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 1.5),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(top: 5),
-                            child: Icon(
-                              Icons.circle,
-                              size: 5,
-                              color: VizColors.muted,
-                            ),
-                          ),
-                          const SizedBox(width: Spacing.sm),
-                          Expanded(
-                            child: Text(
-                              e,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: VizColors.inkSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
+              ),
+              if (d.evidencias.isNotEmpty) ...[
                 const SizedBox(height: Spacing.md),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.arrow_forward, size: 16, color: cor),
-                    const SizedBox(width: Spacing.sm),
-                    Expanded(
-                      child: Text(
-                        d.acao,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: cor,
+                for (final e in d.evidencias)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1.5),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 5),
+                          child: Icon(
+                            Icons.circle,
+                            size: 5,
+                            color: VizColors.muted,
+                          ),
                         ),
+                        const SizedBox(width: Spacing.sm),
+                        Expanded(
+                          child: Text(
+                            e,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: VizColors.inkSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+              const SizedBox(height: Spacing.md),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.arrow_forward, size: 16, color: cor),
+                  const SizedBox(width: Spacing.sm),
+                  Expanded(
+                    child: Text(
+                      d.acao,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: cor,
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

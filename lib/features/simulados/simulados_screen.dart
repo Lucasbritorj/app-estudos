@@ -8,11 +8,27 @@ import '../../core/widgets/estado_vazio.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/haptica.dart';
 import '../../data/models/ambiente.dart';
+import '../../data/models/bancas.dart';
+import '../../data/models/execucao_prova.dart';
 import '../../data/models/simulado.dart';
 import '../../data/repositories/ambiente_filtros.dart';
 import '../../data/repositories/repositorios.dart';
+import '../../domain/banca_service.dart';
+import 'prova_screen.dart';
 
 Color _corTaxa(double taxa) => StatusColors.porTaxa(taxa);
+
+/// Opções do Autocomplete de banca: histórico do usuário primeiro, catálogo
+/// fixo depois, sem duplicar. Mesma receita de registro_form.dart — não
+/// compartilhada via import de propósito (cada tela fica autônoma; a lógica
+/// é um merge trivial de lista, não vale o acoplamento cross-feature).
+List<String> _mesclarOpcoesBanca(List<String> usadas) {
+  final vistas = <String>{};
+  return [
+    for (final b in [...usadas, ...Bancas.sugestoes])
+      if (vistas.add(b)) b,
+  ];
+}
 
 /// Simulados e provas reais: usuário informa tempo/questões/acertos por
 /// matéria; taxa, erros e min/questão o app deriva.
@@ -29,6 +45,10 @@ class SimuladosScreen extends ConsumerWidget {
     final materiasPorId = {
       for (final m in ref.watch(materiasProvider)) m.id: m,
     };
+    // Execução de prova cronometrada ativa (persistida no Hive) — alimenta
+    // o aviso "Prova em andamento" no topo da lista, ver
+    // _AvisoProvaCronometrada.
+    final execucaoAtiva = ref.watch(execucaoProvaProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Simulados & Provas')),
@@ -40,7 +60,11 @@ class SimuladosScreen extends ConsumerWidget {
         ),
         child: const Icon(Icons.add),
       ),
-      body: simulados.isEmpty
+      body: Column(
+        children: [
+          _AvisoProvaCronometrada(execucaoAtiva: execucaoAtiva),
+          Expanded(
+            child: simulados.isEmpty
           ? EstadoVazio(
               icone: Icons.assignment_outlined,
               titulo: 'Nenhum simulado ou prova registrado',
@@ -110,7 +134,7 @@ class SimuladosScreen extends ConsumerWidget {
                             formatarData(s.data),
                             if (s.cargo.isNotEmpty) s.cargo,
                             '${s.totalAcertos}/${s.totalQuestoes} '
-                                '(${s.totalErros} erros)',
+                                '(${plural(s.totalErros, 'erro', 'erros')})',
                             if (s.tempoMinutos != null)
                               '${formatarMinutos(s.tempoMinutos!)}'
                                   '${s.minutosPorQuestao == null ? '' : ' · ${formatarDecimal(s.minutosPorQuestao!)} min/questão'}',
@@ -208,6 +232,53 @@ class SimuladosScreen extends ConsumerWidget {
                 },
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Aviso/entrada do modo prova cronometrada — sempre visível no topo da
+/// lista. Sem execução ativa: convite padrão. Com uma ativa (app fechado no
+/// meio de uma prova, por exemplo): avisa e retoma — ProvaScreen decide
+/// sozinha em que fase reabrir (setup/execução/correção) olhando o que
+/// está persistido no Hive.
+class _AvisoProvaCronometrada extends StatelessWidget {
+  final ExecucaoProva? execucaoAtiva;
+
+  const _AvisoProvaCronometrada({required this.execucaoAtiva});
+
+  @override
+  Widget build(BuildContext context) {
+    final ativa = execucaoAtiva != null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Card(
+        child: ListTile(
+          leading: Icon(
+            ativa ? Icons.timer : Icons.timer_outlined,
+            color: ativa ? LuminaColors.ouro : LuminaColors.safiraClara,
+          ),
+          title: Text(
+            ativa
+                ? 'Prova em andamento — retomar'
+                : 'Fazer prova cronometrada',
+          ),
+          subtitle: Text(
+            ativa
+                ? execucaoAtiva!.nome
+                : 'Cronômetro, folha de respostas e correção automática',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProvaScreen()),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -235,6 +306,8 @@ class _SimuladoFormState extends ConsumerState<_SimuladoForm> {
   final _formKey = GlobalKey<FormState>();
   final _nome = TextEditingController();
   final _cargo = TextEditingController();
+  final _banca = TextEditingController();
+  final _bancaFocus = FocusNode();
   final _tempo = TextEditingController();
   final _comentario = TextEditingController();
   var _tipo = TipoSimulado.simulado;
@@ -245,6 +318,8 @@ class _SimuladoFormState extends ConsumerState<_SimuladoForm> {
   void dispose() {
     _nome.dispose();
     _cargo.dispose();
+    _banca.dispose();
+    _bancaFocus.dispose();
     _tempo.dispose();
     _comentario.dispose();
     for (final l in _linhas) {
@@ -266,7 +341,8 @@ class _SimuladoFormState extends ConsumerState<_SimuladoForm> {
     if (questoes == 0) return '';
     final taxa = acertos * 100 / questoes;
     final tempo = _int(_tempo);
-    return 'Total: $acertos/$questoes · ${(questoes - acertos)} erros · '
+    return 'Total: $acertos/$questoes · '
+        '${plural(questoes - acertos, 'erro', 'erros')} · '
         '${taxa.toStringAsFixed(0)}%'
         '${tempo == null || tempo <= 0 ? '' : ' · ${formatarDecimal((tempo / questoes))} min/questão'}';
   }
@@ -300,6 +376,9 @@ class _SimuladoFormState extends ConsumerState<_SimuladoForm> {
       tipo: _tipo,
       nome: _nome.text.trim(),
       cargo: _tipo == TipoSimulado.prova ? _cargo.text.trim() : '',
+      // Construtor normaliza (trim, maiúsculas, apelido CESPE→CEBRASPE,
+      // vazio→null) — mesma regra de RegistroHora.banca.
+      banca: _banca.text,
       data: _data,
       tempoMinutos: _int(_tempo),
       resultados: resultados,
@@ -317,6 +396,18 @@ class _SimuladoFormState extends ConsumerState<_SimuladoForm> {
         .where((m) => !m.arquivada)
         .toList();
     final prova = _tipo == TipoSimulado.prova;
+    // Sugestão do Autocomplete de banca: histórico do ambiente ativo
+    // primeiro, catálogo fixo depois (mesma receita de registro_form.dart).
+    final ativoBanca = ref.watch(ambienteAtivoProvider);
+    final opcoesBanca = _mesclarOpcoesBanca(
+      BancaService.bancasUsadas(
+        ref.watch(registrosDoAmbienteProvider),
+        ref
+            .watch(simuladosProvider)
+            .where((s) => ativoBanca == null || s.ambienteId == ativoBanca.id)
+            .toList(),
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(title: Text(prova ? 'Nova prova' : 'Novo simulado')),
@@ -366,6 +457,30 @@ class _SimuladoFormState extends ConsumerState<_SimuladoForm> {
                   ),
                 ),
               ],
+              const SizedBox(height: 8),
+              // Campo próprio de banca (dimensão estruturada, separada do
+              // texto livre de "Cargo / banca" acima) — cruza com as sessões
+              // de questões no ranking por banca do dashboard.
+              Autocomplete<String>(
+                textEditingController: _banca,
+                focusNode: _bancaFocus,
+                optionsBuilder: (TextEditingValue value) {
+                  final consulta = Bancas.normalizar(value.text) ?? '';
+                  if (consulta.isEmpty) return opcoesBanca;
+                  return opcoesBanca.where((o) => o.contains(consulta));
+                },
+                fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                  return TextFormField(
+                    key: const Key('simulado_form_banca'),
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      labelText: 'Banca (opcional)',
+                      hintText: 'Ex.: CEBRASPE, FGV...',
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [

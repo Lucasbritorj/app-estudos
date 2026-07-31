@@ -6,9 +6,12 @@ import 'core/theme/app_theme.dart';
 import 'core/utils/haptica.dart';
 import 'data/repositories/configuracoes_repositorio.dart';
 import 'features/ambientes/ambientes_screen.dart';
+import 'features/busca/busca_screen.dart';
+import 'features/caderno/caderno_screen.dart';
 import 'features/configuracoes/configuracoes_screen.dart';
 import 'features/cronometro/cronometro_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
+import 'features/edital/edital_screen.dart';
 import 'features/exportar/exportar_screen.dart';
 import 'features/leituras/leituras_screen.dart';
 import 'features/mais/mais_screen.dart';
@@ -304,10 +307,28 @@ class _Sidebar extends ConsumerWidget {
               const SizedBox(height: 18),
               if (!estreita) const _RotuloSecao('Ferramentas'),
               _ItemSidebar(
+                icone: Icons.search,
+                rotulo: 'Buscar',
+                colapsado: estreita,
+                onTap: () => abrir(const BuscaScreen()),
+              ),
+              _ItemSidebar(
                 icone: Icons.account_tree_outlined,
                 rotulo: 'Mapa de Estudos',
                 colapsado: estreita,
                 onTap: () => abrir(const MapaEstudosScreen()),
+              ),
+              _ItemSidebar(
+                icone: Icons.checklist_rtl,
+                rotulo: 'Edital verticalizado',
+                colapsado: estreita,
+                onTap: () => abrir(const EditalScreen()),
+              ),
+              _ItemSidebar(
+                icone: Icons.quiz_outlined,
+                rotulo: 'Caderno de Erros',
+                colapsado: estreita,
+                onTap: () => abrir(const CadernoScreen()),
               ),
               _ItemSidebar(
                 icone: Icons.calendar_month_outlined,

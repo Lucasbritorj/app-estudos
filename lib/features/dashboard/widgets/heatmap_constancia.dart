@@ -86,6 +86,10 @@ class CardHeatmapConstancia extends ConsumerWidget {
                       'Constância: $diasEstudados dias estudados nas últimas '
                       '$semanas semanas, total de ${formatarMinutos(total)}'
                       '${protegidos > 0 ? ', $protegidos dias protegidos pelo congelamento' : ''}.',
+                  // CustomPaint não produz nó nenhum sozinho, mas sem isto um
+                  // leitor de tela ainda tentaria varrer o Canvas em busca de
+                  // texto — trava a leitura no resumo já falado acima.
+                  excludeSemantics: true,
                   child: SizedBox(
                     height: _HeatmapPainter.alturaTotal,
                     width: double.infinity,

@@ -7,13 +7,19 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/estado_vazio.dart';
 import '../../data/repositories/ambiente_filtros.dart';
 import '../ambientes/ambiente_selector.dart';
+import '../busca/busca_screen.dart';
+import '../caderno/caderno_providers.dart';
 import '../registro/registro_form.dart';
+import 'bancas_providers.dart';
 import 'dashboard_providers.dart';
 import 'frases_do_dia.dart';
 import 'widgets/card_alertas.dart';
 import 'widgets/card_ambientes.dart';
 import 'widgets/card_anos.dart';
+import 'widgets/card_bancas.dart';
+import 'widgets/card_caderno_erros.dart';
 import 'widgets/card_desempenho.dart';
+import 'widgets/card_edital.dart';
 import 'widgets/card_diagnostico.dart';
 import 'widgets/card_gamificacao.dart';
 import 'widgets/card_melhorar_hoje.dart';
@@ -44,12 +50,34 @@ class DashboardScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(ambienteAtivo?.nome ?? 'Visão Geral'),
-        actions: const [AmbienteSelector(), SizedBox(width: 8)],
+        actions: [
+          IconButton(
+            tooltip: 'Buscar',
+            icon: const Icon(Icons.search),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BuscaScreen()),
+            ),
+          ),
+          const AmbienteSelector(),
+          const SizedBox(width: 8),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Registro manual',
-        onPressed: () => mostrarFormularioRegistro(context),
-        child: const Icon(Icons.add),
+      // O FAB já embrulha em MergeSemantics + Tooltip por padrão, mas
+      // Tooltip expõe a mensagem como propriedade "tooltip" (dica
+      // secundária), não como "label" — o nome primário que o leitor de
+      // tela anuncia. Ícone sozinho (Icons.add) não fala nada: sem o label
+      // explícito, TalkBack/VoiceOver anunciava só "botão", sem nome.
+      floatingActionButton: Semantics(
+        label: 'Registro manual',
+        button: true,
+        excludeSemantics: true,
+        onTap: () => mostrarFormularioRegistro(context),
+        child: FloatingActionButton(
+          tooltip: 'Registro manual',
+          onPressed: () => mostrarFormularioRegistro(context),
+          child: const Icon(Icons.add),
+        ),
       ),
       body: vazio
           ? const _EstadoVazio()
@@ -87,6 +115,10 @@ class DashboardScreen extends ConsumerWidget {
                       ref.watch(desempenhoPorMateriaProvider).isNotEmpty;
                   final temRetencao =
                       ref.watch(trueRetentionProvider).geral != null;
+                  final caderno = ref.watch(resumoCadernoProvider);
+                  final temCaderno =
+                      caderno.totalAtivas > 0 || caderno.totalDominadas > 0;
+                  final temBancas = ref.watch(bancasUsadasProvider).isNotEmpty;
                   final temForecast = ref
                       .watch(forecastRevisaoProvider)
                       .any((d) => d.quantidade > 0);
@@ -101,12 +133,14 @@ class DashboardScreen extends ConsumerWidget {
                     if (temQuests) const CardQuests(),
                     const CardPlano(),
                     if (temDesempenho) const CardDesempenho(),
+                    const CardEdital(),
                     const CardGrafico(
                       titulo: 'Horas da semana por matéria',
                       child: BarrasSemana(),
                     ),
                     const CardHeatmapConstancia(),
                     if (temForecast) const CardForecastRevisao(),
+                    if (temCaderno) const CardCadernoErros(),
                     const CardGrafico(
                       titulo: 'Evolução — últimos 14 dias',
                       child: LinhaEvolucao(),
@@ -119,6 +153,7 @@ class DashboardScreen extends ConsumerWidget {
                     if (ambienteAtivo == null) const CardAmbientes(),
                     const CardRankings(),
                     const CardSimulados(),
+                    if (temBancas) const CardBancas(),
                     // Cards de "status fechado" (consulta, não ação): ficam
                     // juntos no rodapé da grade, lado a lado.
                     const CardGamificacao(),

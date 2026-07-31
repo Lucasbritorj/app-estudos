@@ -150,19 +150,32 @@ class _Percentual extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '${(valor * 100).toStringAsFixed(0)}%',
-          style: LuminaText.numeroHero.copyWith(color: cor, fontSize: tamanho),
-        ),
-        Text(
-          rotulo,
-          style: const TextStyle(color: VizColors.muted, fontSize: 11),
-        ),
-      ],
+    final percentualTexto = '${(valor * 100).toStringAsFixed(0)}%';
+    // A cor (corProjecao = StatusColors.porTaxa) carrega o veredito, mas o
+    // número grande e o rótulo abaixo dele são dois Text irmãos — o leitor
+    // lia "72%" e só depois "Hoje", pares invertidos e soltos. Um nó só, na
+    // ordem "rótulo: valor" ("Hoje: 72%").
+    return Semantics(
+      container: true,
+      excludeSemantics: true,
+      label: '$rotulo: $percentualTexto',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            percentualTexto,
+            style: LuminaText.numeroHero.copyWith(
+              color: cor,
+              fontSize: tamanho,
+            ),
+          ),
+          Text(
+            rotulo,
+            style: const TextStyle(color: VizColors.muted, fontSize: 11),
+          ),
+        ],
+      ),
     );
   }
 }

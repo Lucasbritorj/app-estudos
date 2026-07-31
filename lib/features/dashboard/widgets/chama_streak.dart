@@ -51,15 +51,27 @@ class _ChamaAnimadaState extends State<ChamaAnimada>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween(
-        begin: 1.0,
-        end: 0.35,
-      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
-      child: Icon(
-        Icons.local_fire_department,
-        size: widget.size,
-        color: LuminaColors.chama,
+    // Ícone puro (Icons.local_fire_department) não fala nada sozinho — quando
+    // este widget aparece fora do tile de Streak (que já tem seu próprio
+    // rótulo composto), o leitor de tela precisa de um nome próprio para a
+    // chama e o estado que ela representa.
+    return Semantics(
+      container: true,
+      label: widget.emRisco
+          ? 'Chama do streak: hoje em risco, estude para não perder a sequência'
+          : 'Chama do streak: sequência protegida',
+      child: FadeTransition(
+        opacity: Tween(
+          begin: 1.0,
+          end: 0.35,
+        ).animate(
+          CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+        ),
+        child: Icon(
+          Icons.local_fire_department,
+          size: widget.size,
+          color: LuminaColors.chama,
+        ),
       ),
     );
   }

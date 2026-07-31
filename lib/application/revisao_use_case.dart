@@ -35,10 +35,15 @@ class RevisaoUseCase {
     Revisao revisao, {
     int? questoes,
     int? acertos,
-    int minutos = 0,
+    int? minutos,
   }) async {
     final agora = DateTime.now();
     final config = _ref.read(configuracoesProvider);
+    // Tempo não informado cai na estimativa configurável em vez de 0: a sessão
+    // de 0 min zerava o "mínimo diário" do resumo e inflava a contagem de
+    // sessões sem nenhum tempo por trás. `minutosPadraoRevisao = 0` volta ao
+    // comportamento antigo.
+    final minutosDaSessao = minutos ?? config.minutosPadraoRevisao;
     if (questoes != null && questoes > 0 && acertos != null) {
       await _ref
           .read(registrosProvider.notifier)
@@ -50,7 +55,7 @@ class RevisaoUseCase {
               topicoId: revisao.topicoId,
               tipo: TipoEstudo.pratica,
               tarefa: 'Revisão: ${revisao.titulo}',
-              minutos: minutos,
+              minutos: minutosDaSessao,
               questoes: questoes,
               acertos: acertos,
             ),
@@ -79,11 +84,19 @@ class RevisaoUseCase {
       revisao.dataAgendada.month,
       revisao.dataAgendada.day,
     );
+    // Diferença entre DIAS de calendário, não entre instantes: `inDays` trunca
+    // em direção ao zero, então concluir 3 dias antes do vencimento às 20h dava
+    // -2 e o freio de antecipação saía sistematicamente um dia mais fraco.
+    final diasDeAtraso = DateTime(
+      agora.year,
+      agora.month,
+      agora.day,
+    ).difference(agendada).inDays;
     final passo = RevisaoService.proximoPassoFsrs(
       estabilidade: revisao.estabilidade,
       dificuldade: revisao.dificuldade,
       intervaloAtual: revisao.intervaloDias,
-      diasDeAtraso: agora.difference(agendada).inDays,
+      diasDeAtraso: diasDeAtraso,
       taxaAcerto: taxa,
     );
     if (passo == null) {

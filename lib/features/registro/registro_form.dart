@@ -5,10 +5,25 @@ import 'package:uuid/uuid.dart';
 import '../../application/sessao_estudo_use_case.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/haptica.dart';
+import '../../data/models/bancas.dart';
 import '../../data/models/registro_hora.dart';
 import '../../data/repositories/ambiente_filtros.dart';
 import '../../data/repositories/repositorios.dart';
+import '../../domain/banca_service.dart';
 import '../materias/materia_dialog.dart';
+
+/// Opções do Autocomplete de banca: histórico do usuário primeiro (mais
+/// relevante — ele já respondeu questões daquela banca), catálogo fixo
+/// depois, sem duplicar. `Set.add` devolve false em duplicata, então a
+/// segunda ocorrência (banca usada que também está no catálogo) é
+/// descartada silenciosamente, preservando a ordem da primeira aparição.
+List<String> _mesclarOpcoesBanca(List<String> usadas) {
+  final vistas = <String>{};
+  return [
+    for (final b in [...usadas, ...Bancas.sugestoes])
+      if (vistas.add(b)) b,
+  ];
+}
 
 /// Abre o formulário de registro. Retorna true se um registro foi salvo.
 Future<bool> mostrarFormularioRegistro(
@@ -62,6 +77,8 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
   final _comentario = TextEditingController();
   final _questoes = TextEditingController();
   final _acertos = TextEditingController();
+  final _banca = TextEditingController();
+  final _bancaFocus = FocusNode();
   String? _materiaId;
   String? _topicoId;
   String? _aulaId;
@@ -112,6 +129,8 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
     _comentario.dispose();
     _questoes.dispose();
     _acertos.dispose();
+    _banca.dispose();
+    _bancaFocus.dispose();
     super.dispose();
   }
 
@@ -160,6 +179,9 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
           : _comentario.text.trim(),
       questoes: teoria ? null : int.tryParse(_questoes.text),
       acertos: teoria ? null : int.tryParse(_acertos.text),
+      // Banca só existe em sessão prática; construtor normaliza (trim,
+      // maiúsculas, apelido CESPE→CEBRASPE, vazio→null).
+      banca: teoria ? null : _banca.text,
     );
     // Toda a orquestração (aula, cadeia de revisão, reancoragem,
     // notificações) mora no caso de uso; aqui só se formata o resultado.
@@ -224,6 +246,20 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
               .where((a) => a.materiaId == _materiaId)
               .toList();
     final teoria = _tipo == TipoEstudo.teoria;
+    // Sugestão do Autocomplete de banca: histórico do ambiente ativo
+    // primeiro (o usuário já respondeu questões daquela banca), catálogo
+    // fixo depois. Não é um Provider dedicado porque só alimenta este
+    // formulário — cálculo O(registros+simulados) barato de sobra pra UI.
+    final ativo = ref.watch(ambienteAtivoProvider);
+    final opcoesBanca = _mesclarOpcoesBanca(
+      BancaService.bancasUsadas(
+        ref.watch(registrosDoAmbienteProvider),
+        ref
+            .watch(simuladosProvider)
+            .where((s) => ativo == null || s.ambienteId == ativo.id)
+            .toList(),
+      ),
+    );
 
     if (materias.isEmpty) {
       return Padding(
@@ -540,6 +576,34 @@ class _RegistroFormState extends ConsumerState<RegistroForm> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
+                const SizedBox(height: 8),
+                // Banca só faz sentido com questões — teoria (PDF/vídeo) não
+                // tem organizadora a atribuir. Autocomplete aceita texto
+                // livre: banca regional fora do catálogo fixo não é
+                // bloqueada, só não aparece na lista de sugestões.
+                Autocomplete<String>(
+                  textEditingController: _banca,
+                  focusNode: _bancaFocus,
+                  optionsBuilder: (TextEditingValue value) {
+                    // Reusa Bancas.normalizar (maiúsculas/sem acento/apelido)
+                    // pra comparar com as opções, que já vêm normalizadas —
+                    // "cespe" casa com "CEBRASPE" sem lógica de filtro nova.
+                    final consulta = Bancas.normalizar(value.text) ?? '';
+                    if (consulta.isEmpty) return opcoesBanca;
+                    return opcoesBanca.where((o) => o.contains(consulta));
+                  },
+                  fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                    return TextFormField(
+                      key: const Key('registro_form_banca'),
+                      controller: controller,
+                      focusNode: focusNode,
+                      decoration: const InputDecoration(
+                        labelText: 'Banca (opcional)',
+                        hintText: 'Ex.: CEBRASPE, FGV...',
+                      ),
+                    );
+                  },
+                ),
               ],
               const SizedBox(height: 8),
               TextFormField(

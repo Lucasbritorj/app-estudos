@@ -6,12 +6,16 @@ import 'dart:io';
 import 'package:app_estudos/core/theme/app_theme.dart';
 import 'package:app_estudos/data/local/hive_boxes.dart';
 import 'package:app_estudos/data/models/aula.dart';
+import 'package:app_estudos/data/models/questao_errada.dart';
 import 'package:app_estudos/data/models/materia.dart';
 import 'package:app_estudos/data/models/registro_hora.dart';
 import 'package:app_estudos/data/models/revisao.dart';
 import 'package:app_estudos/data/models/topico.dart';
 import 'package:app_estudos/features/dashboard/dashboard_providers.dart';
+import 'package:app_estudos/features/caderno/caderno_screen.dart';
 import 'package:app_estudos/features/dashboard/dashboard_screen.dart';
+import 'package:app_estudos/features/edital/edital_screen.dart';
+import 'package:app_estudos/features/simulados/prova_screen.dart';
 import 'package:app_estudos/features/revisoes/revisoes_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -134,6 +138,55 @@ void main() {
       );
     }
 
+
+    // Edital de verdade (mais de um tópico) e caderno de erros com fila:
+    // sem isso as telas novas ficavam sem cenário e o golden não provaria nada.
+    final tb = Hive.box<Map>(HiveBoxes.topicos);
+    for (final (id, mid, nome, peso, concluido) in [
+      ('t2', 'm1', 'Direitos e garantias fundamentais', 5, false),
+      ('t3', 'm1', 'Organização do Estado', 4, false),
+      ('t4', 'm2', 'Lei 4.320/64', 5, false),
+      ('t5', 'm2', 'Lei de Responsabilidade Fiscal', 4, false),
+      ('t6', 'm3', 'Concordância verbal', 3, true),
+      ('t7', 'm4', 'Probabilidade', 2, false),
+    ]) {
+      await tb.put(
+        id,
+        Topico(
+          id: id,
+          materiaId: mid,
+          nome: nome,
+          peso: peso,
+          concluido: concluido,
+        ).toJson(),
+      );
+    }
+    final qb = Hive.box<Map>(HiveBoxes.questoesErradas);
+    for (final (i, mid, tid, enunciado, banca) in [
+      (1, 'm1', 't2', 'O direito de greve dos servidores públicos é norma de eficácia contida?', 'CEBRASPE'),
+      (2, 'm2', 't4', 'Despesa de exercícios anteriores depende de crédito especial?', 'FGV'),
+      (3, 'm2', 't5', 'A LRF fixa limite de despesa com pessoal em 60% da RCL para a União?', 'CEBRASPE'),
+      (4, 'm4', 't7', 'Em um lançamento de dois dados, qual a probabilidade da soma ser 7?', 'FCC'),
+    ]) {
+      await qb.put(
+        'q$i',
+        QuestaoErrada(
+          id: 'q$i',
+          materiaId: mid,
+          topicoId: tid,
+          enunciado: enunciado,
+          respostaMarcada: 'C',
+          respostaCorreta: 'E',
+          comentario: 'Troquei eficácia contida por limitada.',
+          banca: banca,
+          ano: 2024,
+          orgao: 'TRF',
+          criadaEm: dia(3),
+          proximaTentativa: dia(0),
+        ).toJson(),
+      );
+    }
+
     final rb = Hive.box<Map>(HiveBoxes.revisoes);
     await rb.put(
       'rv1',
@@ -217,6 +270,36 @@ void main() {
   testWidgets('dashboard com dados', (tester) async {
     await tester.runAsync(semear);
     await capturar(tester, const DashboardScreen(), '01_dashboard');
+  });
+
+  testWidgets('caderno de erros', (tester) async {
+    await tester.runAsync(semear);
+    await capturar(
+      tester,
+      const CadernoScreen(),
+      '04_caderno_erros',
+      tamanho: const Size(900, 1000),
+    );
+  });
+
+  testWidgets('edital verticalizado', (tester) async {
+    await tester.runAsync(semear);
+    await capturar(
+      tester,
+      const EditalScreen(),
+      '05_edital',
+      tamanho: const Size(900, 1200),
+    );
+  });
+
+  testWidgets('prova cronometrada', (tester) async {
+    await tester.runAsync(semear);
+    await capturar(
+      tester,
+      const ProvaScreen(),
+      '06_prova',
+      tamanho: const Size(900, 700),
+    );
   });
 
   testWidgets('dashboard vazio (primeira abertura)', (tester) async {

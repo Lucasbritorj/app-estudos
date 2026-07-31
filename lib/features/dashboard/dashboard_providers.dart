@@ -537,9 +537,14 @@ final gamificacaoProvider = Provider<GamificacaoResumo>((ref) {
   final revisoes = ref.watch(revisoesProvider);
   final hoje = ref.watch(hojeProvider);
   // Peso do edital vira multiplicador de dificuldade do XP (teto ×1.5).
-  final pesoPorMateria = {
-    for (final m in ref.watch(materiasProvider)) m.id: m.peso,
-  };
+  // Inclui matérias excluídas (tombstone): os registros delas sobrevivem à
+  // cascata, e sem o peso histórico o XP total CAÍA ao excluir uma matéria —
+  // quebrando a monotonia que a gamificação promete. `watch` na coleção viva
+  // mantém a reatividade; a leitura do peso vem do box.
+  ref.watch(materiasProvider);
+  final pesoPorMateria = ref
+      .read(materiasProvider.notifier)
+      .pesosHistoricos();
   final xp = GamificacaoService.xpDetalhado(
     registros,
     revisoes,
