@@ -46,3 +46,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Lock file do Office (aparece ao abrir um .dart no Word/Excel e vira
+# arquivo binário dentro de lib/, que o analyzer tenta ler).
+~$*

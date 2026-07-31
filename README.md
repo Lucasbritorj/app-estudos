@@ -16,7 +16,7 @@ está desativado deliberadamente (não é alvo de build atual).
 
 ```
 flutter pub get
-flutter test        # suíte de testes (unit + segurança)
+flutter test        # suíte de testes (621 testes: unit, widget, segurança e UAT)
 flutter analyze      # lint
 flutter run -d chrome # ou android/ios
 ```

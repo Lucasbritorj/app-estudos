@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Mesma versão do `environment.sdk: ^3.12.2` do pubspec.yaml. Fixada de
+  # propósito: canal `stable` flutuante faria o build quebrar sozinho num dia
+  # em que ninguém mexeu no código.
+  FLUTTER_VERSION: '3.44.8'
+
+jobs:
+  analise-e-testes:
+    name: Análise e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Dependências
+        run: flutter pub get
+
+      # `dart format --set-exit-if-changed` fica FORA do gate de propósito.
+      # O código foi escrito no short style (formatter pré-Dart 3.7) e o SDK
+      # 3.12.2 usa o tall style: reformatar mexeria em 109 dos 204 arquivos
+      # (8.024 linhas), apagando o `git blame` de um projeto cujo maior ativo
+      # são os comentários explicando o PORQUÊ de cada decisão. Pior, o próprio
+      # formatter colapsa `if (x) continue;` em uma linha e introduz 2 lints
+      # de `curly_braces_in_flow_control_structures` — o gate cosmético sujaria
+      # o gate real. `flutter analyze` continua bloqueante e cobre o que importa.
+      - name: Análise estática
+        run: flutter analyze --no-pub
+
+      - name: Testes
+        # Exclui os goldens: comparação de pixel depende de fonte e plataforma,
+        # e transformar diferença de renderização em build vermelho treina o
+        # time a ignorar falha. Eles rodam no job `goldens`, que não bloqueia.
+        run: flutter test --exclude-tags screenshots --reporter expanded
+
+  goldens:
+    name: Goldens (não bloqueia)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Comparação visual
+        run: flutter test --tags screenshots --reporter expanded
+
+      - name: Publicar diferenças
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-failures
+          path: test/failures/
+          if-no-files-found: ignore
