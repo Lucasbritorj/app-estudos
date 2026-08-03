@@ -50,3 +50,11 @@ app.*.map.json
 # Lock file do Office (aparece ao abrir um .dart no Word/Excel e vira
 # arquivo binário dentro de lib/, que o analyzer tenta ler).
 ~$*
+
+# Assinatura Android — defesa em profundidade. O android/.gitignore já cobre
+# estes padrões, mas só DENTRO de android/: uma keystore salva por engano na
+# raiz do repositório passaria batida. Chave de assinatura vazada = qualquer um
+# publica atualização assinada como se fosse você.
+*.jks
+*.keystore
+key.properties

@@ -2,35 +2,30 @@
 
 Rota escolhida: **repositório no GitHub + deploy automático a cada push**.
 
-## Bloqueio atual (1 minuto para resolver)
+## Estado do setup
 
-Um `git add` interrompido deixou um lock órfão em `.git\index.lock`, e o
-sandbox onde trabalhei não tem permissão para apagar arquivos na sua pasta.
-Enquanto ele existir, o git recusa qualquer escrita no índice.
+Concluído. O remote `origin` aponta para
+`https://github.com/Lucasbritorj/app-estudos.git` e `main` está sincronizada.
+O `setup-github-deploy.ps1` foi um script de mão única para o primeiro push —
+não é mais necessário.
 
-O script `setup-github-deploy.ps1` remove esse lock e faz o resto. **Confira
-antes que não há nenhum processo git rodando nesta pasta** (VS Code com
-Source Control aberto costuma ser o culpado).
+Na Vercel: **Framework Preset: Other**, sem Build Command e sem Output
+Directory preenchidos — o `vercel.json` da raiz define os dois. O primeiro
+build clona o SDK do Flutter (**~5 a 8 min**); os seguintes reaproveitam o
+cache.
 
-## Passo a passo
+## Se o `.git\index.lock` reaparecer
 
-1. Crie um repositório vazio no GitHub (sem README, sem .gitignore).
-2. No PowerShell:
+Um `git add` interrompido deixa um lock órfão em `.git\index.lock` e o git
+passa a recusar qualquer escrita no índice — inclusive `git commit`. Já
+aconteceu duas vezes neste projeto.
 
-   ```powershell
-   cd C:\Users\Lucas\Workspace\app_estudos
-   .\setup-github-deploy.ps1 -RepoUrl "https://github.com/<voce>/app-estudos.git"
-   ```
+```powershell
+Remove-Item .git\index.lock
+```
 
-   O script: solta o lock → normaliza fim de linha → adiciona os arquivos
-   novos → commita as correções da auditoria → aponta o remote → dá push.
-
-3. Em [vercel.com](https://vercel.com): **Add New → Project** → importe o
-   repositório → **Framework Preset: Other**. Não preencha Build Command nem
-   Output Directory: o `vercel.json` da raiz já define os dois.
-
-4. Deploy. O primeiro build clona o SDK do Flutter (**~5 a 8 min**); os
-   seguintes reaproveitam o cache da Vercel e ficam bem mais rápidos.
+**Feche o Source Control do VS Code antes de investigar** — é a causa mais
+comum de um processo git segurando o índice.
 
 ## Como o build funciona na Vercel
 
@@ -52,34 +47,44 @@ oficial (6.330.067 bytes). O único passo não executado aqui foi o `git clone`
 do SDK (1,5 GB não cabia na janela de tempo do sandbox) — é o passo padrão e
 de menor risco da receita.
 
-**Atenção**: os headers de segurança (HSTS, CSP calibrada para CanvasKit,
-X-Frame-Options etc.) foram movidos para o `vercel.json` da **raiz**. Quando
-existe um na raiz, a Vercel ignora o de `build/web/` — se você editar um,
-edite o outro junto ou os headers somem em produção.
+## Headers de segurança — um arquivo, um caminho
 
-## Alternativa: deploy manual do artefato pronto
+Existe **um único** `vercel.json`, na raiz do repositório. Ele carrega os 7
+headers (HSTS, CSP calibrada para CanvasKit, X-Frame-Options, COOP,
+Referrer-Policy, X-Content-Type-Options, Permissions-Policy) e a receita de
+build.
 
-`build/web/` já contém um build de produção válido e está linkado ao projeto
-`app-estudos`:
+Isso é deliberado e substitui o arranjo anterior, que tinha uma cópia em
+`web/vercel.json`. O arranjo antigo falhou na prática em 03/08: o commit
+`bd11b38` corrigiu `camera=()` → `camera=(self)` na cópia, e produção — que lê
+a raiz — continuou bloqueando a câmera do caderno de erros. Este próprio
+arquivo já avisava, em negrito, para editar os dois juntos. O aviso não
+bastou; a duplicata foi removida.
 
-```powershell
-cd C:\Users\Lucas\Workspace\app_estudos\build\web
-npx vercel --prod
-```
+Consequência prática: **o deploy manual do artefato pronto
+(`cd build/web && npx vercel --prod`) não é mais um caminho suportado.** Ele
+subia sem os headers da raiz, o que fazia a postura de segurança do app
+depender de qual comando tinha sido digitado por último. Deploy é só por
+`git push`.
 
-Nesse caminho vale o `vercel.json` de dentro de `build/web/`, e o SDK não é
-clonado (sobe o artefato já compilado).
+O gate `verificar-headers` do CI confere os 7 headers na URL de produção
+depois de cada deploy — se algum divergir, o build fica vermelho.
 
-## Estado verificado nesta sessão
+## Verificação da receita de build (24/07/2026)
 
 | Verificação | Resultado |
 |---|---|
-| `flutter analyze` | No issues found! |
-| `flutter test` | 382 testes, todos verdes |
 | `flutter build web --release` | ✓ Built build/web (35,9s · 45 MB) |
-| Receita de build da Vercel | sequência executada, `main.dart.js` idêntico |
+| Receita de build da Vercel | sequência executada em clone limpo com `env -i`; `main.dart.js` saiu com o mesmo tamanho do build oficial (6.330.067 bytes) |
 
-Flutter 3.44.8 / Dart 3.12.2 — a mesma versão fixada no `vercel.json`.
+Flutter 3.44.8 / Dart 3.12.2 — a mesma versão fixada no `vercel.json` e no
+`ci.yml`.
+
+As contagens de `flutter analyze` e `flutter test` saíram desta tabela de
+propósito: números escritos à mão envelhecem em silêncio (a linha anterior
+dizia "382 testes" quando o repositório já tinha 740 declarações). A fonte de
+verdade é o último run verde do workflow **CI** na aba Actions do
+repositório.
 
 ## Depois de qualquer mudança no código
 

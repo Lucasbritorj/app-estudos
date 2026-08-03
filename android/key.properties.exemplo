@@ -1,0 +1,30 @@
+# Modelo. Copie para `android/key.properties` e preencha.
+#
+# `key.properties`, `*.jks` e `*.keystore` estão no .gitignore da raiz E no de
+# android/. Ainda assim: guarde a keystore FORA da pasta do repositório. Um
+# `git add -f` distraído ou um zip da pasta inteira vazam o que o .gitignore
+# protege, e chave de assinatura vazada significa que qualquer um publica
+# atualização assinada como se fosse você.
+#
+# Perder a keystore é pior: não existe recuperação, e sem ela é impossível
+# atualizar um app já instalado pelos usuários. Guarde uma cópia num
+# gerenciador de senhas.
+#
+# 1) Gerar (uma vez, validade ~27 anos), fora do repositório:
+#
+#    keytool -genkey -v -keystore %USERPROFILE%\chaves\app-estudos-upload.jks ^
+#      -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# 2) `storeFile` aceita caminho absoluto (recomendado) ou relativo à pasta
+#    android/. Barras normais funcionam no Windows e evitam escape de `\`.
+#
+# 3) Conferir que o AAB saiu com a chave certa — o certificado NÃO pode dizer
+#    `CN=Android Debug`:
+#
+#    flutter build appbundle --release
+#    apksigner verify --print-certs build/app/outputs/bundle/release/app-release.aab
+
+storeFile=C:/Users/Lucas/chaves/app-estudos-upload.jks
+storePassword=
+keyAlias=upload
+keyPassword=

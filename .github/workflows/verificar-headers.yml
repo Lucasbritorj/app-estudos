@@ -1,0 +1,54 @@
+name: Headers de produção
+
+# Workflow separado do `ci.yml` de propósito: os gatilhos são outros
+# (deploy concluído, agenda) e misturá-los faria `flutter analyze` rodar em
+# evento de deploy, ou o gate de header depender de um push que talvez nunca
+# venha.
+on:
+  # A Vercel publica `deployment_status` no GitHub ao terminar um deploy — é o
+  # único gatilho que confere produção DEPOIS que ela mudou, e não antes.
+  deployment_status:
+  # Rede secundária: pega mudança feita direto no painel da Vercel, que não
+  # passa por push nenhum. Segunda-feira 09:00 UTC.
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  verificar-headers:
+    name: Headers de produção batem com vercel.json
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Em `deployment_status` só interessa deploy de produção que deu certo;
+    # sem este filtro o job rodaria em cada preview e em cada estado
+    # intermediário ("pending", "error").
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conferir
+        env:
+          URL_PRODUCAO: ${{ vars.URL_PRODUCAO }}
+        run: |
+          if [ -z "$URL_PRODUCAO" ]; then
+            echo "::warning title=Gate inativo::A variável de repositório URL_PRODUCAO não está definida. Settings → Secrets and variables → Actions → Variables. Enquanto isso, os headers de produção NÃO estão sendo conferidos."
+            {
+              echo "### Gate de headers inativo"
+              echo ""
+              echo "Defina a variável de repositório \`URL_PRODUCAO\` (ex.: \`https://app-estudos.vercel.app\`) para ligar a conferência."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 tool/verificar_headers.py "$URL_PRODUCAO" | tee /tmp/saida.txt
+          codigo=${PIPESTATUS[0]}
+          {
+            echo "### Headers de produção"
+            echo ""
+            echo '```'
+            cat /tmp/saida.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$codigo"
