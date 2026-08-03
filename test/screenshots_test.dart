@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:app_estudos/core/theme/app_theme.dart';
 import 'package:app_estudos/data/local/hive_boxes.dart';
 import 'package:app_estudos/data/models/aula.dart';
+import 'package:app_estudos/data/models/execucao_prova.dart';
 import 'package:app_estudos/data/models/questao_errada.dart';
 import 'package:app_estudos/data/models/materia.dart';
 import 'package:app_estudos/data/models/registro_hora.dart';
@@ -15,6 +16,8 @@ import 'package:app_estudos/features/dashboard/dashboard_providers.dart';
 import 'package:app_estudos/features/caderno/caderno_screen.dart';
 import 'package:app_estudos/features/dashboard/dashboard_screen.dart';
 import 'package:app_estudos/features/edital/edital_screen.dart';
+import 'package:app_estudos/features/busca/busca_screen.dart';
+import 'package:app_estudos/features/caderno/questoes_orfas_screen.dart';
 import 'package:app_estudos/features/simulados/prova_screen.dart';
 import 'package:app_estudos/features/revisoes/revisoes_screen.dart';
 import 'package:flutter/material.dart';
@@ -234,11 +237,14 @@ void main() {
     );
   }
 
+  /// [antesDeCapturar] roda com a árvore já montada e assentada — é onde a
+  /// tela recebe interação (digitar na busca, por exemplo) antes do snapshot.
   Future<void> capturar(
     WidgetTester tester,
     Widget tela,
     String nome, {
     Size tamanho = const Size(1180, 1500),
+    Future<void> Function(WidgetTester tester)? antesDeCapturar,
   }) async {
     tester.view.physicalSize = tamanho;
     tester.view.devicePixelRatio = 1.0;
@@ -261,10 +267,94 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    if (antesDeCapturar != null) {
+      await antesDeCapturar(tester);
+      await tester.pumpAndSettle();
+    }
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/$nome.png'),
     );
+  }
+
+  /// Prova JÁ FINALIZADA, direto na fase de correção.
+  ///
+  /// A fase de EXECUÇÃO não é capturável de forma estável: o cronômetro
+  /// regressivo lê `DateTime.now()` a cada segundo (prova_screen.dart:397) e
+  /// mantém um `Timer.periodic` vivo — o golden mudaria a cada execução e o
+  /// timer pendente derrubaria o teste. A correção é justamente a fase que
+  /// concentra o comportamento novo (gabarito persistido, lista lazy,
+  /// pluralização), então é ela que vale congelar.
+  Future<void> semearProvaEmCorrecao() async {
+    final iniciada = DateTime(
+      _hojeFixo.year,
+      _hojeFixo.month,
+      _hojeFixo.day,
+      14,
+    );
+    await Hive.box<Map>(HiveBoxes.execucaoProva).put(
+      'atual',
+      ExecucaoProva(
+        id: 'exec-golden',
+        nome: 'Simulado TRF — 1º turno',
+        banca: 'CEBRASPE',
+        iniciadaEm: iniciada,
+        duracaoMinutos: 120,
+        finalizadaEm: iniciada.add(const Duration(minutes: 96)),
+        itens: [
+          for (var n = 1; n <= 6; n++)
+            ItemProva(
+              numero: n,
+              materiaId: n <= 3 ? 'm1' : 'm2',
+              respostaMarcada: const ['A', 'C', 'E', 'B', 'D', 'A'][n - 1],
+              gabarito: n <= 4 ? const ['A', 'C', 'B', 'B'][n - 1] : null,
+            ),
+        ],
+      ).toJson(),
+    );
+  }
+
+  /// Duas questões com matéria inexistente e uma com tópico inexistente — o
+  /// resíduo que sobra quando o usuário exclui matéria/tópico e o caderno
+  /// preserva o enunciado escrito à mão.
+  Future<void> semearQuestoesOrfas() async {
+    final box = Hive.box<Map>(HiveBoxes.questoesErradas);
+    final base = DateTime(_hojeFixo.year, _hojeFixo.month, _hojeFixo.day - 5);
+    for (final (id, materiaId, topicoId, enunciado) in [
+      (
+        'orfa-1',
+        'materia-apagada',
+        null,
+        'A vedação ao confisco alcança as taxas?',
+      ),
+      (
+        'orfa-2',
+        'materia-apagada',
+        null,
+        'Servidor em estágio probatório pode ser cedido?',
+      ),
+      (
+        'orfa-3',
+        'm1',
+        'topico-apagado',
+        'O rol do art. 5º da CF é taxativo?',
+      ),
+    ]) {
+      await box.put(
+        id,
+        QuestaoErrada(
+          id: id,
+          materiaId: materiaId,
+          topicoId: topicoId,
+          enunciado: enunciado,
+          comentario: 'Confundi com a regra geral.',
+          banca: 'FGV',
+          ano: 2025,
+          criadaEm: base,
+          proximaTentativa: base,
+        ).toJson(),
+      );
+    }
   }
 
   testWidgets('dashboard com dados', (tester) async {
@@ -299,6 +389,52 @@ void main() {
       const ProvaScreen(),
       '06_prova',
       tamanho: const Size(900, 700),
+    );
+  });
+
+  testWidgets('prova — correção com gabarito', (tester) async {
+    await tester.runAsync(() async {
+      await semear();
+      await semearProvaEmCorrecao();
+    });
+    await capturar(
+      tester,
+      const ProvaScreen(),
+      '07_prova_correcao',
+      tamanho: const Size(900, 1000),
+    );
+  });
+
+  testWidgets('questões órfãs', (tester) async {
+    await tester.runAsync(() async {
+      await semear();
+      await semearQuestoesOrfas();
+    });
+    await capturar(
+      tester,
+      const QuestoesOrfasScreen(),
+      '08_questoes_orfas',
+      tamanho: const Size(900, 800),
+    );
+  });
+
+  testWidgets('busca global com resultados', (tester) async {
+    // O campo de busca tem `autofocus`, e o cursor piscando muda pixel entre
+    // execuções — o golden apodreceria sozinho sem isto.
+    EditableText.debugDeterministicCursor = true;
+    addTearDown(() => EditableText.debugDeterministicCursor = false);
+    await tester.runAsync(() async {
+      await semear();
+      await semearQuestoesOrfas();
+    });
+    await capturar(
+      tester,
+      const BuscaScreen(),
+      '09_busca',
+      tamanho: const Size(900, 900),
+      antesDeCapturar: (t) async {
+        await t.enterText(find.byType(TextField).first, 'constitu');
+      },
     );
   });
 
