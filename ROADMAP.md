@@ -1,8 +1,12 @@
 # Roadmap — app_estudos
 
-Estado em 03/08/2026, verificado por execução: **730 testes verdes**
-(721 na suíte padrão + 9 goldens), `flutter analyze` limpo, CI configurado,
-**histórico commitado em 6 commits** que compilam isoladamente.
+Estado em 03/08/2026, verificado por execução: **740 testes verdes**
+(721 na suíte padrão + 19 goldens), `flutter analyze` limpo, `flutter build web`
+compila, histórico em **9 commits**.
+
+**Bloqueado por credenciais:** o repositório não tem `git remote`. Sem push, o
+CI nunca rodou no runner do GitHub e a `Permissions-Policy` corrigida não vale
+em produção. São os dois únicos itens de curto prazo em aberto.
 
 Legenda de esforço: **P** = até meio dia · **M** = 1-3 dias · **G** = 1-2 semanas.
 
@@ -97,7 +101,7 @@ já existiam. O valor da etapa foi achar o bloqueio da câmera, não o PWA.
 | # | Problema | Onde | Esforço |
 |---|---|---|---|
 | B16 | Prova em andamento continua fora do backup (deliberado — estado preso ao relógio local), mas não há como exportá-la nem avisá-la ao trocar de aparelho. | `export_service.dart` | M |
-| B20 | Fase de **execução** da prova não tem golden: o cronômetro lê `DateTime.now()` a cada segundo e mantém `Timer.periodic` vivo. Capturar exige injetar o relógio na tela (hoje só o `hojeProvider` é injetável). | `prova_screen.dart` | M |
+| — | *(B20 resolvido: `agoraProvider` de uma linha + 1 call site.)* | | |
 
 ## 3. Qualidade e infraestrutura
 
@@ -105,7 +109,7 @@ já existiam. O valor da etapa foi achar o bloqueio da câmera, não o PWA.
 |---|---|---|
 | Q3 | **Sem tema claro** (dark-only, sem `ThemeMode`). O Lumina já é tokenizado: é trabalho de paleta, não refatoração. | M |
 | Q5 | **Sem desfazer** fora da importação. Excluir matéria/tópico/questão continua irreversível com só um diálogo. Agora que `BackupUseCase` existe, dá para generalizar o padrão de snapshot. | M |
-| Q6 | Goldens cobrem 9 telas de ~19 (faltam aulas, leituras, planejamento, mapa, ambientes, resumos, cronômetro, onboarding, configurações). | P |
+| Q6 | Goldens cobrem **19 telas**. Falta só `onboarding` (fluxo multi-passo, precisa de um golden por passo). | P |
 | Q9 | Sem teste de integração ponta a ponta (`integration_test`) — a suíte é unit + widget isolado. | M |
 
 ## 4. Funcionalidades sugeridas
@@ -128,16 +132,17 @@ já existiam. O valor da etapa foi achar o bloqueio da câmera, não o PWA.
 
 ## 5. Planejamento
 
-### Curto prazo — 1 a 2 semanas
-Tema: publicar e fechar a cobertura visual.
+### Curto prazo — o que sobrou (só depende de você)
 
-1. **Configurar `git remote` e fazer o primeiro push.** Hoje o repositório é só
-   local: sem remote, o CI nunca rodou no runner do GitHub e o trabalho existe
-   num único disco. É o item de maior risco em aberto.
-2. **Redeploy da web** para a `Permissions-Policy` nova valer — sem isso a
-   câmera do caderno de erros segue bloqueada em produção.
-3. **Q6** — goldens das 10 telas restantes.
-4. **B20** — injetar o relógio na `ProvaScreen` para capturar a fase de execução.
+1. **`git remote add origin <url>` + `git push -u origin <branch>`.** O repo
+   existe num disco só e o CI nunca rodou no runner. Pré-voo já verificado:
+   nenhum segredo versionado, nenhum arquivo acima de 1 MB, `.gitignore` cobre
+   `build/` e `.dart_tool/`, workflow usa `actions/checkout@v4`,
+   `actions/upload-artifact@v4` e `subosito/flutter-action@v2`.
+2. **Redeploy da web.** `flutter build web --release` compila e o `vercel.json`
+   com `camera=(self)` chega em `build/web/`. Sem o deploy, a câmera do caderno
+   segue bloqueada em produção. Conferir depois com:
+   `curl -sI https://<dominio> | grep -i permissions-policy`
 
 ### Médio prazo — 1 a 2 meses
 Tema: reduzir atrito e fechar o ciclo de uso diário.
