@@ -550,19 +550,24 @@ class _ProvaCorrecaoState extends ConsumerState<_ProvaCorrecao> {
   /// por item) persiste o lote inteiro (B12).
   void _aplicarColado(ExecucaoProva execucao) {
     final letras = _colar.text.replaceAll(RegExp(r'\s+'), '').split('');
-    var atualizada = execucao;
     setState(() {
       for (var i = 0; i < execucao.itens.length && i < letras.length; i++) {
-        final item = execucao.itens[i];
-        final letra = letras[i].toUpperCase();
-        _controllerDe(item).text = letra;
-        atualizada = atualizada.comItemAtualizado(
-          item.numero,
-          (it) => it.copyWith(gabarito: letra),
-        );
+        _controllerDe(execucao.itens[i]).text = letras[i].toUpperCase();
       }
     });
-    ref.read(execucaoProvaProvider.notifier).atualizar(atualizada);
+    // O lote inteiro é montado DENTRO de `mutar`, sobre o estado atual, e não
+    // sobre a `execucao` deste build: um gabarito digitado à mão logo antes de
+    // colar seria descartado se a base viesse capturada de fora (B19).
+    ref.read(execucaoProvaProvider.notifier).mutar((atual) {
+      var resultado = atual;
+      for (var i = 0; i < atual.itens.length && i < letras.length; i++) {
+        resultado = resultado.comItemAtualizado(
+          atual.itens[i].numero,
+          (it) => it.copyWith(gabarito: letras[i].toUpperCase()),
+        );
+      }
+      return resultado;
+    });
   }
 
   Future<void> _corrigirESalvar(ExecucaoProva execucao) async {
