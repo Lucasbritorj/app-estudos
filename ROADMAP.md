@@ -1,7 +1,8 @@
 # Roadmap — app_estudos
 
-Estado em 31/07/2026, verificado por execução: **727 testes verdes**
-(721 na suíte padrão + 6 goldens), `flutter analyze` limpo, CI configurado.
+Estado em 03/08/2026, verificado por execução: **730 testes verdes**
+(721 na suíte padrão + 9 goldens), `flutter analyze` limpo, CI configurado,
+**histórico commitado em 6 commits** que compilam isoladamente.
 
 Legenda de esforço: **P** = até meio dia · **M** = 1-3 dias · **G** = 1-2 semanas.
 
@@ -71,12 +72,32 @@ Diff: 42 arquivos alterados, +1.574/−251, mais 30 arquivos novos.
 | B17 | Indicador de foto na aba Todas do caderno, lendo só a flag `temAnexo` (nunca os bytes — ler o box por linha derrubaria a rolagem), com rótulo semântico próprio. | teste de widget |
 | B18 | Vazamento semântico corrigido em `card_diagnostico`, `card_bancas`, `card_caderno_erros`, `card_true_retention`, `card_edital`. Em `card_diagnostico` o `excludeSemantics` ficou restrito à linha do título: aplicá-lo ao card inteiro apagaria mensagem e evidências da árvore de acessibilidade — regressão pior que o bug. | 5 testes + 6 goldens sem diff de pixel |
 
+## 1c. Rodada de 03/08 — versionamento, cobertura visual e PWA
+
+| # | Entrega | Prova |
+|---|---|---|
+| — | **86 arquivos sem commit** viraram 6 commits temáticos. Um `index.lock` órfão de 29/07 travava QUALQUER commit no repositório — inclusive os seus. Removido. | `git log` |
+| — | Cada commit de código foi extraído para uma árvore limpa (`git archive`) e teve `flutter analyze` rodado isoladamente. O primeiro corte de C2 não compilava (dois testes de domínio importavam providers de UI); histórico refeito antes de qualquer publicação. | analyze limpo em `f083c13` e `00eb60a` |
+| B19 | `_aplicarColado` monta o lote dentro de `mutar`, sobre o estado atual. | 42 testes verdes |
+| Q6 | Goldens de **6 para 9**: correção de prova, questões órfãs e busca. | determinismo provado com 2 comparações seguidas |
+| F9 | `camera=(self)` na Permissions-Policy e manifesto completo. | JSON validado, analyze limpo |
+
+**Achado da rodada:** a `Permissions-Policy` do deploy trazia `camera=()`,
+escrita quando o app não tinha câmera. A foto do enunciado (F1) usa
+`image_picker`, e no navegador de celular `defaultTargetPlatform` é
+android/iOS — o botão "Câmera" aparecia e o `getUserMedia` era bloqueado.
+Duas features corretas isoladamente, quebradas no cruzamento.
+
+**Correção de rumo:** "F9 — PWA instalável" estava superestimado no roadmap.
+Manifesto, ícones 192/512 com maskable, `apple-touch-icon` e meta tags de iOS
+já existiam. O valor da etapa foi achar o bloqueio da câmera, não o PWA.
+
 ## 2. Bugs abertos
 
 | # | Problema | Onde | Esforço |
 |---|---|---|---|
 | B16 | Prova em andamento continua fora do backup (deliberado — estado preso ao relógio local), mas não há como exportá-la nem avisá-la ao trocar de aparelho. | `export_service.dart` | M |
-| B19 | `_aplicarColado` (colar gabarito em lote) ainda parte da base capturada no build. É um gesto único do usuário, então a janela de race não é atingível na prática — mas ficou fora da correção de B15 por não valer o risco de mexer no finder do teste de widget. | `prova_screen.dart` | P |
+| B20 | Fase de **execução** da prova não tem golden: o cronômetro lê `DateTime.now()` a cada segundo e mantém `Timer.periodic` vivo. Capturar exige injetar o relógio na tela (hoje só o `hojeProvider` é injetável). | `prova_screen.dart` | M |
 
 ## 3. Qualidade e infraestrutura
 
@@ -84,7 +105,7 @@ Diff: 42 arquivos alterados, +1.574/−251, mais 30 arquivos novos.
 |---|---|---|
 | Q3 | **Sem tema claro** (dark-only, sem `ThemeMode`). O Lumina já é tokenizado: é trabalho de paleta, não refatoração. | M |
 | Q5 | **Sem desfazer** fora da importação. Excluir matéria/tópico/questão continua irreversível com só um diálogo. Agora que `BackupUseCase` existe, dá para generalizar o padrão de snapshot. | M |
-| Q6 | Goldens cobrem 6 telas de ~18 (faltam prova em execução, questões órfãs, busca, aulas, leituras, planejamento). | P |
+| Q6 | Goldens cobrem 9 telas de ~19 (faltam aulas, leituras, planejamento, mapa, ambientes, resumos, cronômetro, onboarding, configurações). | P |
 | Q9 | Sem teste de integração ponta a ponta (`integration_test`) — a suíte é unit + widget isolado. | M |
 
 ## 4. Funcionalidades sugeridas
@@ -108,12 +129,15 @@ Diff: 42 arquivos alterados, +1.574/−251, mais 30 arquivos novos.
 ## 5. Planejamento
 
 ### Curto prazo — 1 a 2 semanas
-Tema: o que sobrou depois da liquidação de 31/07.
+Tema: publicar e fechar a cobertura visual.
 
-1. **F9 — PWA instalável** (manifesto + ícones; o service worker já vem do Flutter web).
-2. **Q6 — goldens** das telas novas: prova em execução, questões órfãs, busca.
-3. **B19** — `_aplicarColado` sobre o estado atual.
-4. **Primeiro push com o CI ligado** — validar que o workflow roda verde no runner do GitHub (foi validado só localmente).
+1. **Configurar `git remote` e fazer o primeiro push.** Hoje o repositório é só
+   local: sem remote, o CI nunca rodou no runner do GitHub e o trabalho existe
+   num único disco. É o item de maior risco em aberto.
+2. **Redeploy da web** para a `Permissions-Policy` nova valer — sem isso a
+   câmera do caderno de erros segue bloqueada em produção.
+3. **Q6** — goldens das 10 telas restantes.
+4. **B20** — injetar o relógio na `ProvaScreen` para capturar a fase de execução.
 
 ### Médio prazo — 1 a 2 meses
 Tema: reduzir atrito e fechar o ciclo de uso diário.
