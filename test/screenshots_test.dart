@@ -5,19 +5,31 @@ import 'dart:io';
 
 import 'package:app_estudos/core/theme/app_theme.dart';
 import 'package:app_estudos/data/local/hive_boxes.dart';
+import 'package:app_estudos/data/models/ambiente.dart';
 import 'package:app_estudos/data/models/aula.dart';
 import 'package:app_estudos/data/models/execucao_prova.dart';
+import 'package:app_estudos/data/models/leitura.dart';
 import 'package:app_estudos/data/models/questao_errada.dart';
 import 'package:app_estudos/data/models/materia.dart';
 import 'package:app_estudos/data/models/registro_hora.dart';
+import 'package:app_estudos/data/models/resumo.dart';
 import 'package:app_estudos/data/models/revisao.dart';
 import 'package:app_estudos/data/models/topico.dart';
 import 'package:app_estudos/features/dashboard/dashboard_providers.dart';
+import 'package:app_estudos/features/ambientes/ambientes_screen.dart';
+import 'package:app_estudos/features/aulas/aulas_screen.dart';
 import 'package:app_estudos/features/caderno/caderno_screen.dart';
+import 'package:app_estudos/features/configuracoes/configuracoes_screen.dart';
+import 'package:app_estudos/features/cronometro/cronometro_screen.dart';
 import 'package:app_estudos/features/dashboard/dashboard_screen.dart';
 import 'package:app_estudos/features/edital/edital_screen.dart';
 import 'package:app_estudos/features/busca/busca_screen.dart';
 import 'package:app_estudos/features/caderno/questoes_orfas_screen.dart';
+import 'package:app_estudos/features/leituras/leituras_screen.dart';
+import 'package:app_estudos/features/mapa/mapa_estudos_screen.dart';
+import 'package:app_estudos/features/materias/materias_screen.dart';
+import 'package:app_estudos/features/planejamento/planejamento_screen.dart';
+import 'package:app_estudos/features/resumos/resumos_screen.dart';
 import 'package:app_estudos/features/simulados/prova_screen.dart';
 import 'package:app_estudos/features/revisoes/revisoes_screen.dart';
 import 'package:flutter/material.dart';
@@ -245,6 +257,21 @@ void main() {
     String nome, {
     Size tamanho = const Size(1180, 1500),
     Future<void> Function(WidgetTester tester)? antesDeCapturar,
+    // Congela `agoraProvider` (dashboard_providers.dart) além do
+    // `hojeProvider` de sempre — só a prova em execução precisa disto, pra
+    // não ler `DateTime.now()` no cronômetro regressivo. `Override` (tipo de
+    // retorno de `overrideWithValue`) não é exportado pelo barrel público do
+    // Riverpod, então o parâmetro é tipado pelo valor concreto que a tela
+    // precisa em vez do tipo genérico. Null por padrão: os 9 goldens
+    // originais não passam nada aqui e continuam vendo a MESMA lista de
+    // overrides de antes.
+    DateTime Function()? agoraFixo,
+    // A fase de execução da prova (prova_screen.dart) mantém um
+    // Timer.periodic(1s) vivo por baixo — pumpAndSettle nunca assenta
+    // enquanto ele reagenda frame, então aquele teste pede pump() simples em
+    // vez de settle. Todo o resto continua no default (true == pumpAndSettle,
+    // comportamento idêntico ao de antes desta flag existir).
+    bool assentar = true,
   }) async {
     tester.view.physicalSize = tamanho;
     tester.view.devicePixelRatio = 1.0;
@@ -256,7 +283,10 @@ void main() {
         // data real da máquina sobre dados semeados em [_hojeFixo], e o golden
         // voltaria a deslocar todo dia. Bônus: cancela o Timer de meia-noite
         // do hojeProvider (M-06), que deixaria timer pendente no teste.
-        overrides: [hojeProvider.overrideWithValue(_hojeFixo)],
+        overrides: [
+          hojeProvider.overrideWithValue(_hojeFixo),
+          if (agoraFixo != null) agoraProvider.overrideWithValue(agoraFixo),
+        ],
         child: MaterialApp(
           theme: buildDarkTheme(),
           locale: const Locale('pt', 'BR'),
@@ -266,10 +296,18 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    if (assentar) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+    }
     if (antesDeCapturar != null) {
       await antesDeCapturar(tester);
-      await tester.pumpAndSettle();
+      if (assentar) {
+        await tester.pumpAndSettle();
+      } else {
+        await tester.pump();
+      }
     }
     await expectLater(
       find.byType(MaterialApp),
@@ -454,6 +492,281 @@ void main() {
       const RevisoesScreen(),
       '03_revisoes',
       tamanho: const Size(900, 1000),
+    );
+  });
+
+  // ---------------------------------------------------------------------
+  // Telas adicionadas depois da leva inicial (10_ em diante). Seeds
+  // específicos de cada uma ficam aqui, nunca em `semear()` — os goldens
+  // 01..09 acima não podem mudar 1 pixel por causa de dado que eles nem
+  // exibem.
+  // ---------------------------------------------------------------------
+
+  /// Prova cronometrada AINDA RODANDO (fase de execução) — companion de
+  /// [semearProvaEmCorrecao], mas sem `finalizadaEm`: `ExecucaoProva.ativa`
+  /// fica true e `ProvaScreen.initState` abre direto na folha de respostas
+  /// em vez da correção.
+  Future<void> semearProvaEmExecucao() async {
+    final iniciada = DateTime(
+      _hojeFixo.year,
+      _hojeFixo.month,
+      _hojeFixo.day,
+      14,
+    );
+    await Hive.box<Map>(HiveBoxes.execucaoProva).put(
+      'atual',
+      ExecucaoProva(
+        id: 'exec-golden-execucao',
+        nome: 'Simulado TRF — 1º turno',
+        banca: 'CEBRASPE',
+        iniciadaEm: iniciada,
+        duracaoMinutos: 120,
+        itens: [
+          for (var n = 1; n <= 6; n++)
+            ItemProva(
+              numero: n,
+              materiaId: n <= 3 ? 'm1' : 'm2',
+              respostaMarcada: n <= 3 ? const ['A', 'C', 'E'][n - 1] : null,
+            ),
+        ],
+      ).toJson(),
+    );
+  }
+
+  testWidgets('prova em execução', (tester) async {
+    // A fase de execução mantém um Timer.periodic(1s) vivo (prova_screen.dart)
+    // só para redesenhar o relógio — o valor exibido vem de `agoraProvider`,
+    // nunca do timer em si. Por isso: (1) congela `agoraProvider` num
+    // instante fixo, igual ao `hojeProvider`; (2) pump() simples em vez de
+    // pumpAndSettle — um Timer real que nunca termina faz pumpAndSettle
+    // girar sem nunca assentar; (3) desmonta a árvore no fim para o
+    // dispose() cancelar o Timer antes do tearDown, senão o teste quebra com
+    // "A Timer is still pending".
+    final instanteFixo = DateTime(
+      _hojeFixo.year,
+      _hojeFixo.month,
+      _hojeFixo.day,
+      14,
+      30,
+    );
+    await tester.runAsync(() async {
+      await semear();
+      await semearProvaEmExecucao();
+    });
+    await capturar(
+      tester,
+      const ProvaScreen(),
+      '10_prova_execucao',
+      tamanho: const Size(900, 700),
+      agoraFixo: () => instanteFixo,
+      assentar: false,
+    );
+    // Desmonta pra disparar dispose() e cancelar o Timer antes do tearDown.
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('cronômetro parado', (tester) async {
+    // CronometroController só liga o Timer.periodic(500ms) depois de
+    // iniciar()/retomar(). Sem tocar em HiveBoxes.cronometro o estado nasce
+    // "parado" (Duration zero) direto no build() — nenhum Timer chega a
+    // existir, então esta tela não precisa do truque pump()/desmontar da
+    // prova em execução acima.
+    await tester.runAsync(semear);
+    await capturar(
+      tester,
+      const CronometroScreen(),
+      '11_cronometro',
+      tamanho: const Size(900, 900),
+    );
+  });
+
+  /// Cronograma semanal fixo — ver nota de determinismo no teste abaixo.
+  Future<void> semearPlanejamento() async {
+    await Hive.box<Map>(HiveBoxes.planejamento).put('semana', {
+      '1': 120,
+      '2': 90,
+      '3': 120,
+      '4': 90,
+      '5': 120,
+      '6': 60,
+    });
+  }
+
+  testWidgets('planejamento', (tester) async {
+    // ACHADO fora das duas armadilhas já mapeadas: PlanejamentoScreen.build()
+    // (lib/features/planejamento/planejamento_screen.dart) usa
+    // `DateTime.now()` real para "feito nesta semana" — não respeita o
+    // `hojeProvider` congelado. Na prática o golden não apodrece: os
+    // registros do `semear()` terminam em `_hojeFixo` (24/07/2026), e
+    // qualquer execução real deste teste acontece depois disso — a "semana
+    // corrente" do relógio de verdade nunca mais volta a cruzar com eles
+    // (o intervalo só cresce com o tempo, nunca encolhe), então "feito"
+    // fica em 0min hoje e permanece 0min em qualquer execução futura. Já o
+    // "Ciclo sugerido" nem corre esse risco: cicloPorUtilidade é chamado
+    // aqui SEM `referencia`, então o esquecimento temporal do Elo
+    // (DominioService) nunca entra em jogo — é função pura dos dados
+    // semeados.
+    await tester.runAsync(() async {
+      await semear();
+      await semearPlanejamento();
+    });
+    await capturar(
+      tester,
+      const PlanejamentoScreen(),
+      '12_planejamento',
+      tamanho: const Size(900, 1100),
+    );
+  });
+
+  testWidgets('mapa de estudos', (tester) async {
+    await tester.runAsync(semear);
+    await capturar(
+      tester,
+      const MapaEstudosScreen(),
+      '13_mapa_estudos',
+      tamanho: const Size(900, 800),
+    );
+  });
+
+  testWidgets('matérias', (tester) async {
+    await tester.runAsync(semear);
+    await capturar(
+      tester,
+      const MateriasScreen(),
+      '14_materias',
+      tamanho: const Size(900, 700),
+    );
+  });
+
+  testWidgets('aulas de uma matéria', (tester) async {
+    // AulasScreen recebe a Materia por parâmetro (não busca por id) — lida
+    // de volta do Hive já semeado em vez de duplicar os campos de `semear()`
+    // aqui, pra não desalinhar se um deles mudar.
+    final materiaM1 = await tester.runAsync(() async {
+      await semear();
+      final raw = Hive.box<Map>(HiveBoxes.materias).get('m1')!;
+      return Materia.fromJson(Map<String, dynamic>.from(raw));
+    });
+    await capturar(
+      tester,
+      AulasScreen(materia: materiaM1!),
+      '15_aulas',
+      tamanho: const Size(900, 500),
+    );
+  });
+
+  Future<void> semearLeituras() async {
+    final box = Hive.box<Map>(HiveBoxes.leituras);
+    await box.put(
+      'lt1',
+      Leitura(
+        id: 'lt1',
+        titulo: 'Manual de Direito Constitucional',
+        materiaId: 'm1',
+        paginaInicio: 1,
+        paginaFim: 200,
+        partes: 5,
+        partesConcluidas: const [true, true, false, false, false],
+        sessoes: [
+          SessaoLeitura(
+            data: _hojeFixo.subtract(const Duration(days: 3)),
+            paginas: 40,
+            minutos: 90,
+          ),
+          SessaoLeitura(
+            data: _hojeFixo.subtract(const Duration(days: 1)),
+            paginas: 35,
+            minutos: 80,
+          ),
+        ],
+      ).toJson(),
+    );
+    await box.put(
+      'lt2',
+      Leitura(
+        id: 'lt2',
+        titulo: 'Lei 4.320/64 esquematizada',
+        materiaId: 'm2',
+        paginaInicio: 1,
+        paginaFim: 80,
+        partes: 4,
+        partesConcluidas: const [false, false, false, false],
+      ).toJson(),
+    );
+  }
+
+  testWidgets('leituras', (tester) async {
+    await tester.runAsync(() async {
+      await semear();
+      await semearLeituras();
+    });
+    await capturar(
+      tester,
+      const LeiturasScreen(),
+      '16_leituras',
+      tamanho: const Size(900, 700),
+    );
+  });
+
+  Future<void> semearResumo() async {
+    await Hive.box<Map>(HiveBoxes.resumos).put(
+      'DC',
+      Resumo(
+        sigla: 'DC',
+        nome: 'Direito Constitucional',
+        texto:
+            'Controle de constitucionalidade: difuso (qualquer juiz, via '
+            'incidental) e concentrado (STF, ação direta).',
+        atualizadoEm: _hojeFixo.subtract(const Duration(days: 2)),
+      ).toJson(),
+    );
+  }
+
+  testWidgets('resumos por matéria', (tester) async {
+    await tester.runAsync(() async {
+      await semear();
+      await semearResumo();
+    });
+    await capturar(
+      tester,
+      const ResumosScreen(),
+      '17_resumos',
+      tamanho: const Size(900, 700),
+    );
+  });
+
+  Future<void> semearSegundoAmbiente() async {
+    await Hive.box<Map>(HiveBoxes.ambientes).put(
+      'amb2',
+      Ambiente(
+        id: 'amb2',
+        nome: 'Concurso SEFAZ-RN 2026',
+        corSlot: 1,
+        criadoEm: _hojeFixo.subtract(const Duration(days: 30)),
+        dataProva: _hojeFixo.add(const Duration(days: 60)),
+      ).toJson(),
+    );
+  }
+
+  testWidgets('ambientes', (tester) async {
+    await tester.runAsync(() async {
+      await semear();
+      await semearSegundoAmbiente();
+    });
+    await capturar(
+      tester,
+      const AmbientesScreen(),
+      '18_ambientes',
+      tamanho: const Size(900, 500),
+    );
+  });
+
+  testWidgets('configurações', (tester) async {
+    await capturar(
+      tester,
+      const ConfiguracoesScreen(),
+      '19_configuracoes',
+      tamanho: const Size(900, 1100),
     );
   });
 }

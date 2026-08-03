@@ -10,6 +10,7 @@ import '../../data/repositories/ambiente_filtros.dart';
 import '../../data/repositories/configuracoes_repositorio.dart';
 import '../../data/repositories/planejamento_repositorio.dart';
 import '../../domain/planejamento_service.dart';
+import '../dashboard/dashboard_providers.dart';
 import '../../domain/stats_service.dart';
 
 const _diasDaSemana = [
@@ -70,7 +71,12 @@ class PlanejamentoScreen extends ConsumerWidget {
     // Ciclo sugerido respeita o escopo: pesos e horas do ambiente ativo.
     final materias = ref.watch(materiasDoAmbienteProvider);
     final registros = ref.watch(registrosDoAmbienteProvider);
-    final hoje = DateTime.now();
+    // `hojeProvider`, não `DateTime.now()`: "feito na semana" precisa da mesma
+    // data que o resto do app usa. Com o relógio cru, o golden desta tela só
+    // era estável por acidente — a semana real nunca mais cruza com os
+    // registros semeados, então "feito" ficava preso em 0 e o teste não
+    // exercitava o caminho de verdade.
+    final hoje = ref.watch(hojeProvider);
 
     final planejado = PlanejamentoService.totalPlanejado(plano);
     final feito = StatsService.minutosNaSemana(registros, hoje);

@@ -13,6 +13,7 @@ import '../../data/models/execucao_prova.dart';
 import '../../data/repositories/ambiente_filtros.dart';
 import '../../data/repositories/repositorios.dart';
 import '../../domain/prova_service.dart';
+import '../dashboard/dashboard_providers.dart';
 
 /// Fases da tela de prova. A transição entre elas é decisão LOCAL do
 /// widget (não reativa ao provider) de propósito: depois de "Corrigir e
@@ -394,7 +395,10 @@ class _ProvaExecucaoState extends ConsumerState<_ProvaExecucao> {
       );
     }
 
-    final restante = ProvaService.tempoRestante(execucao, DateTime.now());
+    final restante = ProvaService.tempoRestante(
+      execucao,
+      ref.read(agoraProvider)(),
+    );
     final progresso = ProvaService.progresso(execucao);
     final limiarSegundos = execucao.duracaoMinutos * 60 * 0.1;
     final critico = restante.inSeconds <= limiarSegundos;

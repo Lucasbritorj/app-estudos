@@ -35,6 +35,18 @@ import '../../domain/stats_service.dart';
 /// calculados uma vez e lidos por vários cards, em vez de recalculados por
 /// card.
 
+/// Instante corrente, injetável. Existe por um motivo só: o cronômetro
+/// regressivo da prova lê o relógio a cada build, e sem poder congelá-lo a
+/// tela em execução é impossível de capturar em golden (a imagem mudaria a
+/// cada rodada). É a menor extensão possível do padrão do [hojeProvider] —
+/// uma função, não uma classe Clock: sobrescrever no teste é
+/// `agoraProvider.overrideWithValue(() => instanteFixo)`.
+///
+/// Só o RENDER usa isto. Callbacks de ação (iniciar prova, finalizar, gravar
+/// sessão) seguem em `DateTime.now()` direto: carimbam o instante real do
+/// gesto do usuário e não afetam pixel nenhum.
+final agoraProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
 /// Data de hoje truncada no dia — base estável para toda a matemática de
 /// datas. Sendo um `Provider` cacheado, mantém a mesma identidade entre
 /// rebuilds (o antigo `DateTime.now()` no `build` mudava a cada frame e
