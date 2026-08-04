@@ -28,6 +28,35 @@ class GamificacaoService {
   /// Alinhado ao alvo de revisões das quests — 3 revisões/dia é o ritmo real.
   static const maxRevisoesComBonusPorDia = 3;
 
+  /// Quantas revisões já foram concluídas em [dia], pelo carimbo
+  /// `dataConclusao`. Base do teto — a mesma contagem que [bonusRevisoes] faz
+  /// por dentro, exposta para o momento da gravação.
+  static int revisoesConcluidasNoDia(List<Revisao> revisoes, DateTime dia) {
+    final d = DateTime(dia.year, dia.month, dia.day);
+    var n = 0;
+    for (final r in revisoes) {
+      if (!r.feita) continue;
+      final c = r.dataConclusao;
+      if (c == null) continue;
+      if (DateTime(c.year, c.month, c.day) == d) n++;
+    }
+    return n;
+  }
+
+  /// Se uma NOVA conclusão em [dia] ainda pode creditar tempo ESTIMADO.
+  ///
+  /// O teto de [maxRevisoesComBonusPorDia] cobria só o bônus de 50 XP. A outra
+  /// parcela do XP (`xpPonderado`, que conta minutos) ficava aberta: cada
+  /// conclusão com questões gravava `minutosPadraoRevisao` minutos que ninguém
+  /// cronometrou, e concluir revisões antecipadas em sequência inflava horas,
+  /// XP base, streak e heatmap sem nenhum estudo. Agora as DUAS parcelas usam
+  /// a mesma régua.
+  ///
+  /// Só limita o tempo estimado. Tempo INFORMADO pelo usuário é medição, não
+  /// estimativa, e passa inteiro — ver `RevisaoUseCase.concluir`.
+  static bool podeCreditarTempoEstimado(List<Revisao> revisoes, DateTime dia) =>
+      revisoesConcluidasNoDia(revisoes, dia) < maxRevisoesComBonusPorDia;
+
   /// Bônus de revisão com teto diário. Revisão feita sem [dataConclusao]
   /// (dado antigo, pré-carimbo) entra num balde próprio e continua contando —
   /// o teto não pode revogar XP já conquistado no histórico.

@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_print
 import 'package:flutter_test/flutter_test.dart';
 import '_massa_fake.dart';
+import 'package:app_estudos/data/models/configuracoes.dart';
 import 'package:app_estudos/data/models/registro_hora.dart';
 import 'package:app_estudos/data/models/revisao.dart';
 import 'package:app_estudos/domain/revisao_service.dart';
@@ -9,21 +10,42 @@ import 'package:app_estudos/domain/gamificacao_service.dart';
 import 'package:app_estudos/domain/dominio_service.dart';
 
 /// Transcricao FIEL de RevisaoUseCase.concluir
-/// (lib/application/revisao_use_case.dart:37-115), sem Riverpod/Hive:
+/// (lib/application/revisao_use_case.dart:34-115), sem Riverpod/Hive:
 /// mesma ordem de efeitos, mesmos parametros, mesmo fallback de taxa.
+///
+/// ESTE ESPELHO JA DERIVOU UMA VEZ. Nasceu com `int minutos = 0` e um
+/// comentario afirmando ser "o default do use case". Depois da entrega B1 a
+/// producao passou a fazer `minutos ?? config.minutosPadraoRevisao` (padrao
+/// 10) e o espelho ficou em 0 — a UAT seguiu verde medindo um modelo que nao
+/// existia mais, cega justamente na parcela onde morava o furo do M-02.
+///
+/// Para nao repetir: o padrao NAO e digitado aqui. Vem de
+/// `const Configuracoes()`, a mesma fonte que o use case le.
 class Mundo {
   List<RegistroHora> registros;
   List<Revisao> revisoes;
   var seq = 0;
-  Mundo(this.registros, this.revisoes);
+
+  /// Espelha `config.minutosPadraoRevisao` lido pelo use case.
+  final int minutosPadraoRevisao;
+
+  Mundo(this.registros, this.revisoes, {int? minutosPadraoRevisao})
+    : minutosPadraoRevisao =
+          minutosPadraoRevisao ?? const Configuracoes().minutosPadraoRevisao;
 
   ({Revisao? proxima, double? taxaAcerto, bool reforco}) concluir(
     Revisao revisao, {
     int? questoes,
     int? acertos,
-    int minutos = 0, // <- default do use case; revisoes_screen NAO passa minutos
+    int? minutos, // nulo = cai no padrao, exatamente como o use case
     required DateTime agora,
   }) {
+    // M-02: estimativa tem o mesmo teto diario do bonus. Lido ANTES de marcar
+    // esta revisao como feita, igual ao use case.
+    final dentroDoTeto =
+        GamificacaoService.podeCreditarTempoEstimado(revisoes, agora);
+    final minutosDaSessao =
+        minutos ?? (dentroDoTeto ? minutosPadraoRevisao : 0);
     if (questoes != null && questoes > 0 && acertos != null) {
       registros = [
         ...registros,
@@ -34,7 +56,7 @@ class Mundo {
           topicoId: revisao.topicoId,
           tipo: TipoEstudo.pratica,
           tarefa: 'Revisão: ${revisao.titulo}',
-          minutos: minutos,
+          minutos: minutosDaSessao,
           questoes: questoes,
           acertos: acertos,
         ),
@@ -109,7 +131,7 @@ void main() {
     expect(r.proxima, isNotNull);
   });
 
-  test('UAT-H2 concluir COM informacoes: cria sessao pratica de 0 min', () {
+  test('UAT-H2 concluir COM informacoes credita o tempo padrao da revisao', () {
     final massa = construirMassa();
     final m = Mundo([...massa.registros], [...massa.revisoes]);
     final antesMin = StatsService.minutosNoDia(m.registros, agora);
@@ -123,12 +145,44 @@ void main() {
         'minimo_diario $antesMinimo -> ${StatsService.resumoDiario(m.registros).minimo}');
     print('[H2] taxa da revisao=${r.taxaAcerto} (primaria, ignora a janela) '
         'proxima=${r.proxima?.titulo}');
-    expect(nova.minutos, 0, reason: 'revisoes_screen nao pergunta minutos');
+
+    // ATE B1 este teste afirmava `minutos == 0` e "horas nao se movem" — era
+    // verdade quando `revisoes_screen` nao perguntava tempo e o use case
+    // gravava 0. Hoje o use case faz `minutos ?? config.minutosPadraoRevisao`,
+    // entao a conclusao CREDITA tempo estimado. O teste passa a afirmar o que
+    // a producao faz; o teto desse credito e o M-02.
+    expect(nova.minutos, m.minutosPadraoRevisao,
+        reason: 'tempo estimado da revisao, nao cronometrado');
+    expect(m.minutosPadraoRevisao, const Configuracoes().minutosPadraoRevisao,
+        reason: 'espelho e producao leem a MESMA fonte');
+    expect(StatsService.minutosNoDia(m.registros, agora),
+        antesMin + m.minutosPadraoRevisao,
+        reason: 'as horas SE MOVEM — e por isso o credito precisa de teto');
+
     expect(r.taxaAcerto, closeTo(0.95, 1e-12));
-    expect(StatsService.minutosNoDia(m.registros, agora), antesMin,
-        reason: 'horas nao se movem');
     expect(StatsService.desempenhoPorMateria(m.registros)['mat-port']!.questoes,
         greaterThan(0));
+  });
+
+  test('UAT-H2b `minutos` explicito vence o padrao, igual ao use case', () {
+    final massa = construirMassa();
+    final m = Mundo([...massa.registros], [...massa.revisoes]);
+    m.concluir(m.revisoes.firstWhere((x) => x.id == 'rev-hoje-1'),
+        questoes: 10, acertos: 9, minutos: 45, agora: agora);
+    expect(m.registros.last.minutos, 45);
+  });
+
+  test('UAT-H2c `minutosPadraoRevisao = 0` volta ao comportamento antigo', () {
+    // Continua sendo configuravel: quem nao quer credito nenhum escolhe
+    // "Nao creditar tempo" e nada muda nas horas.
+    final massa = construirMassa();
+    final m = Mundo([...massa.registros], [...massa.revisoes],
+        minutosPadraoRevisao: 0);
+    final antes = StatsService.minutosNoDia(m.registros, agora);
+    m.concluir(m.revisoes.firstWhere((x) => x.id == 'rev-hoje-1'),
+        questoes: 20, acertos: 19, agora: agora);
+    expect(m.registros.last.minutos, 0);
+    expect(StatsService.minutosNoDia(m.registros, agora), antes);
   });
 
   test('UAT-H3 lapso na revisao (com informacao ruim) agenda reforco', () {

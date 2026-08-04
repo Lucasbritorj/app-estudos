@@ -5,6 +5,7 @@ import '../data/models/registro_hora.dart';
 import '../data/models/revisao.dart';
 import '../data/repositories/configuracoes_repositorio.dart';
 import '../data/repositories/repositorios.dart';
+import '../domain/gamificacao_service.dart';
 import '../domain/revisao_service.dart';
 import 'notificacoes_revisao.dart';
 
@@ -43,7 +44,25 @@ class RevisaoUseCase {
     // de 0 min zerava o "mínimo diário" do resumo e inflava a contagem de
     // sessões sem nenhum tempo por trás. `minutosPadraoRevisao = 0` volta ao
     // comportamento antigo.
-    final minutosDaSessao = minutos ?? config.minutosPadraoRevisao;
+    //
+    // M-02: a ESTIMATIVA tem o mesmo teto diário do bônus de XP
+    // (`maxRevisoesComBonusPorDia`). Sem isso, concluir revisões antecipadas
+    // em sequência creditava minutos sem limite — inflando horas, XP base,
+    // streak e heatmap sem estudo nenhum. Da 4ª conclusão do dia em diante a
+    // sessão entra com 0 min.
+    //
+    // Tempo INFORMADO (`minutos != null`) nunca é cortado: é medição, não
+    // estimativa. Hoje nenhuma tela passa esse parâmetro, mas o contrato do
+    // caso de uso precisa ser honesto.
+    //
+    // Lido ANTES de marcar esta revisão como feita, então a contagem é das
+    // conclusões ANTERIORES do dia: as 3 primeiras creditam, a 4ª não.
+    final dentroDoTeto = GamificacaoService.podeCreditarTempoEstimado(
+      _ref.read(revisoesProvider),
+      agora,
+    );
+    final minutosDaSessao =
+        minutos ?? (dentroDoTeto ? config.minutosPadraoRevisao : 0);
     if (questoes != null && questoes > 0 && acertos != null) {
       await _ref
           .read(registrosProvider.notifier)

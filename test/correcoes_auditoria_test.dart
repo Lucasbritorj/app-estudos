@@ -117,6 +117,73 @@ void main() {
       );
     });
 
+    test('M-02b — o teto vale também para os MINUTOS creditados', () {
+      // O furo residual: `maxRevisoesComBonusPorDia` cobria só o bônus de 50
+      // XP. A outra parcela (`xpPonderado`, que conta minutos) seguia aberta,
+      // e cada conclusão gravava `minutosPadraoRevisao` sem limite. Agora as
+      // duas parcelas usam a MESMA contagem.
+      final hoje = DateTime(2026, 7, 24);
+      List<Revisao> concluidas(int n) => [
+        for (var i = 0; i < n; i++) feitaEm('r$i', DateTime(2026, 7, 24, 10)),
+      ];
+
+      expect(GamificacaoService.revisoesConcluidasNoDia(concluidas(0), hoje), 0);
+      expect(GamificacaoService.revisoesConcluidasNoDia(concluidas(7), hoje), 7);
+
+      // As 3 primeiras do dia creditam; da 4ª em diante, não.
+      for (var jaFeitas = 0;
+          jaFeitas < GamificacaoService.maxRevisoesComBonusPorDia;
+          jaFeitas++) {
+        expect(
+          GamificacaoService.podeCreditarTempoEstimado(
+            concluidas(jaFeitas),
+            hoje,
+          ),
+          isTrue,
+          reason: 'conclusão nº ${jaFeitas + 1} do dia ainda credita',
+        );
+      }
+      expect(
+        GamificacaoService.podeCreditarTempoEstimado(concluidas(3), hoje),
+        isFalse,
+        reason: 'a 4ª conclusão do dia não credita mais tempo',
+      );
+    });
+
+    test('M-02b — a contagem é POR DIA, não acumulada', () {
+      // Ontem cheio não pode bloquear o crédito de hoje.
+      final ontem = [
+        for (var i = 0; i < 20; i++) feitaEm('o$i', DateTime(2026, 7, 23, 10)),
+      ];
+      expect(
+        GamificacaoService.podeCreditarTempoEstimado(
+          ontem,
+          DateTime(2026, 7, 24),
+        ),
+        isTrue,
+      );
+    });
+
+    test('M-02b — revisão sem dataConclusao não entra na contagem do dia', () {
+      // Dado antigo (pré-carimbo) não pode consumir o teto de quem usa o app
+      // hoje — mesmo tratamento que `bonusRevisoes` dá.
+      final semData = [for (var i = 0; i < 9; i++) feitaEm('s$i', null)];
+      expect(
+        GamificacaoService.revisoesConcluidasNoDia(
+          semData,
+          DateTime(2026, 7, 24),
+        ),
+        0,
+      );
+      expect(
+        GamificacaoService.podeCreditarTempoEstimado(
+          semData,
+          DateTime(2026, 7, 24),
+        ),
+        isTrue,
+      );
+    });
+
     test('ritmo real (3/dia em dias distintos) não é penalizado', () {
       final revisoes = [
         for (var d = 1; d <= 4; d++)
