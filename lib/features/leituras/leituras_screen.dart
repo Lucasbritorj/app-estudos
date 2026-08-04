@@ -134,6 +134,11 @@ Future<void> registrarSessaoLeitura(
       },
     ),
   );
+
+  // Diálogo fechado. `paginas.text`/`minutos.text` só são lidos no `onPressed`,
+  // antes do `Navigator.pop` — nada pendente alcança estes controllers.
+  paginas.dispose();
+  minutos.dispose();
 }
 
 class LeiturasScreen extends ConsumerWidget {
@@ -262,6 +267,11 @@ class LeiturasScreen extends ConsumerWidget {
         ),
       ),
     );
+
+    // Mesma regra: os três só são lidos dentro do `onPressed`, antes do pop.
+    titulo.dispose();
+    pagInicio.dispose();
+    pagFim.dispose();
   }
 
   @override

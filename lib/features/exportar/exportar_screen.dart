@@ -490,6 +490,10 @@ class ExportarScreen extends ConsumerWidget {
         ],
       ),
     );
+
+    // `texto.text` vira `backup` ANTES do pop; a cadeia de `mesclar` que roda
+    // depois usa só o objeto já parseado.
+    texto.dispose();
   }
 
   Future<void> _importarBackup(BuildContext context, WidgetRef ref) async {
@@ -614,5 +618,9 @@ class ExportarScreen extends ConsumerWidget {
         ],
       ),
     );
+
+    // Mesmo caso: parseBackup(texto.text) roda antes do pop. O diálogo de
+    // confirmação que vem depois não toca no controller.
+    texto.dispose();
   }
 }

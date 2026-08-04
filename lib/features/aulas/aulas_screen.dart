@@ -91,6 +91,11 @@ class AulasScreen extends ConsumerWidget {
         ],
       ),
     );
+
+    // Diálogo fechado: `nome.text`/`paginas.text` são lidos no `onPressed`,
+    // antes do pop.
+    nome.dispose();
+    paginas.dispose();
   }
 
   /// Concluir manualmente = completar as páginas restantes hoje.

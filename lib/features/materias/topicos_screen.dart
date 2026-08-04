@@ -74,6 +74,10 @@ class TopicosScreen extends ConsumerWidget {
         ],
       ),
     );
+
+    // Diálogo fechado: os dois só são lidos no `onPressed`, antes do pop.
+    nome.dispose();
+    notas.dispose();
   }
 
   /// Move [topico] para dentro de [novoPaiId] (`null` = vira raiz). Revalida

@@ -234,4 +234,16 @@ Future<void> mostrarDialogoMateria(
       ),
     ),
   );
+
+  // Diálogo fechado: nenhum widget referencia mais estes controllers. Sem
+  // isto cada abertura vazava 6 ChangeNotifier — e este diálogo tem 5 call
+  // sites. `nome` entra na lista mesmo sendo só espelho do Autocomplete: o
+  // controller é NOSSO (o Autocomplete usa o `fieldController` dele próprio e
+  // nunca dispõe um que não criou).
+  nome.dispose();
+  peso.dispose();
+  questoes.dispose();
+  minimo.dispose();
+  notas.dispose();
+  horasAlvo.dispose();
 }

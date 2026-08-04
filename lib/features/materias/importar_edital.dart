@@ -289,4 +289,10 @@ Future<void> mostrarImportarEdital(
       },
     ),
   );
+
+  // Todas as leituras (`texto.text`, `novaMateria.text`) acontecem ANTES do
+  // `Navigator.pop`; depois dele só roda `_gravarItens` com valores já
+  // calculados. Liberar aqui não alcança nenhum uso pendente.
+  texto.dispose();
+  novaMateria.dispose();
 }

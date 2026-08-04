@@ -63,6 +63,9 @@ class PlanejamentoScreen extends ConsumerWidget {
         ],
       ),
     );
+
+    // `minutos.text` é lido no `onPressed`, antes do pop.
+    minutos.dispose();
   }
 
   @override

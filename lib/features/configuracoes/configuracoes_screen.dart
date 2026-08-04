@@ -257,6 +257,26 @@ Future<void> mostrarDialogoApagarDados(
   final contagem = ref
       .read(apagarDadosUseCaseProvider)
       .contarRegistrosParaApagar();
+  // `Route.didComplete` (navigator.dart:480) completa o Future do showDialog
+  // no POP, não quando a rota sai da árvore. Aqui o `onPressed` continua
+  // depois do pop — `ir(Abas.dashboard)` e `navigator.pop()` mudam estado
+  // global e forçam um rebuild deste diálogo, que AINDA está montado animando
+  // a saída. Esse rebuild relê `controller.text` (o `confirmado` do
+  // StatefulBuilder) e reconstrói o TextField: com o controller liberado, vira
+  // "used after being disposed".
+  //
+  // `.whenComplete` falha igual (roda no mesmo instante do await) e
+  // `addPostFrameCallback` também (a saída dura vários frames).
+  //
+  // Os outros 25 diálogos da varredura não têm o problema: neles
+  // `Navigator.pop` é a ÚLTIMA instrução do `onPressed`, e o subtree não
+  // rebuilda durante a transição de saída — o AlertDialog vai como `child:`
+  // da transição, que não reconstrói o filho.
+  //
+  // Custo aceito: um controller por abertura da confirmação de wipe, aberta
+  // pouquíssimas vezes na vida do app. Reestruturar a tela de ação destrutiva
+  // em StatefulWidget só por isso seria risco maior que o vazamento.
+  // dispose-exempt: rebuilda depois do pop; liberar quebra o TextField.
   final controller = TextEditingController();
   // Capturados ANTES do showDialog: continuam válidos após o await de
   // apagarTudo() mesmo que o diálogo/tela por trás já tenham sido fechados

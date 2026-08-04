@@ -98,6 +98,10 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
         ),
       ),
     );
+
+    // `titulo.text` é lido ANTES do `await criarManual` e do pop; o await que
+    // roda depois não volta a tocar o controller.
+    titulo.dispose();
   }
 
   /// Delega ao fluxo compartilhado — o dashboard conclui pelo MESMO

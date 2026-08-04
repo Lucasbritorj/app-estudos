@@ -21,10 +21,10 @@ import '../../data/models/revisao.dart';
 ///
 /// Não recebe a [Revisao]: o diálogo nunca usou o parâmetro que tinha antes.
 ///
-/// Débito conhecido que veio junto na extração: os dois
-/// `TextEditingController` não são liberados. É o padrão que a onda de
-/// dispose/Semantics vai varrer nas 10 telas — mover o defeito junto com o
-/// código é honesto; consertar aqui de forma avulsa criaria meia-migração.
+/// Os dois `TextEditingController` são liberados em `whenComplete`, não
+/// depois de um `await`: esta é a única função-diálogo do app que devolve o
+/// `Future` do `showDialog` direto em vez de aguardá-lo, e transformá-la em
+/// `async` só para poder dispor mudaria a assinatura sem ganho.
 Future<({int? questoes, int? acertos})?> perguntarDesempenhoRevisao(
   BuildContext context,
 ) {
@@ -111,7 +111,13 @@ Future<({int? questoes, int? acertos})?> perguntarDesempenhoRevisao(
         ),
       ],
     ),
-  );
+  ).whenComplete(() {
+    // Roda no fechamento do diálogo, seja qual for a saída (Cancelar, Só
+    // concluir, Concluir ou toque fora). `whenComplete` devolve
+    // `Future<T>` — o tipo de retorno da função continua o mesmo.
+    questoesCtrl.dispose();
+    acertosCtrl.dispose();
+  });
 }
 
 /// Pergunta o desempenho, conclui via caso de uso (FSRS-lite) e mostra o

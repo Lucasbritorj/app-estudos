@@ -227,5 +227,8 @@ class AmbientesScreen extends ConsumerWidget {
         ),
       ),
     );
+
+    // `nome.text` é lido no `onPressed`, antes do pop.
+    nome.dispose();
   }
 }

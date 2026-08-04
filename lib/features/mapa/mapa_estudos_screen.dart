@@ -363,6 +363,9 @@ class _TopicoLinha extends ConsumerWidget {
         ],
       ),
     );
+
+    // `controlador.text` é lido no `onPressed`, antes do pop.
+    controlador.dispose();
   }
 
   /// Editor de pré-requisitos: escolhe tópicos da mesma matéria que devem
