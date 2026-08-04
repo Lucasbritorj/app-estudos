@@ -13,6 +13,7 @@ import '../../cronometro/cronometro_controller.dart';
 import '../../registro/registro_form.dart';
 import '../confete_leve.dart';
 import '../dashboard_providers.dart';
+import 'rotulos_a11y.dart';
 
 const _iconesQuest = <String, IconData>{
   'estudar-deficit': Icons.menu_book_outlined,
@@ -153,32 +154,55 @@ class _Missao extends ConsumerWidget {
       ref.read(abaProvider.notifier).ir(Abas.cronometro);
     }
 
+    // Um nó só para matéria + déficit: em nós separados o leitor anuncia o
+    // nome da matéria, depois "Faltam 2h 15min" — e lê "2h" como "dois h",
+    // porque a abreviação existe para densidade de tela, não para fala. Os
+    // BOTÕES ficam fora deste `excludeSemantics`: dentro, perderiam o papel
+    // de botão (lição B18, ver card_diagnostico.dart).
+    final descricaoMissao =
+        'Plano de hoje: ${materia.nome}. '
+        'Faltam ${minutosPorExtenso(sugestao.deficitMinutos)} no ciclo desta '
+        'semana'
+        '${proximoTopico == null ? '' : ', próximo tópico: ${proximoTopico.nome}'}';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            AvatarCor(slot: materia.corSlot, raio: 7),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                materia.nome,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: VizColors.inkPrimary,
+        Semantics(
+          container: true,
+          excludeSemantics: true,
+          label: descricaoMissao,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  AvatarCor(slot: materia.corSlot, raio: 7),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      materia.nome,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(color: VizColors.inkPrimary),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Faltam ${formatarMinutos(sugestao.deficitMinutos)} no '
+                'ciclo desta semana'
+                '${proximoTopico == null ? '' : ' · próximo tópico: '
+                          '"${proximoTopico.nome}"'}',
+                style: const TextStyle(
+                  color: VizColors.inkSecondary,
+                  fontSize: 13,
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Faltam ${formatarMinutos(sugestao.deficitMinutos)} no '
-          'ciclo desta semana'
-          '${proximoTopico == null ? '' : ' · próximo tópico: '
-                    '"${proximoTopico.nome}"'}',
-          style: const TextStyle(color: VizColors.inkSecondary, fontSize: 13),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         Wrap(
@@ -186,18 +210,31 @@ class _Missao extends ConsumerWidget {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            FilledButton.icon(
-              onPressed: estudarAgora,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Estudar agora'),
-            ),
-            TextButton(
-              onPressed: () => mostrarFormularioRegistro(
-                context,
-                materiaInicial: materia.id,
-                topicoInicial: proximoTopico?.id,
+            // "Estudar agora, botão" não diz o quê. O `label` do
+            // FilledButton é rótulo VISUAL; o nome falado vem daqui.
+            Semantics(
+              button: true,
+              excludeSemantics: true,
+              onTap: estudarAgora,
+              label: 'Estudar ${materia.nome} agora no cronômetro',
+              child: FilledButton.icon(
+                onPressed: estudarAgora,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Estudar agora'),
               ),
-              child: const Text('Registrar manualmente'),
+            ),
+            Semantics(
+              button: true,
+              excludeSemantics: true,
+              label: 'Registrar sessão de ${materia.nome} manualmente',
+              child: TextButton(
+                onPressed: () => mostrarFormularioRegistro(
+                  context,
+                  materiaInicial: materia.id,
+                  topicoInicial: proximoTopico?.id,
+                ),
+                child: const Text('Registrar manualmente'),
+              ),
             ),
           ],
         ),
@@ -318,36 +355,53 @@ class _Melhorar extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         for (final acao in acoes)
-          InkWell(
-            onTap: acao.materiaId == null
-                ? null
-                : () => mostrarFormularioRegistro(
-                    context,
-                    materiaInicial: acao.materiaId,
-                  ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(_visual(acao.tipo).$1, size: 16, color: _visual(acao.tipo).$2),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      acao.mensagem,
-                      style: const TextStyle(
-                        color: VizColors.inkSecondary,
-                        fontSize: 13,
+          // Insight acionável era um nó tocável ANÔNIMO: o leitor anunciava o
+          // ícone e o texto soltos, sem dizer que dava para tocar nem o que
+          // aconteceria. A mensagem já nomeia o contexto (matéria, taxa), então
+          // o rótulo só precisa acrescentar a AÇÃO.
+          Semantics(
+            container: true,
+            excludeSemantics: true,
+            button: acao.materiaId != null,
+            label: acao.materiaId == null
+                ? acao.mensagem
+                : '${acao.mensagem}. Toque para registrar uma sessão desta '
+                      'matéria',
+            child: InkWell(
+              onTap: acao.materiaId == null
+                  ? null
+                  : () => mostrarFormularioRegistro(
+                      context,
+                      materiaInicial: acao.materiaId,
+                    ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      _visual(acao.tipo).$1,
+                      size: 16,
+                      color: _visual(acao.tipo).$2,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        acao.mensagem,
+                        style: const TextStyle(
+                          color: VizColors.inkSecondary,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
-                  ),
-                  if (acao.materiaId != null)
-                    const Icon(
-                      Icons.arrow_forward,
-                      size: 14,
-                      color: VizColors.muted,
-                    ),
-                ],
+                    if (acao.materiaId != null)
+                      const Icon(
+                        Icons.arrow_forward,
+                        size: 14,
+                        color: VizColors.muted,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

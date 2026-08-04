@@ -168,6 +168,73 @@ void main() {
       expect(find.textContaining('vence hoje'), findsOneWidget);
     });
 
+    testWidgets('a11y: linha vira um nó só, com a situação falada', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      // Só duas revisões: com mais que `maxVisiveis` as mais RECENTES não são
+      // desenhadas (a ordem é da mais antiga para a mais nova), e afirmar
+      // rótulo de linha invisível seria teste mentindo.
+      await prepararTela(tester, [
+        rev('atrasada', DateTime(2026, 7, 31)),
+        rev('hoje', hoje),
+      ]);
+
+      // Antes eram dois `Text` irmãos: o leitor anunciava o título, depois
+      // "AFO · atrasada 3 dias" com o "·" lido como pontuação solta.
+      expect(
+        find.bySemanticsLabel('Revisar atrasada, AFO, atrasada 3 dias'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('Revisar hoje, AFO, vence hoje'),
+        findsOneWidget,
+      );
+
+      handle.dispose();
+    });
+
+    testWidgets('a11y: cada botão diz QUAL revisão; "Ver todas" tem nome', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      // 7 semeadas, 4 desenhadas: r0..r3 são as mais antigas.
+      await prepararTela(tester, [
+        for (var i = 0; i < 7; i++) rev('r$i', DateTime(2026, 7, 25 + i)),
+      ]);
+
+      // Com `tooltip` apenas, o nome primário do nó ficava vazio e uma lista
+      // de 4 botões iguais anunciava "botão" quatro vezes.
+      for (final id in ['r0', 'r1', 'r2', 'r3']) {
+        expect(
+          find.bySemanticsLabel('Concluir revisão Revisar $id'),
+          findsOneWidget,
+          reason: 'botão precisa dizer QUAL revisão',
+        );
+      }
+
+      // Nome distinto do CardForecastRevisao, que leva para a MESMA aba.
+      expect(
+        find.bySemanticsLabel('Ver todas as revisões, mais 3 pendentes'),
+        findsOneWidget,
+      );
+
+      // Garantia negativa: nenhum botão do card fica sem o que anunciar.
+      for (final elemento in find
+          .descendant(
+            of: find.byType(CardRevisoesHoje),
+            matching: find.byType(IconButton),
+          )
+          .evaluate()) {
+        expect(
+          tester.getSemantics(find.byWidget(elemento.widget)).label,
+          isNotEmpty,
+        );
+      }
+
+      handle.dispose();
+    });
+
     testWidgets('concluir pelo card marca feita e emenda a próxima', (
       tester,
     ) async {

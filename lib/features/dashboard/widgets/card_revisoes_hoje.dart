@@ -74,11 +74,21 @@ class CardRevisoesHoje extends ConsumerWidget {
             if (restantes > 0)
               Align(
                 alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: () => ref.read(abaProvider.notifier).ir(
-                    Abas.revisoes,
+                // "(+3)" é notação de tela; falado vira "mais três". E o
+                // destino precisa de nome: CardForecastRevisao leva para a
+                // MESMA aba, então os dois não podem soar igual.
+                child: Semantics(
+                  button: true,
+                  excludeSemantics: true,
+                  label:
+                      'Ver todas as revisões, mais '
+                      '${plural(restantes, 'pendente', 'pendentes')}',
+                  child: TextButton(
+                    onPressed: () => ref.read(abaProvider.notifier).ir(
+                      Abas.revisoes,
+                    ),
+                    child: Text('Ver todas (+$restantes)'),
                   ),
-                  child: Text('Ver todas (+$restantes)'),
                 ),
               ),
           ],
@@ -119,37 +129,54 @@ class _Linha extends ConsumerWidget {
           AvatarCor(slot: corSlot ?? 0, raio: 6),
           const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  revisao.titulo,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: VizColors.inkPrimary),
-                ),
-                Text(
-                  '${nomeMateria ?? '—'} · $situacao',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: atrasada ? StatusColors.atencao : VizColors.muted,
-                    fontSize: 11,
+            // Título e "matéria · situação" em dois Text irmãos: o leitor
+            // anunciava dois fragmentos e o "·" como pontuação solta. Vira um
+            // nó só. O botão fica FORA deste exclude — dentro, perderia o
+            // papel de botão (lição B18).
+            child: Semantics(
+              container: true,
+              excludeSemantics: true,
+              label: '${revisao.titulo}, ${nomeMateria ?? 'sem matéria'}, '
+                  '$situacao',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    revisao.titulo,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: VizColors.inkPrimary),
                   ),
-                ),
-              ],
+                  Text(
+                    '${nomeMateria ?? '—'} · $situacao',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: atrasada ? StatusColors.atencao : VizColors.muted,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 8),
-          IconButton(
-            // Rótulo com o título junto: numa lista de 4 botões iguais, o
-            // leitor de tela anunciaria "concluir revisão" quatro vezes sem
-            // dizer QUAL.
-            tooltip: 'Concluir: ${revisao.titulo}',
-            icon: const Icon(Icons.check_circle_outline),
-            color: StatusColors.bom,
-            onPressed: () =>
-                concluirRevisaoComFeedback(context, ref, revisao),
+          // `Tooltip` vira a propriedade "tooltip" do nó — dica SECUNDÁRIA.
+          // O nome primário que o leitor anuncia é o `label`, e sem ele numa
+          // lista de 4 botões iguais o usuário ouvia "botão" quatro vezes sem
+          // saber qual. O tooltip fica: é a dica visual no hover.
+          Semantics(
+            button: true,
+            excludeSemantics: true,
+            label: 'Concluir revisão ${revisao.titulo}',
+            onTap: () => concluirRevisaoComFeedback(context, ref, revisao),
+            child: IconButton(
+              tooltip: 'Concluir: ${revisao.titulo}',
+              icon: const Icon(Icons.check_circle_outline),
+              color: StatusColors.bom,
+              onPressed: () =>
+                  concluirRevisaoComFeedback(context, ref, revisao),
+            ),
           ),
         ],
       ),

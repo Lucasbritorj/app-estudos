@@ -31,7 +31,32 @@ class CardSimulados extends ConsumerWidget {
         ? (taxaAtual - taxaAnterior) * 100
         : null;
 
-    return Card(
+    // "pp" e "+3" são notação de tela; falado vira "mais 3 pontos percentuais".
+    final variacaoFalada = delta == null
+        ? ''
+        : ', variação de ${delta >= 0 ? 'mais' : 'menos'} '
+              '${delta.abs().toStringAsFixed(0)} pontos percentuais no último';
+
+    // SEM `excludeSemantics`, ao contrário de CardForecastRevisao: lá o
+    // interior são 30 barras mudas e excluir é ganho; aqui as 3 linhas têm
+    // nome, data, acertos e taxa — dado que o leitor precisa poder explorar.
+    // Excluir apagaria tudo isso da árvore (lição B18).
+    //
+    // O preço da escolha: o `InkWell` mantém o nó próprio dele abaixo deste.
+    // É redundância aceita — o defeito que se fecha é a AUSÊNCIA de um ponto
+    // de entrada nomeado, não a contagem de nós.
+    return Semantics(
+      container: true,
+      button: true,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SimuladosScreen()),
+      ),
+      label:
+          'Simulados e provas: '
+          '${plural(simulados.length, 'registrado', 'registrados')}'
+          '$variacaoFalada. Abrir lista',
+      child: Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () => Navigator.push(
@@ -135,6 +160,7 @@ class CardSimulados extends ConsumerWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

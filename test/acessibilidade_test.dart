@@ -8,6 +8,7 @@ import 'package:app_estudos/data/models/topico.dart';
 import 'package:app_estudos/features/dashboard/dashboard_screen.dart';
 import 'package:app_estudos/features/dashboard/widgets/card_bancas.dart';
 import 'package:app_estudos/features/dashboard/widgets/card_caderno_erros.dart';
+import 'package:app_estudos/features/dashboard/widgets/card_plano_de_hoje.dart';
 import 'package:app_estudos/features/dashboard/widgets/card_edital.dart';
 import 'package:app_estudos/features/dashboard/widgets/card_true_retention.dart';
 import 'package:app_estudos/features/dashboard/widgets/chama_streak.dart';
@@ -401,4 +402,71 @@ void main() {
       handle.dispose();
     },
   );
+
+
+  // --- CardPlanoDeHoje (fusão de missão + quests + insights) -------------
+  // O card nasceu na fusão de ontem e não tinha NENHUM Semantics: os dois
+  // botões diziam só o texto visível (sem a matéria) e cada insight acionável
+  // era um nó tocável anônimo.
+
+  testWidgets('CardPlanoDeHoje: botões de ação dizem de QUAL matéria', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await montarComDados(tester);
+
+    // `montarComDados` não cria cronograma, então `sugestaoHojeProvider` pode
+    // vir nulo e a seção de missão nem existir. Só afirmo quando ela existe —
+    // o teste do insight abaixo cobre o card no caso sem missão.
+    if (find.text('Estudar agora').evaluate().isNotEmpty) {
+      expect(
+        find.bySemanticsLabel('Estudar Português agora no cronômetro'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('Registrar sessão de Português manualmente'),
+        findsOneWidget,
+      );
+      // "2h 15min" é densidade de tela; o leitor lê "dois h". O nó da missão
+      // usa `minutosPorExtenso`.
+      expect(
+        find.bySemanticsLabel(RegExp(r'^Plano de hoje: Português\.')),
+        findsOneWidget,
+      );
+    }
+
+    handle.dispose();
+  });
+
+  testWidgets('CardPlanoDeHoje: nenhum InkWell do card fica sem rótulo', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await montarComDados(tester);
+
+    // `InsightsService.melhorarHoje` tem fallback e nunca devolve vazio, então
+    // a seção sempre desenha ao menos um insight.
+    expect(find.text('O que melhorar hoje'), findsOneWidget);
+
+    // A garantia é NEGATIVA e não depende de quais insights dispararam: todo
+    // InkWell dentro do card tem de ter um Semantics com label acima dele.
+    // Antes, o insight acionável era um nó tocável anônimo.
+    final inkwells = find.descendant(
+      of: find.byType(CardPlanoDeHoje),
+      matching: find.byType(InkWell),
+    );
+    expect(inkwells, findsWidgets);
+    for (final elemento in inkwells.evaluate()) {
+      // `getSemantics` sobe até o nó semântico mais próximo — é o que o leitor
+      // de tela anunciaria ao focar este InkWell.
+      final no = tester.getSemantics(find.byWidget(elemento.widget));
+      expect(
+        no.label,
+        isNotEmpty,
+        reason: 'InkWell anônimo: o leitor de tela não teria o que anunciar',
+      );
+    }
+
+    handle.dispose();
+  });
 }

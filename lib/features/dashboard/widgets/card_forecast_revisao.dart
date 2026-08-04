@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/formatters.dart';
 import '../dashboard_providers.dart';
 
 /// Forecast de carga de revisão dos próximos 30 dias — barras por dia, para
@@ -19,7 +20,29 @@ class CardForecastRevisao extends ConsumerWidget {
     final maxQtd = dados.fold(0, (m, d) => d.quantidade > m ? d.quantidade : m);
     final pico = dados.reduce((a, b) => b.quantidade > a.quantidade ? b : a);
 
-    return Card(
+    // O interior são 30 DecoratedBox sem texto nenhum mais três rótulos de
+    // eixo soltos ("hoje", "pico: N em D+3", "+30d"). Sem `excludeSemantics` o
+    // leitor varre 30 nós vazios; aqui ele é seguro porque não há conteúdo
+    // textual a preservar — mesmo tratamento que graficos.dart dá ao fl_chart.
+    //
+    // "D+3" é notação de tela: falado vira "dê mais três". O nó usa "em 3
+    // dias". E o nome precisa ser DISTINTO de CardRevisoesHoje, que leva para
+    // a MESMA aba — lá é "Ver todas as revisões", aqui é a carga futura.
+    final diasAtePico = pico.dia.difference(dados.first.dia).inDays;
+    final quandoPico = diasAtePico == 0
+        ? 'hoje'
+        : 'em ${plural(diasAtePico, 'dia', 'dias')}';
+
+    return Semantics(
+      button: true,
+      container: true,
+      excludeSemantics: true,
+      onTap: () => ref.read(abaProvider.notifier).ir(Abas.revisoes),
+      label:
+          'Carga de revisões dos próximos 30 dias: '
+          '${plural(total, 'revisão', 'revisões')} no total, '
+          'pico de ${pico.quantidade} $quandoPico. Abrir revisões',
+      child: Card(
       child: InkWell(
         onTap: () => ref.read(abaProvider.notifier).ir(Abas.revisoes),
         borderRadius: BorderRadius.circular(Radii.lg),
@@ -81,6 +104,7 @@ class CardForecastRevisao extends ConsumerWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
