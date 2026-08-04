@@ -315,6 +315,90 @@ void main() {
     handle.dispose();
   });
 
+  /// Semeia o caderno e monta só o card. `proximaTentativa` cai em `criadaEm`
+  /// quando omitida (ver a factory de [QuestaoErrada]), então datar em 2020
+  /// deixa as ativas vencidas em QUALQUER data de execução — o determinismo
+  /// não depende de sobrescrever `hojeProvider`.
+  Future<void> montarCaderno(
+    WidgetTester tester, {
+    required int vencidas,
+    required int dominadas,
+  }) async {
+    await tester.runAsync(() async {
+      final materia = Materia(
+        id: 'm1',
+        nome: 'AFO',
+        corSlot: 0,
+        criadaEm: DateTime(2026, 1, 1),
+      );
+      await Hive.box<Map>(HiveBoxes.materias).put(materia.id, materia.toJson());
+      final box = Hive.box<Map>(HiveBoxes.questoesErradas);
+      for (var i = 0; i < vencidas + dominadas; i++) {
+        final questao = QuestaoErrada(
+          id: 'q$i',
+          materiaId: 'm1',
+          enunciado: 'Questão $i',
+          criadaEm: DateTime(2020, 1, 1),
+          arquivada: i >= vencidas,
+        );
+        await box.put(questao.id, questao.toJson());
+      }
+    });
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(home: Scaffold(body: CardCadernoErros())),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('CardCadernoErros: o card ganha ponto de entrada nomeado', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    // 3 ativas + 1 dominada: fila de 3, recuperação de 1/4.
+    await montarCaderno(tester, vencidas: 3, dominadas: 1);
+
+    // O `InkWell` do card era um nó acionável SEM nome (ink_well.dart emite
+    // `Semantics(onTap:)` puro): o leitor varria título e tiles e nunca ouvia
+    // para onde o card levava. Concordância pelo `plural` — "3 questões
+    // vencem", não "3 questão vence".
+    expect(
+      find.bySemanticsLabel(
+        'Caderno de erros: 3 questões vencem hoje, 25% de recuperação. '
+        'Abrir caderno',
+      ),
+      findsOneWidget,
+    );
+
+    handle.dispose();
+  });
+
+  testWidgets('CardCadernoErros: o rótulo do card convive com os tiles', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    // Só dominada: fila zerada — "0" na tela, "nada vence hoje" na fala.
+    await montarCaderno(tester, vencidas: 0, dominadas: 1);
+
+    expect(
+      find.bySemanticsLabel(
+        'Caderno de erros: nada vence hoje, 100% de recuperação. '
+        'Abrir caderno',
+      ),
+      findsOneWidget,
+    );
+
+    // Contraprova da decisão de NÃO usar `excludeSemantics` no card (lição
+    // B18): com ele estes dois nós sumiriam e os únicos números do card iriam
+    // junto. O rótulo do card CONVIVE com os tiles, não os substitui.
+    expect(tester.getSemantics(find.text('0')).label, 'vencem hoje: 0');
+    expect(tester.getSemantics(find.text('100%')).label, 'recuperação: 100%');
+
+    handle.dispose();
+  });
+
   testWidgets(
     'CardTrueRetention: cabeçalho e linha por matéria falam num nó só',
     (tester) async {

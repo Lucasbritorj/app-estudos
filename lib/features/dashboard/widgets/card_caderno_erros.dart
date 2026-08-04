@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/formatters.dart';
 import '../../caderno/caderno_providers.dart';
 import '../../caderno/caderno_screen.dart';
 
@@ -27,7 +28,43 @@ class CardCadernoErros extends ConsumerWidget {
         : LuminaColors.safiraClara;
     final corTaxa = taxa == null ? LuminaColors.safiraClara : StatusColors.porTaxa(taxa);
 
-    return Card(
+    // "0" + "vencem hoje" é leitura de tela, não fala: por extenso vira
+    // "nada vence hoje". Concordância pelo `plural` de formatters.dart, em vez
+    // de um helper novo — `rotulos_a11y.dart` cobre minutos, ritmo e variação
+    // MoM, nada que este card exiba.
+    final filaFalada = resumo.venceHoje == 0
+        ? 'nada vence hoje'
+        : '${plural(resumo.venceHoje, 'questão vence', 'questões vencem')} hoje';
+    // Ramo nulo espelha o "—" do tile. Inalcançável enquanto o card está
+    // visível (taxaRecuperacao só é nula com a lista vazia, e lista vazia já
+    // devolveu SizedBox.shrink lá em cima), mas o tipo é `double?` e repetir a
+    // defesa do tile custa menos que confiar na invariante à distância.
+    final taxaFalada = taxa == null
+        ? 'recuperação ainda sem dados'
+        : '${(taxa * 100).toStringAsFixed(0)}% de recuperação';
+
+    // SEM `excludeSemantics`, mesma decisão de CardSimulados: os dois `_Tile`
+    // do interior carregam os únicos números do card e excluí-los seria
+    // regressão pior que o bug (lição B18). O defeito que se fecha aqui é a
+    // AUSÊNCIA de ponto de entrada nomeado — o `InkWell` de baixo é um nó
+    // acionável sem rótulo (ink_well.dart emite `Semantics(onTap:)` puro, sem
+    // label e sem `button`).
+    //
+    // Débito aceito: esse nó anônimo SOBREVIVE abaixo deste. Duas configs com
+    // a ação `tap` são incompatíveis (`SemanticsConfiguration.isCompatibleWith`
+    // rejeita quando `_actionsAsBits` se cruzam), então ele não funde no nó de
+    // cima. Dá para zerá-lo com `InkWell(excludeFromSemantics: true)`, mas
+    // isso divergiria dos outros quatro cards da mesma onda; fica para uma
+    // varredura que trate os cinco de uma vez.
+    return Semantics(
+      container: true,
+      button: true,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const CadernoScreen()),
+      ),
+      label: 'Caderno de erros: $filaFalada, $taxaFalada. Abrir caderno',
+      child: Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(Radii.lg),
         onTap: () => Navigator.push(
@@ -70,6 +107,7 @@ class CardCadernoErros extends ConsumerWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
