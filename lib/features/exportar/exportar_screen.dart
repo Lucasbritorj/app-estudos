@@ -353,6 +353,54 @@ class ExportarScreen extends ConsumerWidget {
       ...resultado.materiasAtualizadas,
     ]);
     await ref.read(topicosProvider.notifier).mesclar(resultado.topicosNovos);
+
+    // Aposenta o que o esquema de id por ÍNDICE deixou para trás (D-02, ver a
+    // doc de PlanilhaImportService). Até 08/2026 o id embutia o número da
+    // linha do Excel, então qualquer edição da planilha — inserir uma sessão,
+    // apagar uma linha, clicar em "Classificar" — trocava todos os ids abaixo
+    // e o `mesclar` regravava a coleção inteira em vez de atualizá-la. Sem
+    // esta limpeza, o primeiro import depois da correção duplicaria tudo mais
+    // uma vez, agora com ids do esquema novo.
+    //
+    // Só ids do esquema antigo casam (o novo começa pela data e continua com
+    // hash e contador), então registro criado à mão no app nunca entra aqui.
+    // `removerOnde` marca tombstone em RegistroHora — o histórico continua no
+    // backup, apenas fora das contas.
+    //
+    // Cada limpeza é condicionada à aba correspondente ter vindo NESTE
+    // arquivo: sem a guarda, importar uma planilha só de pesos do edital
+    // (sem aba de Registro) apagaria todo o histórico importado antes.
+    //
+    // Revisões seguem a convenção da casa (`materia_use_case.dart:31`,
+    // `topico_use_case.dart:45`): concluída não se destrói. Revisao não tem
+    // tombstone — `removerOnde` apaga de fato —, então uma revisão que o
+    // usuário fechou no app sairia sem volta. O resíduo assumido: revisões
+    // antigas já concluídas ficam duplicadas uma única vez, sem crescer nos
+    // imports seguintes (o id novo é estável).
+    //
+    // LIMITE CONHECIDO: linha que o usuário apagou da planilha depois do
+    // primeiro import some do app aqui. É a consequência de tratar a planilha
+    // como fonte de verdade do que veio dela — o esquema antigo mantinha a
+    // linha viva, mas ao preço de duplicar todo o resto.
+    //
+    // CONSEQUÊNCIA ASSUMIDA: XP é 100% derivado dos registros
+    // (`GamificacaoService.xpTotal`). Quem já tinha duplicatas verá o XP CAIR
+    // uma vez neste import — o valor anterior contava sessões que o bug
+    // fabricou. É correção, não revogação: a monotonicidade protege XP
+    // legítimo, e nada aqui era.
+    if (resultado.registros.isNotEmpty) {
+      await ref
+          .read(registrosProvider.notifier)
+          .removerOnde((r) => PlanilhaImportService.idDeEsquemaAntigo(r.id));
+    }
+    if (resultado.revisoes.isNotEmpty) {
+      await ref
+          .read(revisoesProvider.notifier)
+          .removerOnde(
+            (r) => !r.feita && PlanilhaImportService.idDeEsquemaAntigo(r.id),
+          );
+    }
+
     await ref.read(registrosProvider.notifier).mesclar(resultado.registros);
     await ref.read(revisoesProvider.notifier).mesclar(resultado.revisoes);
     if (resultado.metaSemanalMinutos != null) {

@@ -61,9 +61,83 @@ class PlanilhaImportada {
 ///   importá-las duplicaria fonte de verdade.
 /// - Revisões: Data, Matéria, título (O que revisar/Conteúdo), Intervalo,
 ///   Status/Feita.
-/// IDs são determinísticos por conteúdo: re-importar a mesma planilha
-/// sobrescreve em vez de duplicar.
+///
+/// IDs são determinísticos por CONTEÚDO — ver [_idDeConteudo]. Até 08/2026 o
+/// id de registro e revisão embutia o ÍNDICE DA LINHA
+/// (`xlsx-registro-<i>-<data>`), o que só sobrevivia a reimportar o arquivo
+/// byte a byte idêntico. Qualquer edição real da planilha — inserir uma
+/// sessão nova no topo, apagar uma linha, ou um único clique em "Classificar"
+/// no Excel — deslocava as linhas e trocava TODOS os ids abaixo: o `mesclar`
+/// (upsert por id) então gravava a coleção inteira de novo. Duas sessões
+/// viravam quatro. Pior: quando duas linhas caíam no mesmo índice com a mesma
+/// data, o id colidia e uma sessão sobrescrevia a outra em silêncio.
 class PlanilhaImportService {
+  /// Ids gerados pelo esquema por ÍNDICE, aposentado em 08/2026 (ver a doc
+  /// da classe). Distinguível do atual sem ambiguidade: o antigo traz o
+  /// índice inteiro logo após o prefixo e TERMINA na data; o atual começa
+  /// pela data e continua com hash e contador, então nunca casa com o `$`.
+  ///
+  /// Existe para o import poder aposentar de uma vez os registros que o
+  /// esquema antigo duplicou — ver o call site em `exportar_screen.dart`.
+  static final _esquemaAntigo = RegExp(
+    r'^xlsx-(registro|revisao)-\d+-\d{4}-\d{2}-\d{2}$',
+  );
+
+  static bool idDeEsquemaAntigo(String id) => _esquemaAntigo.hasMatch(id);
+
+  static final _fnvOffset = BigInt.parse('14695981039346656037');
+  static final _fnvPrime = BigInt.parse('1099511628211');
+  static final _fnvMascara = (BigInt.one << 64) - BigInt.one;
+
+  /// FNV-1a de 64 bits em [BigInt] — deliberadamente NÃO em `int` nativo.
+  ///
+  /// O app compila para web, onde `int` é double de 53 bits. A versão com
+  /// `int` sequer compila (`dart compile js` rejeita a máscara
+  /// `0xFFFFFFFFFFFFFFFF`) e, reduzida para caber em 53 bits, produziria ids
+  /// DIFERENTES no web e no desktop — exatamente o defeito de identidade que
+  /// este id existe para fechar, reencarnado. `BigInt` dá o mesmo resultado
+  /// nas duas plataformas (conferido com `dart compile js` + node).
+  ///
+  /// Hash em vez da chave crua porque a chave carrega texto livre do usuário
+  /// (tarefa, título): viraria chave de Hive e campo de backup de tamanho
+  /// arbitrário.
+  static String _fnv64(String texto) {
+    var h = _fnvOffset;
+    for (final unidade in texto.codeUnits) {
+      h = (h ^ BigInt.from(unidade)) * _fnvPrime & _fnvMascara;
+    }
+    return h.toRadixString(16).padLeft(16, '0');
+  }
+
+  /// Id estável por conteúdo: `xlsx-<tipo>-<data>-<hash>-<n>`.
+  ///
+  /// [partes] são os campos de IDENTIDADE da linha. Minutos, páginas,
+  /// comentário, intervalo e status ficam FORA de propósito: são atributos
+  /// da sessão, não a sessão. Com isso, corrigir na planilha um tempo
+  /// digitado errado passa a ATUALIZAR o registro — antes criava um segundo
+  /// e deixava o errado pendurado.
+  ///
+  /// [ocorrencias] conta linhas com a mesma chave dentro do mesmo import.
+  /// Sem o contador, duas sessões idênticas no mesmo dia (dois blocos de 30
+  /// min da mesma tarefa, por exemplo) colapsariam numa só. Linhas idênticas
+  /// são intercambiáveis entre si, então o contador não reintroduz
+  /// dependência de posição: trocá-las de lugar troca `n` entre duas linhas
+  /// com o mesmo conteúdo.
+  ///
+  /// A data entra em claro além de entrar no hash: um id de Hive legível
+  /// vale a dúzia de bytes na hora de inspecionar um backup à mão.
+  static String _idDeConteudo(
+    String tipo,
+    DateTime data,
+    List<String> partes,
+    Map<String, int> ocorrencias,
+  ) {
+    final dia = data.toIso8601String().substring(0, 10);
+    final chave = '$tipo|$dia|${partes.join('|')}';
+    final n = ocorrencias[chave] = (ocorrencias[chave] ?? -1) + 1;
+    return 'xlsx-$tipo-$dia-${_fnv64(chave)}-$n';
+  }
+
   static PlanilhaImportada parse(
     Map<String, List<List<String>>> abas, {
     required List<Materia> materiasExistentes,
@@ -210,6 +284,7 @@ class PlanilhaImportService {
   ) {
     final c = Map<String, int>.from(cabecalho.colunas);
     var inicioDados = cabecalho.linha + 1;
+    final ocorrencias = <String, int>{};
 
     // "Tempo" mesclado sobre subcolunas: a linha seguinte ao cabeçalho traz
     // "Horas"/"Minutos" (ou "h"/"min") sob a célula Tempo.
@@ -280,7 +355,11 @@ class PlanilhaImportService {
 
       registros.add(
         RegistroHora(
-          id: 'xlsx-registro-$i-${data.toIso8601String().substring(0, 10)}',
+          id: _idDeConteudo('registro', data, [
+            materia.id,
+            topico?.id ?? '',
+            tarefa,
+          ], ocorrencias),
           data: data,
           materiaId: materia.id,
           topicoId: topico?.id,
@@ -307,6 +386,7 @@ class PlanilhaImportService {
     materiaDe,
   ) {
     final c = cabecalho.colunas;
+    final ocorrencias = <String, int>{};
     for (var i = cabecalho.linha + 1; i < linhas.length; i++) {
       final linha = linhas[i];
       if (linha.every((celula) => celula.trim().isEmpty)) continue;
@@ -336,10 +416,11 @@ class PlanilhaImportService {
           status == 'ok' ||
           status == 'sim';
 
+      final materiaId = materiaDe(nomeMateria).id;
       revisoes.add(
         Revisao(
-          id: 'xlsx-revisao-$i-${data.toIso8601String().substring(0, 10)}',
-          materiaId: materiaDe(nomeMateria).id,
+          id: _idDeConteudo('revisao', data, [materiaId, titulo], ocorrencias),
+          materiaId: materiaId,
           titulo: titulo,
           dataAgendada: data,
           intervaloDias: _parseNumero(celula('intervalo'))?.round() ?? 0,

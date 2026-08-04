@@ -340,4 +340,181 @@ void main() {
       );
     });
   });
+
+  /// D-02 — identidade das linhas importadas.
+  ///
+  /// Até 08/2026 o id de registro e revisão embutia o ÍNDICE DA LINHA. O
+  /// teste que existia ("re-importar gera os MESMOS ids") reimportava o
+  /// arquivo byte a byte idêntico, então nunca tocou no furo: bastava
+  /// inserir uma sessão nova no topo, apagar uma linha ou clicar em
+  /// "Classificar" no Excel para todos os ids abaixo mudarem e o `mesclar`
+  /// (upsert por id) regravar a coleção inteira. Duas sessões viravam quatro.
+  ///
+  /// As abas vão montadas à mão, sem passar por um .xlsx: o que está sob
+  /// teste é a identidade das LINHAS, e um fixture de zip+XML por variação
+  /// esconderia qual linha mudou. `XlsxReader` tem suíte própria acima.
+  group('PlanilhaImportService — id por conteúdo (D-02)', () {
+    const cabRegistro = ['Data', 'Matéria', 'Horas', 'Minutos', 'Tarefa'];
+    const cabRevisao = [
+      'Data',
+      'Matéria',
+      'O que revisar',
+      'Intervalo',
+      'Status',
+    ];
+
+    const sessaoA = ['09/07/2026', 'Português', '1', '30', 'Crase'];
+    const sessaoB = ['08/07/2026', 'Direito', '0', '45', ''];
+    const sessaoNova = ['10/07/2026', 'Português', '2', '0', 'Regência'];
+
+    const revisaoA = ['16/07/2026', 'Português', 'Crase', '7', 'Feita'];
+    const revisaoB = ['20/07/2026', 'Português', 'Controle', '7', ''];
+
+    List<String> idsRegistro(List<List<String>> linhas) =>
+        PlanilhaImportService.parse(
+          {
+            'Registro de Horas': [cabRegistro, ...linhas],
+          },
+          materiasExistentes: [materiaPortugues()],
+        ).registros.map((r) => r.id).toList();
+
+    List<String> idsRevisao(List<List<String>> linhas) =>
+        PlanilhaImportService.parse(
+          {
+            'Revisões': [cabRevisao, ...linhas],
+          },
+          materiasExistentes: [materiaPortugues()],
+        ).revisoes.map((r) => r.id).toList();
+
+    test('reordenar a planilha não muda nenhum id', () {
+      // Um clique em "Classificar" no Excel bastava para zerar a interseção.
+      expect(
+        idsRegistro([sessaoA, sessaoB]).toSet(),
+        idsRegistro([sessaoB, sessaoA]).toSet(),
+      );
+      expect(
+        idsRevisao([revisaoA, revisaoB]).toSet(),
+        idsRevisao([revisaoB, revisaoA]).toSet(),
+      );
+    });
+
+    test('inserir sessão no topo cria id só para ela', () {
+      final antes = idsRegistro([sessaoA, sessaoB]).toSet();
+      final depois = idsRegistro([sessaoNova, sessaoA, sessaoB]).toSet();
+      expect(depois, containsAll(antes));
+      expect(depois.difference(antes), hasLength(1));
+    });
+
+    test('apagar uma linha não mexe no id das outras', () {
+      expect(idsRegistro([sessaoA]).first, idsRegistro([sessaoA, sessaoB])[0]);
+    });
+
+    test('duas linhas idênticas continuam sendo dois registros', () {
+      // Dois blocos de 30min da mesma tarefa no mesmo dia são duas sessões.
+      // Sem o contador de ocorrências, a chave de conteúdo as fundiria numa.
+      final ids = idsRegistro([sessaoA, sessaoA]);
+      expect(ids, hasLength(2));
+      expect(ids.toSet(), hasLength(2));
+      // E o par é estável entre imports.
+      expect(idsRegistro([sessaoA, sessaoA]), ids);
+    });
+
+    test('corrigir o tempo na planilha atualiza o registro, não duplica', () {
+      // Minutos/páginas/comentário são ATRIBUTOS da sessão, fora da chave.
+      expect(
+        idsRegistro([
+          ['09/07/2026', 'Português', '1', '30', 'Crase'],
+        ]).first,
+        idsRegistro([
+          ['09/07/2026', 'Português', '0', '45', 'Crase'],
+        ]).first,
+      );
+    });
+
+    test('linha nova na MESMA data não sequestra o id da antiga', () {
+      // O pior caso do esquema antigo não era duplicar, era SOBRESCREVER:
+      // a linha nova herdava `xlsx-registro-1-<data>` e a sessão original
+      // sumia em silêncio.
+      final original = idsRegistro([sessaoA]).first;
+      final depois = idsRegistro([
+        ['09/07/2026', 'Português', '2', '0', 'Regência'],
+        sessaoA,
+      ]);
+      expect(depois.last, original);
+      expect(depois.first, isNot(original));
+    });
+
+    test('idDeEsquemaAntigo separa os dois esquemas sem ambiguidade', () {
+      expect(
+        PlanilhaImportService.idDeEsquemaAntigo('xlsx-registro-1-2026-07-09'),
+        isTrue,
+      );
+      expect(
+        PlanilhaImportService.idDeEsquemaAntigo('xlsx-revisao-12-2026-07-16'),
+        isTrue,
+      );
+      // O novo começa pela data e SEGUE com hash e contador: o `$` do regex
+      // não fecha.
+      expect(
+        PlanilhaImportService.idDeEsquemaAntigo(idsRegistro([sessaoA]).first),
+        isFalse,
+      );
+      expect(
+        PlanilhaImportService.idDeEsquemaAntigo(idsRevisao([revisaoA]).first),
+        isFalse,
+      );
+      // Registro criado à mão no app não pode ser varrido pela limpeza.
+      expect(
+        PlanilhaImportService.idDeEsquemaAntigo(
+          '550e8400-e29b-41d4-a716-446655440000',
+        ),
+        isFalse,
+      );
+    });
+
+    test('o hash é o mesmo na VM e no web', () {
+      // Pino de regressão. O FNV-1a roda em BigInt porque no web `int` é
+      // double de 53 bits: a versão com `int` nativo nem compila
+      // (`dart compile js` rejeita a máscara 0xFFFFFFFFFFFFFFFF) e, reduzida
+      // para caber, daria ids diferentes por plataforma — o mesmo defeito de
+      // identidade, reencarnado. Os literais abaixo foram conferidos com
+      // `dart compile js` + node: idênticos byte a byte.
+      expect(
+        idsRegistro([sessaoA]).first,
+        'xlsx-registro-2026-07-09-d6054c927e382ae3-0',
+      );
+      expect(
+        idsRevisao([revisaoA]).first,
+        'xlsx-revisao-2026-07-16-7f432e5b2077a323-0',
+      );
+      expect(idsRegistro([sessaoA, sessaoA]), [
+        'xlsx-registro-2026-07-09-d6054c927e382ae3-0',
+        'xlsx-registro-2026-07-09-d6054c927e382ae3-1',
+      ]);
+    });
+
+    test('o cenário que gerava duplicata agora fecha em 3 registros', () {
+      // Reprodução literal do furo: importa 2 sessões, o usuário estuda mais
+      // uma, a planilha (ordenada por data desc) recebe a nova no topo e é
+      // reimportada. Antes: 5 registros, 390 min para 255 min reais.
+      final estado = <String, int>{};
+      for (final linhas in [
+        [sessaoA, sessaoB],
+        [sessaoNova, sessaoA, sessaoB],
+      ]) {
+        final resultado = PlanilhaImportService.parse(
+          {
+            'Registro de Horas': [cabRegistro, ...linhas],
+          },
+          materiasExistentes: [materiaPortugues()],
+        );
+        // Espelha o upsert por id de `_HiveRepositorio.mesclar`.
+        for (final r in resultado.registros) {
+          estado[r.id] = r.minutos;
+        }
+      }
+      expect(estado, hasLength(3));
+      expect(estado.values.fold(0, (a, b) => a + b), 90 + 45 + 120);
+    });
+  });
 }
