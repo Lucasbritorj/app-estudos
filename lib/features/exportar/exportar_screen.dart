@@ -152,6 +152,11 @@ class ExportarScreen extends ConsumerWidget {
                   metaSemanalMinutos: ref
                       .read(configuracoesProvider)
                       .metaSemanalMinutos,
+                  // Inclui as excluídas (tombstone): sem isso a sessão de
+                  // matéria excluída saía sem nome nem peso — ver D-03.
+                  materiasHistoricas: ref
+                      .read(materiasProvider.notifier)
+                      .historicas(),
                 );
                 _compartilharTexto(
                   context,
@@ -175,6 +180,11 @@ class ExportarScreen extends ConsumerWidget {
                     materias: ref.read(materiasProvider),
                     topicos: ref.read(topicosProvider),
                     ambientes: ref.read(ambientesProvider),
+                    // Dá nome, peso e ambiente reais às linhas sintéticas de
+                    // dim_materia — ver D-03.
+                    materiasHistoricas: ref
+                        .read(materiasProvider.notifier)
+                        .historicas(),
                   ),
                 );
                 _compartilharBytes(

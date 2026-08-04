@@ -211,6 +211,31 @@ class MateriasRepositorio extends _HiveRepositorio<Materia> {
     }
     return pesos;
   }
+
+  /// Matérias INCLUINDO as excluídas (tombstone), por id.
+  ///
+  /// Mesma leitura de box de [pesosHistoricos], para o export de BI: a
+  /// cascata preserva os registros de horas, então o modelo estrela tinha de
+  /// inventar uma linha de dimensão sintética — rotulada igual para TODAS as
+  /// matérias excluídas, o que fundia duas matérias distintas numa barra só
+  /// em qualquer gráfico por nome. O tombstone guarda nome, peso, ambiente e
+  /// intimidade intactos; o export só precisava enxergá-lo.
+  ///
+  /// Deliberadamente NÃO reescrito como base de [pesosHistoricos]: aquele
+  /// método alimenta o XP, e a economia de meia dúzia de linhas não paga o
+  /// risco de mexer no caminho da gamificação.
+  Map<String, Materia> historicas() {
+    final materias = <String, Materia>{};
+    for (final raw in _box.values) {
+      try {
+        final m = Materia.fromJson(Map<String, dynamic>.from(raw));
+        materias[m.id] = m;
+      } catch (_) {
+        // Registro corrompido já é ignorado na leitura da coleção.
+      }
+    }
+    return materias;
+  }
 }
 
 class TopicosRepositorio extends _HiveRepositorio<Topico> {

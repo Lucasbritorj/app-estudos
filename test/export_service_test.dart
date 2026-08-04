@@ -98,7 +98,8 @@ void main() {
       expect(linhas.first,
           'data,semana_inicio,materia,peso_materia,topico,tarefa,minutos,horas,'
           'pagina_inicial,pagina_final,paginas_lidas,paginas_por_hora,'
-          'questoes,acertos,taxa_acerto,meta_semanal_minutos,comentario');
+          'questoes,acertos,taxa_acerto,meta_semanal_minutos,comentario,'
+          'materia_excluida');
       final dados = linhas[1];
       expect(dados, startsWith('2026-07-09,2026-07-06,AFO,1,')); // ISO + segunda
       expect(dados, contains('"Aula, com vírgula"')); // vírgula escapada
@@ -123,6 +124,78 @@ void main() {
       final dados = csv.trim().split('\r\n')[1];
       // pagina_inicial..taxa_acerto vazios (8 vírgulas seguidas).
       expect(dados, contains(',60,1.0000,,,,,,,,1800,'));
+    });
+
+    /// D-03 — sessão de matéria excluída no flat.
+    ///
+    /// O flat não carrega `materia_id`: sem nome, duas matérias excluídas
+    /// diferentes viravam o MESMO balde em branco, e `peso_materia` vazio
+    /// tirava aqueles minutos de qualquer medida ponderada. O tombstone
+    /// (`MateriasRepositorio.historicas()`) resolve os dois.
+    group('D-03 — matéria excluída', () {
+      final excluida = Materia(
+        id: 'm-morta',
+        nome: 'Direito Constitucional',
+        corSlot: 1,
+        peso: 5,
+        criadaEm: DateTime(2026),
+      ).comExclusao(DateTime(2026, 8, 1));
+
+      // Datas distintas: `List.sort` não promete estabilidade.
+      RegistroHora sessao(String id, String materiaId, int dia) => RegistroHora(
+        id: id,
+        data: DateTime(2026, 7, dia),
+        materiaId: materiaId,
+        minutos: 60,
+      );
+      final registros = [
+        sessao('viva', 'm1', 9),
+        sessao('morta', 'm-morta', 10),
+        sessao('fantasma', 'm-sem-tombstone', 11),
+      ];
+
+      List<String> linhas({bool comHistorico = true}) => ExportService.csvBi(
+        registros,
+        materias,
+        {},
+        metaSemanalMinutos: 1800,
+        materiasHistoricas: comHistorico ? {excluida.id: excluida} : const {},
+      ).trim().split('\r\n').skip(1).toList();
+
+      test('nome e peso vêm do tombstone; materia_excluida marca a linha', () {
+        final l = linhas();
+        expect(l[0], startsWith('2026-07-09,2026-07-06,AFO,1,'));
+        expect(l[0], endsWith(',false'));
+        const esperado = '2026-07-10,2026-07-06,Direito Constitucional,5,';
+        expect(l[1], startsWith(esperado));
+        expect(l[1], endsWith(',true'));
+      });
+
+      test('sem tombstone a linha fica anônima, mas ainda marcada', () {
+        final l = linhas();
+        expect(l[2], startsWith('2026-07-11,2026-07-06,,,'));
+        expect(l[2], endsWith(',true'));
+      });
+
+      test('materia_excluida é a ÚLTIMA coluna', () {
+        // UAT-G9 lê linha[7] e linha[14]; inserir no meio quebraria.
+        final csv = ExportService.csvBi(
+          const [],
+          materias,
+          const {},
+          metaSemanalMinutos: 0,
+        );
+        final cabecalho = csv.split('\r\n').first.split(',');
+        expect(cabecalho.last, 'materia_excluida');
+        expect(cabecalho[7], 'horas');
+        expect(cabecalho[14], 'taxa_acerto');
+      });
+
+      test('sem materiasHistoricas o comportamento antigo é preservado', () {
+        final l = linhas(comHistorico: false);
+        expect(l[1], startsWith('2026-07-10,2026-07-06,,,'));
+        expect(l[1], endsWith(',true'));
+      });
     });
   });
 }

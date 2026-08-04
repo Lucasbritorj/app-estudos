@@ -25,8 +25,14 @@ class ExportService {
 
   /// Rótulos das linhas sintéticas de dimensão criadas para chaves que só
   /// existem no fato (entidade excluída com histórico preservado).
+  ///
+  /// [nomeMateriaExcluida] é o ÚLTIMO recurso: quando `materiasHistoricas`
+  /// traz o tombstone, o nome real é usado. Sem isso, N matérias excluídas
+  /// viravam N linhas com o mesmo rótulo — ids distintos, nome idêntico —, e
+  /// um gráfico agrupado por nome fundia todas numa barra só.
   static const nomeMateriaExcluida = '(matéria excluída)';
   static const nomeTopicoExcluido = '(tópico excluído)';
+  static const nomeAmbienteExcluido = '(ambiente excluído)';
 
   /// CSV com separador ';' e decimal com vírgula (convenção Excel pt-BR).
   static String csvRegistros(
@@ -62,20 +68,30 @@ class ExportService {
   /// CSV "flat" para BI (Power BI/ThoughtSpot): 1 linha por sessão, união de
   /// horas + questões + metas. Separador ',', decimal com PONTO, datas ISO
   /// YYYY-MM-DD, colunas snake_case — injeta direto sem transformação.
+  ///
+  /// [materiasHistoricas] inclui as excluídas (tombstone). Sem ela, sessão de
+  /// matéria excluída saía com `materia` e `peso_materia` VAZIOS — e como o
+  /// flat não carrega `materia_id`, duas matérias excluídas diferentes viravam
+  /// o mesmo balde em branco e qualquer medida ponderada perdia aqueles
+  /// minutos. `materia_excluida` diz qual linha veio de matéria que não existe
+  /// mais, para o filtro do BI.
   static String csvBi(
     List<RegistroHora> registros,
     Map<String, Materia> materias,
     Map<String, Topico> topicos, {
     required int metaSemanalMinutos,
+    Map<String, Materia> materiasHistoricas = const {},
   }) {
     final buffer = StringBuffer(
       'data,semana_inicio,materia,peso_materia,topico,tarefa,minutos,horas,'
       'pagina_inicial,pagina_final,paginas_lidas,paginas_por_hora,'
-      'questoes,acertos,taxa_acerto,meta_semanal_minutos,comentario\r\n',
+      'questoes,acertos,taxa_acerto,meta_semanal_minutos,comentario,'
+      'materia_excluida\r\n',
     );
     final ordenados = [...registros]..sort((a, b) => a.data.compareTo(b.data));
     for (final r in ordenados) {
-      final materia = materias[r.materiaId];
+      final viva = materias[r.materiaId];
+      final materia = viva ?? materiasHistoricas[r.materiaId];
       buffer.write(
         [
           _iso(r.data),
@@ -95,6 +111,9 @@ class ExportService {
           r.taxaAcerto?.toStringAsFixed(4) ?? '',
           '$metaSemanalMinutos',
           _campoBi(r.comentario ?? ''),
+          // Coluna no FIM de propósito: `UAT-G9` e `export_service_test` leem
+          // campos por POSIÇÃO, então inserir no meio quebraria a leitura.
+          '${viva == null}',
         ].join(','),
       );
       buffer.write('\r\n');
@@ -107,11 +126,16 @@ class ExportService {
   /// conteúdo CSV (separador ',', decimal ponto, datas ISO, snake_case).
   /// A dim_data cobre do primeiro ao último registro — relacionamento
   /// 1:* pronto, sem CALENDARAUTO.
+  ///
+  /// [materiasHistoricas] inclui as excluídas (tombstone) e é o que dá nome,
+  /// peso e ambiente REAIS às linhas sintéticas de [dimMateria]. Sem ela o
+  /// modelo continua íntegro, só que anônimo.
   static Map<String, String> modeloEstrela({
     required List<RegistroHora> registros,
     required List<Materia> materias,
     required List<Topico> topicos,
     required List<Ambiente> ambientes,
+    Map<String, Materia> materiasHistoricas = const {},
   }) {
     final fato = StringBuffer(
       'registro_id,data,materia_id,topico_id,aula_id,tipo,minutos,horas,'
@@ -142,11 +166,17 @@ class ExportService {
       fato.write('\r\n');
     }
 
+    // `excluida` fica no FIM e é coluna própria porque `arquivada` não podia
+    // acumular os dois sentidos: arquivar é estado legítimo de matéria viva,
+    // excluir é outra coisa. A linha sintética marcava `arquivada=true` e
+    // misturava as duas leituras em qualquer filtro do BI.
     final dimMateria = StringBuffer(
       'materia_id,nome,ambiente_id,peso,intimidade,questoes_prova,minimo,'
-      'arquivada\r\n',
+      'arquivada,excluida\r\n',
     );
-    for (final m in materias) {
+    final ambientesReferenciados = <String>{};
+    void linhaMateria(Materia m, {required bool excluida}) {
+      ambientesReferenciados.add(m.ambienteId);
       dimMateria.write(
         [
           m.id,
@@ -157,18 +187,33 @@ class ExportService {
           m.questoes?.toString() ?? '',
           m.minimo?.toString() ?? '',
           '${m.arquivada}',
+          '$excluida',
         ].join(','),
       );
       dimMateria.write('\r\n');
+    }
+
+    for (final m in materias) {
+      linhaMateria(m, excluida: false);
     }
     // Chave do fato sem linha na dimensão = relacionamento quebrado no Power
     // BI (linha em branco, medida que não soma por matéria). Acontece sempre
     // que uma matéria é excluída: a cascata preserva os registros de propósito
     // (log histórico), mas a matéria some. Uma linha sintética por chave órfã
     // mantém a integridade referencial do modelo estrela.
+    //
+    // Com o tombstone em mãos ([materiasHistoricas]) a linha sai com nome,
+    // peso, ambiente e intimidade REAIS. O rótulo genérico só entra quando o
+    // tombstone não veio — aí duas matérias excluídas realmente são
+    // indistinguíveis, e o `materia_id` continua sendo a única chave.
     final idsMateria = {for (final m in materias) m.id};
     for (final id in ordenados.map((r) => r.materiaId).toSet()) {
       if (idsMateria.contains(id)) continue;
+      final tombstone = materiasHistoricas[id];
+      if (tombstone != null) {
+        linhaMateria(tombstone, excluida: true);
+        continue;
+      }
       dimMateria.write(
         [
           id,
@@ -176,6 +221,7 @@ class ExportService {
           '', // ambiente desconhecido: a matéria não existe mais
           '', '', '', '', // peso/intimidade/questões/mínimo: sem dado
           'true', // fora dos filtros de matéria ativa
+          'true',
         ].join(','),
       );
       dimMateria.write('\r\n');
@@ -207,6 +253,21 @@ class ExportService {
           a.dataProva == null ? '' : _iso(a.dataProva!),
         ].join(','),
       );
+      dimAmbiente.write('\r\n');
+    }
+    // Mesmo tratamento de chave órfã que matéria e tópico recebem, um nível
+    // acima: `dim_materia.ambiente_id` -> `dim_ambiente`. A UI impede excluir
+    // ambiente que ainda tem matéria (`ambientes_screen.dart`), mas um backup
+    // importado pode trazer a referência pendurada — e o tombstone de uma
+    // matéria pode apontar para ambiente que sumiu depois dela.
+    //
+    // `ambiente_id` vazio fica FORA: só aparece na linha sintética sem
+    // tombstone, onde o ambiente é de fato desconhecido. Uma linha de
+    // dimensão com chave vazia seria pior que a ausência.
+    final idsAmbiente = {for (final a in ambientes) a.id};
+    for (final id in ambientesReferenciados) {
+      if (id.isEmpty || idsAmbiente.contains(id)) continue;
+      dimAmbiente.write([id, _campoBi(nomeAmbienteExcluido), ''].join(','));
       dimAmbiente.write('\r\n');
     }
 
