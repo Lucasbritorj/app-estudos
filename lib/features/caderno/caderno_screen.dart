@@ -79,6 +79,9 @@ class _CadernoScreenState extends ConsumerState<CadernoScreen>
               ),
       ),
       floatingActionButton: FloatingActionButton(
+        // Tela empilhada sobre o shell — ver o porquê em
+        // dashboard_screen.dart.
+        heroTag: 'fab-caderno',
         tooltip: 'Nova questão errada',
         onPressed: _novaQuestao,
         child: const Icon(Icons.add),

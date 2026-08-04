@@ -136,6 +136,9 @@ class AulasScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Aulas — ${materia.nome}')),
       floatingActionButton: FloatingActionButton(
+        // Empilhada sobre Matérias/Tópicos, que também têm FAB — ver o porquê
+        // em dashboard_screen.dart.
+        heroTag: 'fab-aulas',
         onPressed: () => _dialogoAula(context, ref),
         child: const Icon(Icons.add),
       ),

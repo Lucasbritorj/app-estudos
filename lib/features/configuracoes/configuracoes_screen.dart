@@ -5,6 +5,7 @@ import '../../app.dart';
 import '../../application/apagar_dados_use_case.dart';
 import '../../core/notificacoes/notificacoes_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../data/repositories/configuracoes_repositorio.dart';
 
 class ConfiguracoesScreen extends ConsumerStatefulWidget {
@@ -45,11 +46,15 @@ class _ConfiguracoesScreenState extends ConsumerState<ConfiguracoesScreen> {
   }
 
   /// 1800 -> "30" · 1830 -> "30,5" (horas com vírgula, convenção pt-BR).
+  ///
+  /// A troca de ponto por vírgula era uma cópia de `formatarDecimal`; o que
+  /// é próprio daqui é só o caso inteiro, que sai sem casa decimal ("30", não
+  /// "30,0") porque é o valor que volta editável para o campo de texto.
   static String _formatarHoras(int minutos) {
     final horas = minutos / 60.0;
     return horas == horas.roundToDouble()
         ? horas.round().toString()
-        : horas.toStringAsFixed(1).replaceAll('.', ',');
+        : formatarDecimal(horas);
   }
 
   /// "30" ou "22,5" -> minutos; null quando inválido ou <= 0.

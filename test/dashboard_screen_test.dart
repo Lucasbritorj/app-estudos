@@ -4,7 +4,6 @@ import 'package:app_estudos/data/local/hive_boxes.dart';
 import 'package:app_estudos/data/models/materia.dart';
 import 'package:app_estudos/data/models/registro_hora.dart';
 import 'package:app_estudos/features/dashboard/dashboard_screen.dart';
-import 'package:app_estudos/features/dashboard/widgets/card_melhorar_hoje.dart';
 import 'package:app_estudos/features/dashboard/widgets/tiles_resumo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,14 +67,16 @@ void main() {
     // dia dos últimos 14, a régua de constância crava o veredito crítico —
     // determinístico, então dá para afirmar o título exato.
     expect(find.text('Fora do ritmo — e a conta chegou'), findsOneWidget);
-    // "O que melhorar hoje" agora nasce fora da viewport (a grade é lazy):
-    // rola até ele em vez de afrouxar a asserção.
+    // "O que melhorar hoje" virou seção do card unificado "Plano de hoje",
+    // no sliver de topo — mas o card é alto (missão + quests + insights) e a
+    // seção continua podendo nascer fora da viewport. O scroll segue valendo.
     await tester.scrollUntilVisible(
       find.text('O que melhorar hoje'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('O que melhorar hoje'), findsOneWidget);
+    expect(find.text('PLANO DE HOJE'), findsOneWidget);
     expect(find.text('Seu dashboard nasce do primeiro registro'), findsNothing);
   });
 
@@ -104,11 +105,12 @@ void main() {
     await montar(tester);
 
     // pumpAndSettle já teria estourado com exceção de layout; reforço achando
-    // cards que agora vivem DENTRO da grade (não mais no topo full-width).
+    // cards que vivem DENTRO da grade. "O que melhorar hoje" saiu daqui: virou
+    // seção do card unificado, no topo em largura total.
     expect(tester.takeException(), isNull);
-    expect(find.text('O que melhorar hoje'), findsOneWidget);
     expect(find.text('Evolução — últimos 14 dias'), findsOneWidget);
     expect(find.text('Distribuição total por matéria'), findsOneWidget);
+    expect(find.text('Horas da semana por matéria'), findsOneWidget);
   });
 
   testWidgets(
@@ -135,13 +137,22 @@ void main() {
     await montar(tester);
 
     expect(find.byType(TilesResumo), findsOneWidget);
-    expect(find.byType(CardMelhorarHoje), findsOneWidget);
-    // CardMelhorarHoje é o primeiro item da SliverMasonryGrid: se TilesResumo
-    // está ACIMA dele (dy menor), então saiu do rodapé da grade e está no
-    // sliver de topo, como pedido.
+    // Âncora da grade: `CardMelhorarHoje` era o primeiro item e sumiu na fusão
+    // do "Plano de hoje". O gráfico de horas da semana serve melhor como
+    // referência — é o único card da grade que renderiza sem condição de
+    // conteúdo, então não some por causa da massa de teste.
+    final cardDaGrade = find.text('Horas da semana por matéria');
+    expect(cardDaGrade, findsOneWidget);
+    // Se TilesResumo está ACIMA dele (dy menor), então saiu do rodapé da grade
+    // e está no sliver de topo, como pedido.
     final yTiles = tester.getTopLeft(find.byType(TilesResumo)).dy;
-    final yPrimeiroCardDaGrade =
-        tester.getTopLeft(find.byType(CardMelhorarHoje)).dy;
+    final yPrimeiroCardDaGrade = tester.getTopLeft(cardDaGrade).dy;
     expect(yTiles, lessThan(yPrimeiroCardDaGrade));
+
+    // O card unificado fica ACIMA dos tiles: ação antes de estatística.
+    expect(
+      tester.getTopLeft(find.text('PLANO DE HOJE')).dy,
+      lessThan(yTiles),
+    );
   });
 }

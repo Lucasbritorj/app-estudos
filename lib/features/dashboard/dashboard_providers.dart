@@ -182,6 +182,26 @@ final forecastRevisaoProvider =
   );
 });
 
+/// Revisões que dá para FECHAR hoje: pendentes com data agendada até hoje —
+/// atrasadas incluídas, porque são justamente as que mais pesam. Ordenadas da
+/// mais antiga para a mais recente: a atrasada há mais tempo é a que mais
+/// perdeu retenção, então aparece primeiro.
+///
+/// Lista completa de propósito (sem teto): o card decide quantas desenhar, mas
+/// a contagem que ele exibe precisa ser a real — "3 de 17" é informação,
+/// "3 de 3" seria mentira.
+final revisoesDeHojeProvider = Provider<List<Revisao>>((ref) {
+  final hoje = ref.watch(hojeProvider);
+  return ref
+      .watch(revisoesDoAmbienteProvider)
+      .where(
+        (r) =>
+            !r.feita && !StatsService.dataSemHora(r.dataAgendada).isAfter(hoje),
+      )
+      .toList()
+    ..sort((a, b) => a.dataAgendada.compareTo(b.dataAgendada));
+});
+
 typedef Rankings = ({
   ({String materiaId, int minutos})? maisEstudada,
   List<({String materiaId, int questoes, int acertos, double taxa})> ranking,

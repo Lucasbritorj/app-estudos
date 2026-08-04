@@ -96,7 +96,14 @@ class ExportarScreen extends ConsumerWidget {
                       : r.tarefa,
                   '${r.minutos}',
                   r.paginasLidas?.toString() ?? '',
-                  r.paginasPorHora?.toStringAsFixed(1) ?? '',
+                  // Último decimal do app que ainda saía com PONTO. É um PDF
+                  // em pt-BR — a coluna ao lado já usa `formatarData` no
+                  // padrão dd/MM/yyyy —, então "3.5 pág/h" destoava do resto
+                  // do documento. Diferente do CSV do modelo estrela, que
+                  // mantém ponto de propósito por ser formato de máquina.
+                  r.paginasPorHora == null
+                      ? ''
+                      : formatarDecimal(r.paginasPorHora!),
                 ],
             ],
           ),

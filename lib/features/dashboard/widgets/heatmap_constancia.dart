@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/stats_service.dart' show StatsService;
 import '../dashboard_providers.dart';
 
 /// Heatmap de constância estilo calendário de contribuições: colunas =
@@ -14,9 +15,17 @@ class CardHeatmapConstancia extends ConsumerWidget {
   const CardHeatmapConstancia({super.key});
 
   /// Nível sequencial 0-4 por carga do dia. Faixas fixas e documentadas:
-  /// 0 = sem estudo, 1 = <30min, 2 = <1h, 3 = <2h, 4 = 2h+.
+  /// 0 = sem estudo real (< piso), 1 = <30min, 2 = <1h, 3 = <2h, 4 = 2h+.
+  ///
+  /// M-08 — o corte do nível 0 é o MESMO piso do streak
+  /// ([StatsService.pisoMinutosStreak]), não `> 0`. Antes, um dia de 5 min
+  /// acendia o quadradinho enquanto a chama zerava logo acima, no mesmo
+  /// scroll: o card se chama "Constância" e precisa contar constância pela
+  /// régua que o app usa para constância. Os minutos abaixo do piso não somem
+  /// — seguem no total e no rótulo de acessibilidade, só não pintam o dia
+  /// como cumprido.
   static int nivelPara(int minutos) {
-    if (minutos <= 0) return 0;
+    if (minutos < StatsService.pisoMinutosStreak) return 0;
     if (minutos < 30) return 1;
     if (minutos < 60) return 2;
     if (minutos < 120) return 3;
@@ -57,8 +66,13 @@ class CardHeatmapConstancia extends ConsumerWidget {
             var diasEstudados = 0;
             for (final e in dados.minutosPorDia.entries) {
               if (!e.key.isBefore(inicio)) {
+                // Total soma TUDO (minuto estudado é minuto estudado), mas a
+                // contagem de dias usa o piso — senão o rótulo dizia "12 dias
+                // de estudo" com a chama em 4. Mesma régua do nivelPara.
                 total += e.value;
-                diasEstudados++;
+                if (e.value >= StatsService.pisoMinutosStreak) {
+                  diasEstudados++;
+                }
               }
             }
             final protegidos = dados.diasCongelados

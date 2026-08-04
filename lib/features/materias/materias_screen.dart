@@ -40,6 +40,9 @@ class MateriasScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        // Aba viva no IndexedStack do shell — ver o porquê em
+        // dashboard_screen.dart.
+        heroTag: 'fab-materias',
         tooltip: 'Nova matéria',
         onPressed: () => mostrarDialogoMateria(context, ref),
         child: const Icon(Icons.add),

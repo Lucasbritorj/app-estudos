@@ -22,18 +22,17 @@ import 'widgets/card_desempenho.dart';
 import 'widgets/card_edital.dart';
 import 'widgets/card_diagnostico.dart';
 import 'widgets/card_gamificacao.dart';
-import 'widgets/card_melhorar_hoje.dart';
-import 'widgets/card_plano.dart';
+import 'widgets/card_plano_de_hoje.dart';
+import 'widgets/card_planejado_vs_feito.dart';
 import 'widgets/card_prontidao.dart';
-import 'widgets/card_quests.dart';
 import 'widgets/card_forecast_revisao.dart';
 import 'widgets/card_rankings.dart';
+import 'widgets/card_revisoes_hoje.dart';
 import 'widgets/card_true_retention.dart';
 import 'widgets/heatmap_constancia.dart';
 import 'widgets/card_simulados.dart';
 import 'widgets/graficos.dart';
 import 'widgets/hero_geral.dart';
-import 'widgets/hero_missao_hoje.dart';
 import 'widgets/tiles_resumo.dart';
 
 /// Tela-índice do dashboard: só composição e layout — cada card mora em
@@ -74,6 +73,15 @@ class DashboardScreen extends ConsumerWidget {
         excludeSemantics: true,
         onTap: () => mostrarFormularioRegistro(context),
         child: FloatingActionButton(
+          // Todo FAB sem `heroTag` compartilha a MESMA tag padrão. O
+          // `IndexedStack` do shell (app.dart:95) constrói as 5 abas de uma
+          // vez, então os FABs de Dashboard, Matérias e Revisões coexistem na
+          // árvore o tempo todo. Na primeira transição de rota o Hero tenta
+          // parear três origens para um destino e dispara "multiple heroes
+          // that share the same tag" — assert de debug, comportamento
+          // indefinido em release. Convenção: 'fab-<tela>', literal estável,
+          // nunca derivado de dado em runtime.
+          heroTag: 'fab-dashboard',
           tooltip: 'Registro manual',
           onPressed: () => mostrarFormularioRegistro(context),
           child: const Icon(Icons.add),
@@ -102,15 +110,20 @@ class DashboardScreen extends ConsumerWidget {
                   // masonry (slot de altura zero deslocando o balanço), então
                   // entram na lista SÓ quando têm conteúdo — decidido AQUI via
                   // providers.
-                  final temMissao =
-                      ref.watch(sugestaoHojeProvider) != null;
+                  // "Plano de hoje" funde missão + quests + o que melhorar:
+                  // aparece quando QUALQUER uma das três tem conteúdo, e o
+                  // card decide internamente quais seções desenhar.
+                  final temPlanoDeHoje =
+                      ref.watch(sugestaoHojeProvider) != null ||
+                      ref.watch(questsDoDiaProvider).isNotEmpty ||
+                      ref.watch(insightsProvider).isNotEmpty;
                   final alertas = ref.watch(alertasProvider);
                   final temAlertas = alertas.atrasadasPorMateria.isNotEmpty ||
                       alertas.falsoDominio.isNotEmpty;
                   final temProntidao =
                       ref.watch(prontidaoProvider) != null;
-                  final temQuests =
-                      ref.watch(questsDoDiaProvider).isNotEmpty;
+                  final temRevisoesHoje =
+                      ref.watch(revisoesDeHojeProvider).isNotEmpty;
                   final temDesempenho =
                       ref.watch(desempenhoPorMateriaProvider).isNotEmpty;
                   final temRetencao =
@@ -128,10 +141,11 @@ class DashboardScreen extends ConsumerWidget {
                   // ordem só para decidir quem entra primeiro; a ALTURA ela
                   // equilibra sozinha.
                   final cards = <Widget>[
-                    const CardMelhorarHoje(),
+                    // Ação pura primeiro: fechar revisão vencida é a coisa
+                    // mais útil que o usuário faz a partir daqui.
+                    if (temRevisoesHoje) const CardRevisoesHoje(),
                     if (temProntidao) const CardProntidao(),
-                    if (temQuests) const CardQuests(),
-                    const CardPlano(),
+                    const CardPlanejadoVsFeito(),
                     if (temDesempenho) const CardDesempenho(),
                     const CardEdital(),
                     const CardGrafico(
@@ -195,7 +209,10 @@ class DashboardScreen extends ConsumerWidget {
                               ),
                               // Próximo passo primeiro: "o que estudar agora"
                               // antes de qualquer estatística. Tem vão próprio.
-                              if (temMissao) const HeroMissaoHoje(),
+                              // Fica em largura total, fora da masonry, porque
+                              // é o elemento da regra dos 3 segundos — enfiado
+                              // na grade, "Estudar agora" viraria mais um card.
+                              if (temPlanoDeHoje) const CardPlanoDeHoje(),
                               // Geralzão: faixa de KPIs, tudo de relance.
                               const HeroGeral(),
                               // Tiles complementares (mês/ano/ontem/média/

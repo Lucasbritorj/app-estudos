@@ -9,8 +9,8 @@ import '../dashboard_providers.dart';
 /// Planejado vs feito vs restante em semana, mês e ano (aba "Visão Geral").
 /// Planejado vem do cronograma por dia da semana; sem cronograma, cai na
 /// meta semanal das configurações (30h padrão) escalada pelo período.
-class CardPlano extends ConsumerWidget {
-  const CardPlano({super.key});
+class CardPlanejadoVsFeito extends ConsumerWidget {
+  const CardPlanejadoVsFeito({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,7 +35,7 @@ class CardPlano extends ConsumerWidget {
               Row(
                 children: [
                   Text(
-                    'Plano de estudo',
+                    'Planejado vs feito',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: VizColors.inkSecondary,
                     ),

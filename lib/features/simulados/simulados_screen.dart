@@ -53,6 +53,9 @@ class SimuladosScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Simulados & Provas')),
       floatingActionButton: FloatingActionButton(
+        // Tela empilhada sobre o shell — ver o porquê em
+        // dashboard_screen.dart.
+        heroTag: 'fab-simulados',
         tooltip: 'Novo simulado ou prova',
         onPressed: () => Navigator.push(
           context,

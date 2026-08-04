@@ -273,6 +273,9 @@ class LeiturasScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Leituras')),
       floatingActionButton: FloatingActionButton(
+        // Tela empilhada sobre o shell — ver o porquê em
+        // dashboard_screen.dart.
+        heroTag: 'fab-leituras',
         tooltip: 'Nova leitura',
         onPressed: () => _novaLeitura(context, ref),
         child: const Icon(Icons.add),

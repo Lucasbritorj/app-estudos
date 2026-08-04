@@ -268,6 +268,9 @@ class TopicosScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        // Empilhada sobre Matérias, que também tem FAB — ver o porquê em
+        // dashboard_screen.dart.
+        heroTag: 'fab-topicos',
         onPressed: () => _dialogoTopico(context, ref),
         child: const Icon(Icons.add),
       ),

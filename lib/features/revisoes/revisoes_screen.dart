@@ -9,6 +9,7 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/revisao.dart';
 import '../../data/repositories/ambiente_filtros.dart';
 import '../../data/repositories/repositorios.dart';
+import 'conclusao_revisao.dart';
 
 class RevisoesScreen extends ConsumerStatefulWidget {
   const RevisoesScreen({super.key});
@@ -99,128 +100,13 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
     );
   }
 
-  /// Conclui via caso de uso (FSRS-lite) e formata o feedback. Antes,
-  /// oferece registrar o desempenho da revisão (vira sessão prática — o
-  /// intervalo seguinte responde à taxa real, não só ao histórico).
-  Future<void> _concluir(Revisao revisao) async {
-    final desempenho = await _perguntarDesempenho(revisao);
-    if (desempenho == null || !mounted) return; // cancelou: nada acontece
-    final resultado = await ref
-        .read(revisaoUseCaseProvider)
-        .concluir(
-          revisao,
-          questoes: desempenho.questoes,
-          acertos: desempenho.acertos,
-        );
-    final proxima = resultado.proxima;
-    if (proxima == null || !mounted) return;
-    final motivo = resultado.reforco
-        ? 'Acerto ${(resultado.taxaAcerto! * 100).toStringAsFixed(0)}% '
-              'abaixo de 75% — reforço em ${proxima.intervaloDias}d'
-        : 'Próxima em ${proxima.intervaloDias}d';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Feita. $motivo (${formatarData(proxima.dataAgendada)}).',
-        ),
-      ),
-    );
-  }
+  /// Delega ao fluxo compartilhado — o dashboard conclui pelo MESMO
+  /// caminho (ver conclusao_revisao.dart). Duas telas, uma implementação.
+  Future<void> _concluir(Revisao revisao) =>
+      concluirRevisaoComFeedback(context, ref, revisao);
 
   Future<void> _adiar(Revisao revisao, int dias) =>
       ref.read(revisaoUseCaseProvider).adiar(revisao, dias);
-
-  /// Pergunta o desempenho da revisão. Retornos: null = cancelou (não
-  /// conclui); (questoes: null, ...) = concluir sem registrar; valores =
-  /// concluir e registrar prática.
-  Future<({int? questoes, int? acertos})?> _perguntarDesempenho(
-    Revisao revisao,
-  ) {
-    final questoesCtrl = TextEditingController();
-    final acertosCtrl = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    return showDialog<({int? questoes, int? acertos})?>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Como foi a revisão?'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Se fez questões, informe o resultado — o próximo intervalo '
-                'se ajusta à taxa de acerto e o registro entra como prática.',
-                style: TextStyle(color: VizColors.muted, fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: questoesCtrl,
-                      autofocus: true,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Questões'),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return null;
-                        final n = int.tryParse(v.trim());
-                        if (n == null || n <= 0) return 'Inteiro > 0';
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      controller: acertosCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Acertos'),
-                      validator: (v) {
-                        final questoes = int.tryParse(questoesCtrl.text.trim());
-                        if (questoes == null) return null;
-                        final n = int.tryParse((v ?? '').trim());
-                        if (n == null || n < 0) return 'Obrigatório';
-                        if (n > questoes) return '≤ questões';
-                        return null;
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, (questoes: null, acertos: null)),
-            child: const Text('Só concluir'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final questoes = int.tryParse(questoesCtrl.text.trim());
-              if (questoes == null) {
-                // Sem questões preenchidas, o botão equivale a só concluir.
-                Navigator.pop(dialogContext, (questoes: null, acertos: null));
-                return;
-              }
-              if (!formKey.currentState!.validate()) return;
-              Navigator.pop(dialogContext, (
-                questoes: questoes,
-                acertos: int.tryParse(acertosCtrl.text.trim()),
-              ));
-            },
-            child: const Text('Concluir'),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -234,6 +120,9 @@ class _RevisoesScreenState extends ConsumerState<RevisoesScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Revisões')),
       floatingActionButton: FloatingActionButton(
+        // Aba viva no IndexedStack do shell — ver o porquê em
+        // dashboard_screen.dart.
+        heroTag: 'fab-revisoes',
         tooltip: 'Nova revisão',
         onPressed: _novaRevisaoManual,
         child: const Icon(Icons.add),

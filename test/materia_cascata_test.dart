@@ -87,4 +87,86 @@ void main() {
     // Log histórico intocado.
     expect(container.read(registrosProvider).map((r) => r.id), ['reg1']);
   });
+
+  test(
+    'D-04: excluir matéria limpa o aulaId dos registros, sem tocar nos de outra',
+    () async {
+      // Contraprova do furo: `AulaUseCase.excluirEmCascata` limpa `aulaId` no
+      // caminho direto, mas a matéria removia as aulas por `removerOnde` e
+      // deixava a referência pendurada. Como o registro é log histórico e
+      // nunca é apagado, o `aulaId` morto sobrevivia para sempre.
+      final materias = container.read(materiasProvider.notifier);
+      await materias.salvar(
+        Materia(
+          id: 'm1',
+          nome: 'AFO',
+          corSlot: 0,
+          criadaEm: DateTime(2026, 1, 1),
+        ),
+      );
+      await materias.salvar(
+        Materia(
+          id: 'm2',
+          nome: 'LP',
+          corSlot: 1,
+          criadaEm: DateTime(2026, 1, 1),
+        ),
+      );
+
+      final aulas = container.read(aulasProvider.notifier);
+      await aulas.salvar(
+        Aula(id: 'a1', materiaId: 'm1', nome: 'Aula 01', paginasTotais: 10),
+      );
+      await aulas.salvar(
+        Aula(id: 'a2', materiaId: 'm1', nome: 'Aula 02', paginasTotais: 20),
+      );
+      await aulas.salvar(
+        Aula(id: 'a9', materiaId: 'm2', nome: 'Crase 01', paginasTotais: 5),
+      );
+
+      final registros = container.read(registrosProvider.notifier);
+      // Tipo explícito: com `null` numa posição e String nas outras, deixar a
+      // inferência decidir o tipo do record é aposta desnecessária.
+      const semente = <(String, String, String?)>[
+        ('reg-a1', 'm1', 'a1'),
+        ('reg-a2', 'm1', 'a2'),
+        ('reg-sem-aula', 'm1', null),
+        ('reg-outra-materia', 'm2', 'a9'),
+      ];
+      for (final (id, materiaId, aulaId) in semente) {
+        await registros.salvar(
+          RegistroHora(
+            id: id,
+            data: DateTime(2026, 7, 10),
+            materiaId: materiaId,
+            aulaId: aulaId,
+            minutos: 60,
+          ),
+        );
+      }
+
+      await container.read(materiaUseCaseProvider).excluirEmCascata('m1');
+
+      RegistroHora lido(String id) =>
+          container.read(registrosProvider).firstWhere((r) => r.id == id);
+
+      // Nenhum registro some — só a referência morta.
+      expect(container.read(registrosProvider), hasLength(4));
+      expect(lido('reg-a1').aulaId, isNull);
+      expect(lido('reg-a2').aulaId, isNull);
+      expect(lido('reg-sem-aula').aulaId, isNull);
+      // A aula de OUTRA matéria continua existindo: mexer nela seria dano
+      // colateral, não cascata.
+      expect(lido('reg-outra-materia').aulaId, 'a9');
+      expect(container.read(aulasProvider).map((a) => a.id), ['a9']);
+
+      // Invariante geral: nenhum aulaId aponta para aula inexistente.
+      final idsVivos = container.read(aulasProvider).map((a) => a.id).toSet();
+      for (final r in container.read(registrosProvider)) {
+        if (r.aulaId != null) {
+          expect(idsVivos, contains(r.aulaId));
+        }
+      }
+    },
+  );
 }

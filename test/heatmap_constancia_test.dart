@@ -12,7 +12,6 @@ void main() {
   group('faixas de intensidade', () {
     test('níveis fixos por carga do dia', () {
       expect(CardHeatmapConstancia.nivelPara(0), 0);
-      expect(CardHeatmapConstancia.nivelPara(1), 1);
       expect(CardHeatmapConstancia.nivelPara(29), 1);
       expect(CardHeatmapConstancia.nivelPara(30), 2);
       expect(CardHeatmapConstancia.nivelPara(59), 2);
@@ -20,6 +19,28 @@ void main() {
       expect(CardHeatmapConstancia.nivelPara(119), 3);
       expect(CardHeatmapConstancia.nivelPara(120), 4);
       expect(CardHeatmapConstancia.nivelPara(600), 4);
+    });
+
+    test('M-08: dia abaixo do piso do streak não acende', () {
+      // Contraprova do defeito: com `minutos <= 0` como corte, 1 e 14 min
+      // devolviam nível 1 e o quadradinho acendia enquanto a chama zerava —
+      // heatmap e streak dizendo coisas opostas no mesmo scroll.
+      expect(StatsService.pisoMinutosStreak, 15);
+      expect(CardHeatmapConstancia.nivelPara(1), 0);
+      expect(CardHeatmapConstancia.nivelPara(14), 0);
+      expect(CardHeatmapConstancia.nivelPara(15), 1);
+    });
+
+    test('o corte segue o piso do streak, não um 15 solto', () {
+      // Se alguém mexer em pisoMinutosStreak, o heatmap acompanha sozinho.
+      expect(
+        CardHeatmapConstancia.nivelPara(StatsService.pisoMinutosStreak - 1),
+        0,
+      );
+      expect(
+        CardHeatmapConstancia.nivelPara(StatsService.pisoMinutosStreak),
+        greaterThan(0),
+      );
     });
 
     test('cores monotônicas: um só matiz, opacidade crescente', () {

@@ -28,6 +28,9 @@ class AmbientesScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Ambientes')),
       floatingActionButton: FloatingActionButton(
+        // Tela empilhada sobre o shell — ver o porquê em
+        // dashboard_screen.dart.
+        heroTag: 'fab-ambientes',
         onPressed: () => _mostrarDialogo(context, ref),
         child: const Icon(Icons.add),
       ),

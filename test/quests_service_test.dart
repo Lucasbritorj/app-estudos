@@ -146,4 +146,74 @@ void main() {
     expect(porId(quests, 'estudar-deficit').concluida, false);
     expect(porId(quests, 'topico-mapa').concluida, false);
   });
+
+  group('M-08 — piso de minutos nas quests de estudo', () {
+    RegistroHora curto(int minutos, {String? topicoId}) => RegistroHora(
+      id: 'curto-$minutos-$topicoId',
+      data: hoje,
+      materiaId: 'm1',
+      topicoId: topicoId,
+      minutos: minutos,
+    );
+
+    test('sessão-token de 1 min não conclui quest de estudo', () {
+      // Contraprova do defeito: `registrosHoje.isEmpty ? 0 : 1` dava visto
+      // verde na quest enquanto `_diasComEstudoReal` (piso 15) zerava a chama
+      // do streak — as duas coisas no mesmo scroll do dashboard.
+      final quests = QuestsService.questsDoDia(
+        hoje: hoje,
+        registros: [curto(1)],
+        revisoes: [],
+        temTopicos: false,
+      );
+      expect(porId(quests, 'estudar-hoje').concluida, isFalse);
+    });
+
+    test('o piso soma o DIA, não a sessão: 3x6min fecha a quest', () {
+      // Régua idêntica à do streak, que agrega por dia antes de comparar.
+      final quests = QuestsService.questsDoDia(
+        hoje: hoje,
+        registros: [curto(6), curto(6), curto(6)],
+        revisoes: [],
+        temTopicos: false,
+      );
+      expect(porId(quests, 'estudar-hoje').concluida, isTrue);
+    });
+
+    test('vale para a quest de déficit e a do mapa', () {
+      final quests = QuestsService.questsDoDia(
+        hoje: hoje,
+        registros: [curto(10, topicoId: 't1')],
+        revisoes: [],
+        materiaDeficitId: 'm1',
+        materiaDeficitNome: 'Direito',
+        temTopicos: true,
+      );
+      expect(porId(quests, 'estudar-deficit').concluida, isFalse);
+      expect(porId(quests, 'topico-mapa').concluida, isFalse);
+    });
+
+    test('quest de revisão NÃO depende do piso de estudo', () {
+      // Concluir revisão é ato próprio: exigir 15 min de sessão antes seria
+      // inventar um pré-requisito que o produto nunca prometeu.
+      final quests = QuestsService.questsDoDia(
+        hoje: hoje,
+        registros: [curto(1)],
+        revisoes: [rev('r1', agendada: hoje, feita: true, conclusao: hoje)],
+        temTopicos: false,
+      );
+      expect(porId(quests, 'revisoes-do-dia').concluida, isTrue);
+    });
+
+    test('piso é costura de teste: com 0 volta ao comportamento antigo', () {
+      final quests = QuestsService.questsDoDia(
+        hoje: hoje,
+        registros: [curto(1)],
+        revisoes: [],
+        temTopicos: false,
+        pisoMinutos: 0,
+      );
+      expect(porId(quests, 'estudar-hoje').concluida, isTrue);
+    });
+  });
 }

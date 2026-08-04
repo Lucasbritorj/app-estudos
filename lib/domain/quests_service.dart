@@ -30,6 +30,7 @@ class QuestsService {
   /// Máximo de revisões pedidas na quest do dia.
   static const alvoMaxRevisoes = 3;
 
+  /// [pisoMinutos] é costura de teste; produção usa o piso do streak.
   static List<QuestDia> questsDoDia({
     required DateTime hoje,
     required List<RegistroHora> registros,
@@ -37,11 +38,25 @@ class QuestsService {
     String? materiaDeficitId,
     String? materiaDeficitNome,
     required bool temTopicos,
+    int pisoMinutos = StatsService.pisoMinutosStreak,
   }) {
     final h = StatsService.dataSemHora(hoje);
     final registrosHoje = registros
         .where((r) => StatsService.dataSemHora(r.data) == h)
         .toList();
+
+    // M-08 — mesma régua da chama do dashboard. Sem isto, uma sessão-token de
+    // 1 minuto fechava a quest de estudo com o visto verde no MESMO scroll em
+    // que a chama do streak zerava, porque `_diasComEstudoReal` exige o piso.
+    // Quest de revisão fica de fora de propósito: concluir revisão é ato
+    // próprio, não depende de ter estudado 15 minutos antes.
+    //
+    // Só afeta o dia corrente por construção — este serviço nunca computa
+    // quest de dia passado (filtra `registrosHoje`), e quest não paga XP
+    // (ver doc da classe). A monotonicidade de `GamificacaoService.xpDetalhado`
+    // segue intocada.
+    final minutosHoje = registrosHoje.fold<int>(0, (s, r) => s + r.minutos);
+    final diaDeEstudoReal = minutosHoje >= pisoMinutos;
 
     final quests = <QuestDia>[];
 
@@ -53,7 +68,9 @@ class QuestsService {
           id: 'estudar-deficit',
           titulo: 'Estudar ${materiaDeficitNome ?? 'a matéria do ciclo'}',
           descricao: 'É a matéria com maior déficit no ciclo desta semana',
-          atual: registrosHoje.any((r) => r.materiaId == materiaDeficitId)
+          atual:
+              diaDeEstudoReal &&
+                  registrosHoje.any((r) => r.materiaId == materiaDeficitId)
               ? 1
               : 0,
           alvo: 1,
@@ -64,8 +81,8 @@ class QuestsService {
         QuestDia(
           id: 'estudar-hoje',
           titulo: 'Estudar hoje',
-          descricao: 'Registre pelo menos uma sessão',
-          atual: registrosHoje.isEmpty ? 0 : 1,
+          descricao: 'Pelo menos $pisoMinutos minutos somados no dia',
+          atual: diaDeEstudoReal ? 1 : 0,
           alvo: 1,
         ),
       );
@@ -111,7 +128,11 @@ class QuestsService {
           id: 'topico-mapa',
           titulo: 'Estudar 1 tópico do mapa',
           descricao: 'Sessão com tópico marcado move o grafo de progresso',
-          atual: registrosHoje.any((r) => r.topicoId != null) ? 1 : 0,
+          atual:
+              diaDeEstudoReal &&
+                  registrosHoje.any((r) => r.topicoId != null)
+              ? 1
+              : 0,
           alvo: 1,
         ),
       );
