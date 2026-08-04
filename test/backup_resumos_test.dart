@@ -59,4 +59,79 @@ void main() {
       expect(backup.resumos, isEmpty);
     });
   });
+
+  group('D-01 — o arquivo decide só sobre o que menciona', () {
+    String backupCom(Map<String, dynamic> Function(Map<String, dynamic>) ajuste) {
+      final json = ExportService.jsonCompleto(
+        materias: const [],
+        topicos: const [],
+        aulas: const [],
+        registros: const [],
+        revisoes: const [],
+        leituras: const [],
+        planejamento: const {},
+        resumos: [Resumo(sigla: 'DC', nome: 'Direito Constitucional')],
+      );
+      return jsonEncode(ajuste(jsonDecode(json) as Map<String, dynamic>));
+    }
+
+    test('chave presente entra em chavesPresentes', () {
+      final backup = ImportService.parseBackup(backupCom((m) => m));
+      expect(backup.mencionou('resumos'), isTrue);
+      expect(backup.mencionou('materias'), isTrue);
+      expect(backup.mencionou('anexos'), isTrue);
+    });
+
+    test('chave AUSENTE não é mencionada — restauração não pode zerar', () {
+      // Este é o furo do D-01: `lista()` devolve [] para ausente E para vazio,
+      // e `_aplicarSubstituindo` tratava os dois como "apague tudo". Restaurar
+      // um backup pré-resumos apagava as páginas de quem restaurava.
+      final backup = ImportService.parseBackup(
+        backupCom((m) => m..remove('resumos')),
+      );
+      expect(backup.resumos, isEmpty, reason: 'a lista continua vazia');
+      expect(
+        backup.mencionou('resumos'),
+        isFalse,
+        reason: 'mas o arquivo não falou do assunto — não decide sobre ele',
+      );
+    });
+
+    test('lista VAZIA é menção: o arquivo falou, e falou vazio', () {
+      final backup = ImportService.parseBackup(
+        backupCom((m) => m..['resumos'] = <dynamic>[]),
+      );
+      expect(backup.resumos, isEmpty);
+      expect(
+        backup.mencionou('resumos'),
+        isTrue,
+        reason: 'zerar aqui é o comportamento correto',
+      );
+    });
+
+    test('valor null conta como ausente', () {
+      // `jsonCompleto` grava `'configuracoes': null` quando não recebe
+      // preferências. Campo escrito como null não é o arquivo mandando apagar.
+      final backup = ImportService.parseBackup(backupCom((m) => m));
+      expect(backup.configuracoes, isNull);
+      expect(backup.mencionou('configuracoes'), isFalse);
+    });
+
+    test('backup completo menciona todas as coleções pós-v1', () {
+      final backup = ImportService.parseBackup(backupCom((m) => m));
+      for (final chave in [
+        'aulas',
+        'simulados',
+        'resumos',
+        'questoesErradas',
+        'anexos',
+      ]) {
+        expect(
+          backup.mencionou(chave),
+          isTrue,
+          reason: '"$chave" precisa ser mencionada para substituir na restauração',
+        );
+      }
+    });
+  });
 }

@@ -104,6 +104,11 @@ class BackupUseCase {
   /// leitura no meio do processo vê filho apontando para pai que já sumiu.
   Future<void> _aplicarSubstituindo(BackupImportado backup) async {
     final agora = DateTime.now();
+    // `ambientes` fica FORA da regra do D-01 de propósito: sua ausência já tem
+    // tratamento próprio e não-destrutivo em `ambientesOuGeral`, que injeta o
+    // "Geral" — que é onde as matérias de um backup pré-Ambientes caem via
+    // `fromJson`. Pular a substituição aqui deixaria essas matérias apontando
+    // para um ambiente que não existe.
     await _ref
         .read(ambientesProvider.notifier)
         .substituirTudo(backup.ambientesOuGeral(agora));
@@ -114,24 +119,49 @@ class BackupUseCase {
           .read(configuracoesProvider.notifier)
           .salvar(configAtual.copyWith(limparAmbienteAtivo: true));
     }
+    // Núcleo da versão 1 do formato: estas chaves existem em TODO backup que o
+    // app já gerou, então substituem sempre. Pular uma delas por ausência
+    // deixaria filho apontando para pai trocado (tópico órfão de matéria nova)
+    // — inconsistência pior que o wipe.
     await _ref.read(materiasProvider.notifier).substituirTudo(backup.materias);
     await _ref.read(topicosProvider.notifier).substituirTudo(backup.topicos);
-    await _ref.read(aulasProvider.notifier).substituirTudo(backup.aulas);
     await _ref
         .read(registrosProvider.notifier)
         .substituirTudo(backup.registros);
     await _ref.read(revisoesProvider.notifier).substituirTudo(backup.revisoes);
     await _ref.read(leiturasProvider.notifier).substituirTudo(backup.leituras);
-    await _ref
-        .read(simuladosProvider.notifier)
-        .substituirTudo(backup.simulados);
-    await _ref.read(resumosProvider.notifier).substituirTudo(backup.resumos);
-    await _ref
-        .read(questoesErradasProvider.notifier)
-        .substituirTudo(backup.questoesErradas);
-    await _ref
-        .read(anexosQuestaoRepositorioProvider)
-        .substituirTudo(backup.anexos);
+
+    // D-01 — coleções que entraram no formato DEPOIS da versão 1. Um backup
+    // gerado antes delas não tem a chave, e `lista()` devolve `[]`: substituir
+    // com isso apagava resumos, caderno de erros e fotos de quem restaurava,
+    // em silêncio. Mesmo cuidado que `configuracoes` já tinha por ser nulável.
+    //
+    // A regra é sobre o que o ARQUIVO diz, não sobre o que ele tem:
+    // `"resumos": []` é o arquivo falando vazio e zera; chave ausente é o
+    // arquivo calado e não decide nada.
+    if (backup.mencionou('aulas')) {
+      await _ref.read(aulasProvider.notifier).substituirTudo(backup.aulas);
+    }
+    if (backup.mencionou('simulados')) {
+      await _ref
+          .read(simuladosProvider.notifier)
+          .substituirTudo(backup.simulados);
+    }
+    if (backup.mencionou('resumos')) {
+      await _ref.read(resumosProvider.notifier).substituirTudo(backup.resumos);
+    }
+    if (backup.mencionou('questoesErradas')) {
+      await _ref
+          .read(questoesErradasProvider.notifier)
+          .substituirTudo(backup.questoesErradas);
+    }
+    if (backup.mencionou('anexos')) {
+      await _ref
+          .read(anexosQuestaoRepositorioProvider)
+          .substituirTudo(backup.anexos);
+    }
+    // `planejamento` também é do núcleo v1 e `jsonCompleto` sempre o escreve
+    // (mapa vazio quando não há cronograma), então segue substituindo sempre.
     await _ref
         .read(planejamentoProvider.notifier)
         .substituir(backup.planejamento);

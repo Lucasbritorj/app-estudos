@@ -40,6 +40,17 @@ class BackupImportado {
   /// no backup de um ambiente). Null = backup completo.
   final String? escopo;
 
+  /// Chaves que o ARQUIVO trouxe, com valor não-nulo.
+  ///
+  /// D-01: `lista()` devolve `[]` tanto para "chave ausente" quanto para
+  /// "lista vazia", e a restauração destrutiva tratava os dois igual —
+  /// restaurar um backup antigo (sem `resumos`) apagava os resumos de quem
+  /// restaurava. É o mesmo cuidado que [configuracoes] já tinha por ser
+  /// nulável; as listas não tinham como expressar a diferença.
+  ///
+  /// Regra: arquivo que FALA vazio zera; arquivo que não fala não decide.
+  final Set<String> chavesPresentes;
+
   const BackupImportado({
     this.ambientes = const [],
     required this.materias,
@@ -55,7 +66,11 @@ class BackupImportado {
     this.anexos = const {},
     this.configuracoes,
     this.escopo,
+    this.chavesPresentes = const {},
   });
+
+  /// Se o arquivo mencionou [chave] — base da regra de restauração destrutiva.
+  bool mencionou(String chave) => chavesPresentes.contains(chave);
 
   /// Backup de escopo reduzido: leituras, resumos e planejamento estão vazios
   /// porque ficaram FORA do arquivo, não porque o usuário não os tem. Usar um
@@ -180,6 +195,13 @@ class ImportService {
         }
       }(),
       escopo: mapa['escopo'] is String ? mapa['escopo'] as String : null,
+      // Valor nulo conta como AUSENTE: `jsonCompleto` grava
+      // `'configuracoes': null` quando não recebe preferências, e um campo
+      // escrito como null não é o arquivo dizendo "apague".
+      chavesPresentes: {
+        for (final e in mapa.entries)
+          if (e.value != null) e.key,
+      },
     );
   }
 }
