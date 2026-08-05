@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "if [ -d flutter ]; then cd flutter && git fetch --depth 1 origin 3.44.8 && git checkout FETCH_HEAD && cd ..; else git clone --depth 1 --branch 3.44.8 https://github.com/flutter/flutter.git; fi && flutter/bin/flutter config --enable-web && flutter/bin/flutter pub get && flutter/bin/flutter build web --release --no-wasm-dry-run",
+  "buildCommand": "bash tool/build_vercel.sh",
   "outputDirectory": "build/web",
   "installCommand": "echo 'sem install: o SDK vem no buildCommand'",
   "framework": null,
