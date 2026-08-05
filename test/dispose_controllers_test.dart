@@ -119,7 +119,15 @@ void main() {
     //
     // Lista fechada de propósito: isenção nova exige editar este teste, o que
     // obriga o revisor a ler o motivo no diff.
-    const conhecidas = {'lib/features/configuracoes/configuracoes_screen.dart'};
+    //
+    // `importar_edital.dart` entrou pelo mesmo caminho, com um agravante: além
+    // do rebuild durante a animação de saída, o botão "Importar" dá `pop` e
+    // SEGUE gravando tópicos, o que dispara rebuild do diálogo já moribundo por
+    // mudança de provider.
+    const conhecidas = {
+      'lib/features/configuracoes/configuracoes_screen.dart',
+      'lib/features/materias/importar_edital.dart',
+    };
 
     final encontradas = <String, String>{};
     for (final arquivo in Directory('lib')

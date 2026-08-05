@@ -84,7 +84,26 @@ Future<void> mostrarImportarEdital(
   WidgetRef ref, {
   Materia? materiaFixa,
 }) async {
+  // Os dois controllers vivem sem `dispose()` de propósito. `Route.didComplete`
+  // (navigator.dart:480) completa o Future do `showDialog` no POP, não quando a
+  // rota sai da árvore: fechando por ESC ou por "Cancelar", o `await` abaixo
+  // retoma com o diálogo AINDA MONTADO, animando a saída. O `StatefulBuilder`
+  // rebuilda nessa janela — lê `materiasDoAmbienteProvider` e reconstrói os
+  // `TextField` de `:172` e `:191` — e um controller já liberado explode com
+  // "used after being disposed".
+  //
+  // `.whenComplete` não resolve (roda no mesmo instante do `await`) e
+  // `addPostFrameCallback` também não (a saída dura vários frames). O caminho
+  // "Importar" é pior ainda: dá `Navigator.pop` e SEGUE gravando tópicos, o que
+  // dispara rebuild do diálogo moribundo por mudança de provider.
+  //
+  // Custo aceito: dois controllers por abertura do diálogo de import, aberto
+  // poucas vezes na vida do app. Mesma isenção documentada de
+  // `configuracoes_screen.dart`. Fechar de verdade exige `StatefulWidget` com
+  // `dispose()` no State — débito, não esta onda.
+  // dispose-exempt: rota ainda montada no ESC; liberar quebra o TextField.
   final texto = TextEditingController();
+  // dispose-exempt: rota ainda montada no ESC; liberar quebra o TextField.
   final novaMateria = TextEditingController();
   String? materiaId = materiaFixa?.id;
   var criarNova = false;
@@ -289,10 +308,4 @@ Future<void> mostrarImportarEdital(
       },
     ),
   );
-
-  // Todas as leituras (`texto.text`, `novaMateria.text`) acontecem ANTES do
-  // `Navigator.pop`; depois dele só roda `_gravarItens` com valores já
-  // calculados. Liberar aqui não alcança nenhum uso pendente.
-  texto.dispose();
-  novaMateria.dispose();
 }
