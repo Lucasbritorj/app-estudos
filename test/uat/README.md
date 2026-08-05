@@ -11,7 +11,8 @@ flutter test test/uat/uat_fsrs_test.dart
 
 | Arquivo | Cobre |
 |---|---|
-| `_massa_fake.dart` | fixture determinística (`Random(42)`, âncora `hoje = 2026-07-29`) — 5 matérias, 9 tópicos em 2 níveis, 3 aulas, 71 registros, 11 revisões |
+| `_massa_fake.dart` | duas fixtures determinísticas, mesma âncora `hoje = 2026-07-29`. **Curta** (`construirMassa`, `Random(42)`, 60 dias): 5 matérias, 9 tópicos em 2 níveis, 3 aulas, 71 registros, 11 revisões. **Longa** (`construirMassaLonga`, `Random(4242)`, 120 dias): mesmas entidades, 148 registros em 99 dias (abr–jul), 21 revisões, 6 dias abaixo do piso |
+| `uat_massa_longa_test.dart` | invariantes que só o horizonte de 4 meses pega: MoM encadeado, piso rejeitando dia fraco, monotonia do XP, determinismo da seed |
 | `uat_massa_ciclo_test.dart` | carga inicial, horas líquidas, MoM/YoY, desempenho, streak, XP, prontidão, fila de revisão |
 | `uat_fsrs_test.dart` | cadeia FSRS-lite, lapso, antecipação, atraso, teto, retenção-alvo, estado corrompido |
 | `uat_rendimento_test.dart` | divisão por zero, `acertos ≤ questoes`, ponderação, janela de recência, páginas |

@@ -153,3 +153,100 @@ Massa construirMassa() {
     planejamento: {1: 90, 2: 90, 3: 90, 4: 90, 5: 90, 6: 90, 7: 0},
   );
 }
+
+// ---------------------------------------------------------------------------
+// Massa longa — 4 meses
+// ---------------------------------------------------------------------------
+
+/// Seed própria: a massa longa NÃO é superconjunto de [construirMassa]. O
+/// gerador consome o `Random` na ordem do laço, então mudar o horizonte muda
+/// toda a sequência. Seed distinta deixa isso explícito em vez de sugerir
+/// continuidade que não existe.
+const seedMassaLonga = 4242;
+
+/// Horizonte da massa longa. Com a âncora [hoje] (2026-07-29) cobre
+/// 2026-04-01 a 2026-07-29 — quatro meses-calendário, três comparativos MoM
+/// com base não-zero e um com base zero (abril, que não tem março).
+const diasMassaLonga = 120;
+
+/// Minutos das sessões-token: abaixo de `StatsService.pisoMinutosStreak` (15).
+/// A massa curta não tem UM dia abaixo do piso — o mínimo por sessão dela é 35
+/// —, então nenhum teste sobre ela consegue provar que o piso REJEITA um dia.
+/// Estes dias são a contraprova.
+const minutosTokenMassaLonga = 8;
+
+/// Massa de ~4 meses para métricas que precisam de horizonte: MoM encadeado,
+/// streak longo com furos, piso rejeitando dia fraco.
+///
+/// Reaproveita ambiente, matérias, tópicos e aulas de [construirMassa] — só os
+/// registros e as revisões são outros. Um gerador, duas janelas.
+Massa construirMassaLonga() {
+  final base = construirMassa();
+  final rnd = Random(seedMassaLonga);
+  final registros = <RegistroHora>[];
+  final plano = <({String mat, String top, bool questoes})>[
+    (mat: 'mat-const', top: 'top-art5', questoes: true),
+    (mat: 'mat-adm', top: 'top-lic', questoes: true),
+    (mat: 'mat-port', top: 'top-conc', questoes: false),
+    (mat: 'mat-rlm', top: 'top-prob', questoes: true),
+    (mat: 'mat-const', top: 'top-org', questoes: false),
+    (mat: 'mat-adm', top: 'top-atos', questoes: true),
+    (mat: 'mat-port', top: 'top-crase', questoes: true),
+  ];
+
+  var n = 0;
+  for (var d = -(diasMassaLonga - 1); d <= 0; d++) {
+    final data = dias(d);
+    if (data.weekday == DateTime.sunday) continue;
+    // Furo a cada 23 dias: quebra o streak algumas vezes na janela.
+    if (d % 23 == 0 && d != 0) continue;
+    // Dia-token a cada 17: um único bloco curto, abaixo do piso.
+    final token = d % 17 == 0 && d != 0;
+    final blocos = token ? 1 : 1 + rnd.nextInt(2);
+    for (var b = 0; b < blocos; b++) {
+      final p = plano[(n + b) % plano.length];
+      final minutos = token ? minutosTokenMassaLonga : 35 + rnd.nextInt(60);
+      final questoes = (p.questoes && !token) ? 10 + rnd.nextInt(21) : null;
+      // Taxa sobe de 55% para 85% ao longo da janela — evolução, não ruído.
+      final taxa =
+          0.55 + 0.30 * ((d + diasMassaLonga - 1) / (diasMassaLonga - 1));
+      final acertos = questoes == null
+          ? null
+          : (questoes * taxa).round().clamp(0, questoes);
+      registros.add(
+        RegistroHora(
+          id: 'long-${n + b}',
+          data: DateTime(data.year, data.month, data.day, 20, 0),
+          materiaId: p.mat,
+          topicoId: p.top,
+          tipo: p.questoes && !token ? TipoEstudo.pratica : TipoEstudo.teoria,
+          tarefa: 'Sessao ${n + b}',
+          minutos: minutos,
+          questoes: questoes,
+          acertos: acertos,
+        ),
+      );
+    }
+    n += blocos;
+  }
+
+  final revisoes = <Revisao>[
+    Revisao(id: 'lrev-atr-1', materiaId: 'mat-const', topicoId: 'top-art5', titulo: 'Art. 5o', dataAgendada: dias(-5), intervaloDias: 7),
+    Revisao(id: 'lrev-atr-2', materiaId: 'mat-adm', topicoId: 'top-lic', titulo: 'Licitacoes', dataAgendada: dias(-2), intervaloDias: 15),
+    Revisao(id: 'lrev-hoje', materiaId: 'mat-port', topicoId: 'top-conc', titulo: 'Concordancia', dataAgendada: hoje, intervaloDias: 7),
+    for (var i = 0; i < 6; i++)
+      Revisao(id: 'lrev-fut-$i', materiaId: 'mat-rlm', topicoId: 'top-prob', titulo: 'Probabilidade $i', dataAgendada: dias(2 + i * 5), intervaloDias: 15),
+    for (var i = 0; i < 12; i++)
+      Revisao(id: 'lrev-feita-$i', materiaId: 'mat-const', topicoId: 'top-art5', titulo: 'Art. 5o', dataAgendada: dias(-110 + i * 8), intervaloDias: 7, feita: true, dataConclusao: dias(-110 + i * 8)),
+  ];
+
+  return Massa(
+    ambiente: base.ambiente,
+    materias: base.materias,
+    topicos: base.topicos,
+    aulas: base.aulas,
+    registros: registros,
+    revisoes: revisoes,
+    planejamento: base.planejamento,
+  );
+}
