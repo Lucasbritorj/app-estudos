@@ -50,12 +50,13 @@ class CardCadernoErros extends ConsumerWidget {
     // acionável sem rótulo (ink_well.dart emite `Semantics(onTap:)` puro, sem
     // label e sem `button`).
     //
-    // Débito aceito: esse nó anônimo SOBREVIVE abaixo deste. Duas configs com
-    // a ação `tap` são incompatíveis (`SemanticsConfiguration.isCompatibleWith`
-    // rejeita quando `_actionsAsBits` se cruzam), então ele não funde no nó de
-    // cima. Dá para zerá-lo com `InkWell(excludeFromSemantics: true)`, mas
-    // isso divergiria dos outros quatro cards da mesma onda; fica para uma
-    // varredura que trate os cinco de uma vez.
+    // Esse nó anônimo não funde no de cima: duas configs com a ação `tap` são
+    // incompatíveis (`SemanticsConfiguration.isCompatibleWith` rejeita quando
+    // `_actionsAsBits` se cruzam). Por isso o `InkWell` abaixo vai com
+    // `excludeFromSemantics: true`, que zera só as ações semânticas do
+    // InkResponse (`ink_well.dart:1402`) e não emite nó nenhum. O
+    // GestureDetector interno segue recebendo ponteiro; para leitor de tela,
+    // quem carrega a tocabilidade é o `onTap` daqui.
     return Semantics(
       container: true,
       button: true,
@@ -66,6 +67,7 @@ class CardCadernoErros extends ConsumerWidget {
       label: 'Caderno de erros: $filaFalada, $taxaFalada. Abrir caderno',
       child: Card(
       child: InkWell(
+        excludeFromSemantics: true,
         borderRadius: BorderRadius.circular(Radii.lg),
         onTap: () => Navigator.push(
           context,

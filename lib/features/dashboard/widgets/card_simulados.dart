@@ -42,9 +42,13 @@ class CardSimulados extends ConsumerWidget {
     // nome, data, acertos e taxa — dado que o leitor precisa poder explorar.
     // Excluir apagaria tudo isso da árvore (lição B18).
     //
-    // O preço da escolha: o `InkWell` mantém o nó próprio dele abaixo deste.
-    // É redundância aceita — o defeito que se fecha é a AUSÊNCIA de um ponto
-    // de entrada nomeado, não a contagem de nós.
+    // O `InkWell` abaixo vai com `excludeFromSemantics: true` porque as duas
+    // configs carregam a ação `tap` e configs com a mesma ação não fundem
+    // (`SemanticsConfiguration.isCompatibleWith`): sem a flag ele manteria um
+    // nó acionável e ANÔNIMO logo abaixo deste. A flag zera só as ações
+    // semânticas do InkResponse (`ink_well.dart:1402`) — o GestureDetector
+    // interno continua recebendo ponteiro, e a tocabilidade para leitor de
+    // tela é a do `onTap` daqui.
     return Semantics(
       container: true,
       button: true,
@@ -58,6 +62,7 @@ class CardSimulados extends ConsumerWidget {
           '$variacaoFalada. Abrir lista',
       child: Card(
       child: InkWell(
+        excludeFromSemantics: true,
         borderRadius: BorderRadius.circular(14),
         onTap: () => Navigator.push(
           context,
