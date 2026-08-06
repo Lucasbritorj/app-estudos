@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
+import '../../../domain/prova_alvo.dart';
 import '../dashboard_providers.dart';
 
 /// Prontidão para a prova: % hoje vs % projetado na data da prova pelo
@@ -44,13 +44,7 @@ class CardProntidao extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  diasAteProva < 0
-                      ? 'prova em ${formatarData(dataProva)}'
-                      : diasAteProva == 0
-                      ? 'É HOJE'
-                      : diasAteProva == 1
-                      ? 'falta 1 dia'
-                      : 'faltam $diasAteProva dias',
+                  rotuloRegressiva(diasAteProva, dataProva),
                   style: TextStyle(
                     color: diasAteProva <= 30
                         ? StatusColors.atencao

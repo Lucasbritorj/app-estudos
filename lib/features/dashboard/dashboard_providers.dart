@@ -17,6 +17,7 @@ import '../../domain/insights_service.dart';
 import '../../domain/mapa_estudos_service.dart';
 import '../../domain/planejamento_service.dart';
 import '../../domain/prontidao_service.dart';
+import '../../domain/prova_alvo.dart';
 import '../../domain/quests_service.dart';
 import '../../domain/retencao_service.dart';
 import '../../domain/revisao_service.dart';
@@ -474,11 +475,7 @@ final prontidaoProvider = Provider<ProntidaoResumo?>((ref) {
   final plano = ref.watch(planejamentoProvider);
   final hoje = ref.watch(hojeProvider);
 
-  final diasAteProva = DateTime(
-    dataProva.year,
-    dataProva.month,
-    dataProva.day,
-  ).difference(DateTime(hoje.year, hoje.month, hoje.day)).inDays;
+  final dias = diasAteProva(hoje, dataProva);
   final minutosSemanais = PlanejamentoService.totalPlanejado(plano);
 
   final medidos = ref.watch(dominioPorMateriaProvider);
@@ -487,7 +484,7 @@ final prontidaoProvider = Provider<ProntidaoResumo?>((ref) {
     materias: materias,
     dominiosHoje: dominiosHoje,
     minutosSemanais: minutosSemanais,
-    diasAteProva: diasAteProva,
+    diasAteProva: dias,
   );
   final prontidaoHoje = ProntidaoService.prontidao(materias, dominiosHoje);
   final prontidaoProva = ProntidaoService.prontidao(materias, projetados);
@@ -500,7 +497,7 @@ final prontidaoProvider = Provider<ProntidaoResumo?>((ref) {
 
   return (
     dataProva: dataProva,
-    diasAteProva: diasAteProva,
+    diasAteProva: dias,
     prontidaoHoje: prontidaoHoje,
     prontidaoProva: prontidaoProva,
     prontidaoAjustada: ajustada,
