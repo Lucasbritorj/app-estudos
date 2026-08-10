@@ -1,100 +1,77 @@
 # Roadmap — app_estudos
 
-Estado em 03/08/2026, verificado por execução: **740 testes verdes**
-(721 na suíte padrão + 19 goldens), `flutter analyze` limpo, `flutter build web`
-compila, histórico em **9 commits**.
-
-**Bloqueado por credenciais:** o repositório não tem `git remote`. Sem push, o
-CI nunca rodou no runner do GitHub e a `Permissions-Policy` corrigida não vale
-em produção. São os dois únicos itens de curto prazo em aberto.
+**Este arquivo é a fonte de verdade do estado do projeto.** Planos e relatórios
+de ondas encerradas vivem em [`docs/historico/`](docs/historico/README.md) e
+descrevem o passado — se algum deles contradiz este arquivo, este vence.
 
 Legenda de esforço: **P** = até meio dia · **M** = 1-3 dias · **G** = 1-2 semanas.
 
 ---
 
-## 1. Concluído nesta rodada
+## 0. Estado em 10/08/2026
 
-### Fase 1 — CI e segurança de dados
-
-| # | Entrega | Onde |
+| Campo | Valor | Como conferir |
 |---|---|---|
-| Q1 | **CI GitHub Actions**: `flutter analyze` + `flutter test --exclude-tags screenshots` a cada push/PR; job `goldens` separado com `continue-on-error` e upload de `test/failures/`. Versão do Flutter fixada em 3.44.8 (canal flutuante quebraria o build sozinho). | `.github/workflows/ci.yml` |
-| B1 | **`minutosPadraoRevisao` na UI**: dropdown 0/5/10/15/20/30 min, com o texto dizendo que é ESTIMATIVA e que soma no total de horas sem ter sido cronometrado. "Não creditar" volta ao comportamento antigo. | `configuracoes_screen.dart` |
-| B2 | **`Configuracoes` no backup**: campo tolerante em `jsonCompleto`/`parseBackup` (versão 1 preservada). Backup antigo sem a chave devolve `null` e NÃO zera as preferências de quem restaura. Configuração corrompida vira `FormatException`, não `TypeError`. | `export_service.dart`, `import_service.dart` |
-| B3 | **`cancelarTodas`** nas notificações, chamado no wipe e após restaurar backup (as revisões restauradas têm ids novos; os lembretes antigos ficariam órfãos no sistema operacional). | `notificacoes_service.dart`, `apagar_dados_use_case.dart` |
-| B4 | **Rollback de importação**: novo `BackupUseCase` serializa o estado ANTES de escrever; falha no meio reaplica o snapshot e repropaga o erro; snackbar com **"Desfazer"** por 10 s. Backup parcial (de ambiente) é recusado no use case, não só na tela. | `application/backup_use_case.dart`, box `HiveBoxes.rollback` |
+| Branch | `main`, sincronizada com `origin/main` @ `5d20cb4` | `git status -sb` |
+| Remote | `https://github.com/Lucasbritorj/app-estudos.git` | `git remote -v` |
+| Working tree | limpa | `git status --porcelain` |
+| Commits | 60 | `git rev-list --count --all` |
+| Código | 27.373 LOC em `lib/` | `find lib -name '*.dart' \| xargs wc -l` |
+| Testes | 93 arquivos · 17.160 LOC · **858 declarações** `test(`/`testWidgets(` | `grep -rhoE '\b(test\|testWidgets)\(' test/ \| wc -l` |
+| Goldens | 19 telas (falta `onboarding`) | `flutter test --tags screenshots` |
 
-### Fase 2 — arestas críticas
+> **Contagem estática.** As 858 declarações foram contadas por `grep`, não por
+> execução — `flutter test` não roda no ambiente onde este arquivo foi
+> atualizado. Números de *aprovação* (`X testes verdes`) só devem ser escritos
+> aqui depois de uma execução real; o histórico deste arquivo já afirmou "740
+> testes verdes" muito depois de o número ter mudado.
 
-| # | Entrega |
-|---|---|
-| B12 | Gabarito digitado persiste no Hive item a item; reabrir a prova volta com tudo preenchido. Colar gabarito em lote grava num único `atualizar()`. |
-| B9 | `QuestaoErrada.copyWith(limparAno:)` — mesma convenção de `Materia.limparMinutosAlvo`. Campo vazio apaga o ano. |
-| B10 | Pluralização no resultado da prova via helper `plural()`, cobrindo acertos, erros, em branco e sem gabarito. |
-| B11 | Correção da prova em `ListView.builder`; controllers em `Map` com `dispose`. |
-| B8 | Aba Estatísticas do caderno expõe **por banca** e **por tópico** (total / ativas / dominadas / taxa ao refazer). |
-| B7 | Aviso na exportação: prova cronometrada em andamento não entra no backup; fotos aumentam o arquivo. |
-| B5 | Tela **Questões órfãs**: detecta questão cuja matéria/tópico não existe mais e permite **reatribuir** (nunca excluir). Aviso na aba "Todas". |
-| B6 | Ação **Mover** no menu do tópico, com `TopicoUseCase.podeMoverPara` bloqueando ciclo (si mesmo, filho, neto, outra matéria). Destino inválido fica desabilitado com o motivo. Antes, mudar de pai exigia excluir e recriar — e a cascata levava as revisões pendentes junto. |
+### Verificação de pré-voo
 
-### Fase 3 — acessibilidade e produtividade
-
-| # | Entrega |
-|---|---|
-| Q2 | `Semantics` em KPIs (valor por extenso: "1 hora e 35 minutos"), gráficos (resumo textual do dado + `excludeSemantics`), FAB, chama do streak e linhas de status. Descoberto no caminho: os 3 `Semantics` que já existiam nos gráficos vazavam os `Text` internos por falta de `excludeSemantics`. |
-| Q4 | **Busca global** (`BuscaService` puro + tela): matérias, tópicos, questões, resumos, aulas e simulados; sem acento, case-insensitive, ranking prefixo > palavra > substring no título > corpo; termo com menos de 2 caracteres devolve vazio; entrada hostil (`.*`, ReDoS, emoji, 500 mil caracteres) não lança. Lupa no AppBar do dashboard + item na sidebar e em "Mais". |
-| F1 | **Foto do enunciado** no caderno: `image_picker 1.2.3`, compressão obrigatória (`maxWidth: 1600`, `imageQuality: 70`), bytes num box separado (`HiveBoxes.anexos`) — a lista de questões é relida a cada rebuild e carregaria megabytes à toa. Entram no backup em base64 e no snapshot de rollback. Botão de câmera só em plataforma que tem câmera. |
-
-### Evidência de execução
-
+```bash
+flutter analyze
+flutter test --exclude-tags screenshots
+flutter test --tags screenshots          # goldens, job separado no CI
 ```
-flutter analyze --no-pub
-Analyzing app...
-No issues found! (ran in 1.7s)
 
-flutter test (em 3 lotes, limite de tempo por chamada)
-00:36 +229: All tests passed!
-00:16 +167: All tests passed!
-00:29 +314: All tests passed!
+## 0b. Achados do motor de XP — todos fechados
 
-flutter test test/screenshots_test.dart --tags screenshots
-00:05 +6: All tests passed!
-```
-Total: **710 + 6 = 716** (baseline da rodada anterior: 621).
-Diff: 42 arquivos alterados, +1.574/−251, mais 30 arquivos novos.
+| Achado | O que era | Estado |
+|---|---|---|
+| **M-02** | `xpPonderado` sem teto: cada conclusão de revisão com questões gravava `minutosPadraoRevisao` que ninguém cronometrou, inflando horas, XP base, streak e heatmap sem limite | **Fechado** em `d79b89c` (04/08) — opção B, teto diário espelhando `maxRevisoesComBonusPorDia` |
+| **M-03** | Conclusão antecipada tratada como intervalo pleno no FSRS | **Fechado**, 2 call sites conferidos |
+| **M-04** | FSRS ignorava a nota da própria revisão | **Fechado**, coberto por UAT-H1/H2 |
+| *(extra)* | Espelho UAT `Mundo` derivou da produção — nasceu com `minutos = 0` e ficou cego justamente na parcela do M-02 | **Fechado** no mesmo commit; hoje lê `const Configuracoes().minutosPadraoRevisao`, a mesma fonte do use case |
+
+Como o teto funciona: as 3 primeiras conclusões do dia creditam
+`minutosPadraoRevisao`; da 4ª em diante a sessão entra com 0 min. Questões e
+acertos **nunca** são descartados — o corte é só no tempo não cronometrado.
+Tempo informado (`minutos != null`) passa inteiro, porque é medição.
+
+Decisão completa, alternativas A/C descartadas e o porquê:
+[`docs/historico/PLANO_M02_M03_M04.md`](docs/historico/PLANO_M02_M03_M04.md),
+seção "Execução".
+
+### Risco residual aceito (M-02r)
+
+O teto limita o **XP**, não o **streak**. `StatsService.pisoMinutosStreak` é 15
+min/dia e o teto rende `3 × minutosPadraoRevisao`. Com o padrão de 10 min isso
+dá 30 min/dia, acima do piso; no seletor (0/5/10/15/20/30) só o valor `0` deixa
+o dia abaixo do piso — `5` empata em 15 e ainda acende a chama.
+
+Consequência: concluir 3 revisões/dia continua sustentando streak e heatmap sem
+estudo cronometrado. O que a opção B garantiu é que o ganho **não escala** — é
+constante e pequeno, em vez de linear no número de conclusões. Fechar de vez
+exige a opção C (campo em `RegistroHora` + migração de schema), fora de escopo
+por ora.
+
+Segunda divergência menor, deliberada: `revisoesConcluidasNoDia` conta **todas**
+as conclusões do dia, inclusive as que não creditaram minuto nenhum (conclusão
+sem questões não grava `RegistroHora`). Quem fechar 3 revisões sem questões e
+depois uma com questões recebe 0 min na quarta. É mais conservador do que o
+necessário e afeta pouca gente; registrado para não ser redescoberto como bug.
 
 ---
-
-## 1b. Rodada de 31/07 — débito de curto prazo liquidado
-
-| # | Entrega | Prova |
-|---|---|---|
-| Q8 | **`dart format` removido do gate do CI**, com o motivo documentado no `ci.yml`. Não era largura: é short style (formatter pré-Dart 3.7) contra tall style (SDK 3.12.2). Reformatar mexeria em 109 dos 204 arquivos (8.024 linhas) e — medido — o próprio formatter introduz 2 lints de `curly_braces_in_flow_control_structures`, sujando o `flutter analyze`. | medição no terminal |
-| B13 | `podeMoverPara` movido de `Topico` para **`TopicoUseCase`**: a resposta depende da COLEÇÃO, não de um tópico isolado — é regra de aplicação, não invariante de modelo. 4 chamadas na tela e 12 no teste atualizadas. | 32 testes verdes |
-| B14 | Pluralização do simulado corrigida. O helper virou **`plural()` compartilhado** em `core/utils/formatters.dart`; `prova_screen.dart` deixou de ter a cópia privada. | 46 testes verdes |
-| B15 | **`ExecucaoProvaController.mutar`**: aplica a mutação sobre o estado ATUAL em vez da cópia capturada no build. Vale para gabarito E marcação de resposta. | 5 testes novos, incluindo contraprova que documenta o defeito |
-| B17 | Indicador de foto na aba Todas do caderno, lendo só a flag `temAnexo` (nunca os bytes — ler o box por linha derrubaria a rolagem), com rótulo semântico próprio. | teste de widget |
-| B18 | Vazamento semântico corrigido em `card_diagnostico`, `card_bancas`, `card_caderno_erros`, `card_true_retention`, `card_edital`. Em `card_diagnostico` o `excludeSemantics` ficou restrito à linha do título: aplicá-lo ao card inteiro apagaria mensagem e evidências da árvore de acessibilidade — regressão pior que o bug. | 5 testes + 6 goldens sem diff de pixel |
-
-## 1c. Rodada de 03/08 — versionamento, cobertura visual e PWA
-
-| # | Entrega | Prova |
-|---|---|---|
-| — | **86 arquivos sem commit** viraram 6 commits temáticos. Um `index.lock` órfão de 29/07 travava QUALQUER commit no repositório — inclusive os seus. Removido. | `git log` |
-| — | Cada commit de código foi extraído para uma árvore limpa (`git archive`) e teve `flutter analyze` rodado isoladamente. O primeiro corte de C2 não compilava (dois testes de domínio importavam providers de UI); histórico refeito antes de qualquer publicação. | analyze limpo em `f083c13` e `00eb60a` |
-| B19 | `_aplicarColado` monta o lote dentro de `mutar`, sobre o estado atual. | 42 testes verdes |
-| Q6 | Goldens de **6 para 9**: correção de prova, questões órfãs e busca. | determinismo provado com 2 comparações seguidas |
-| F9 | `camera=(self)` na Permissions-Policy e manifesto completo. | JSON validado, analyze limpo |
-
-**Achado da rodada:** a `Permissions-Policy` do deploy trazia `camera=()`,
-escrita quando o app não tinha câmera. A foto do enunciado (F1) usa
-`image_picker`, e no navegador de celular `defaultTargetPlatform` é
-android/iOS — o botão "Câmera" aparecia e o `getUserMedia` era bloqueado.
-Duas features corretas isoladamente, quebradas no cruzamento.
-
-**Correção de rumo:** "F9 — PWA instalável" estava superestimado no roadmap.
-Manifesto, ícones 192/512 com maskable, `apple-touch-icon` e meta tags de iOS
-já existiam. O valor da etapa foi achar o bloqueio da câmera, não o PWA.
 
 ## 2. Bugs abertos
 
@@ -132,17 +109,19 @@ já existiam. O valor da etapa foi achar o bloqueio da câmera, não o PWA.
 
 ## 5. Planejamento
 
-### Curto prazo — o que sobrou (só depende de você)
+### Curto prazo — o que resta verificar
 
-1. **`git remote add origin <url>` + `git push -u origin <branch>`.** O repo
-   existe num disco só e o CI nunca rodou no runner. Pré-voo já verificado:
-   nenhum segredo versionado, nenhum arquivo acima de 1 MB, `.gitignore` cobre
-   `build/` e `.dart_tool/`, workflow usa `actions/checkout@v4`,
-   `actions/upload-artifact@v4` e `subosito/flutter-action@v2`.
-2. **Redeploy da web.** `flutter build web --release` compila e o `vercel.json`
-   com `camera=(self)` chega em `build/web/`. Sem o deploy, a câmera do caderno
-   segue bloqueada em produção. Conferir depois com:
-   `curl -sI https://<dominio> | grep -i permissions-policy`
+Os dois bloqueios do roadmap anterior (repo sem `remote`; deploy web parado)
+foram resolvidos: o remote existe e `main` está sincronizada, e o deploy foi
+religado em `83f564e` → `6f471c3` → `dd5c7f2`. **O que falta é confirmação por
+execução, não trabalho:**
+
+1. **CI verde no runner.** O workflow existe e o push acontece, mas a execução
+   no runner do GitHub não foi conferida ao escrever isto.
+   → `gh run list --limit 5` (ou a aba Actions do repositório)
+2. **`Permissions-Policy` viva em produção.** Sem ela a câmera do caderno de
+   erros segue bloqueada no ar, independente do que diz o `vercel.json`.
+   → `curl -sI https://<dominio> | grep -i permissions-policy`
 
 ### Médio prazo — 1 a 2 meses
 Tema: reduzir atrito e fechar o ciclo de uso diário.
@@ -160,12 +139,28 @@ Tema: o que muda a natureza do produto.
 2. **F7 — nota de corte** como referência.
 3. **F5 — Anki** e **F10 — lei seca**.
 4. **F12 — ciclo rotativo**.
-5. **F11 — sincronização multi-dispositivo**, por último: é o único item que quebra a premissa "100% offline" e exige decisão de produto antes de decisão técnica.
+5. **M-02r — opção C** (marcar a sessão como gerada por revisão), se o vetor de streak virar problema real. Único item que mexe em schema de `RegistroHora`.
+6. **F11 — sincronização multi-dispositivo**, por último: o único item que quebra a premissa "100% offline" e exige decisão de produto antes de decisão técnica.
 
 ---
 
 ## 6. Se houver pouco tempo
 
-**Primeiro push com CI ligado**, **F9 (PWA)** e **F3 (PDF semanal)**.
-O primeiro prova a rede de proteção no runner real; os outros dois entregam valor
-visível em meio dia cada, aproveitando código que já existe.
+**Confirmar CI e `Permissions-Policy`** (minutos, e fecham a última incerteza de
+infraestrutura), depois **F9 (PWA)** e **F3 (PDF semanal)** — meio dia cada,
+aproveitando código que já existe.
+
+---
+
+## 7. Manutenção deste arquivo
+
+Regras que existem porque já foram violadas:
+
+- **Número de teste só entra aqui depois de `flutter test` rodar.** Contagem
+  estática é rotulada como tal.
+- **Bloqueio resolvido sai do arquivo no mesmo commit que o resolve.** Este
+  roadmap afirmou "o repositório não tem `git remote`" por dias depois de o
+  remote existir.
+- **Plano encerrado vai para `docs/historico/`.** Um plano que continua na raiz
+  compete com este arquivo pela posição de fonte de verdade — e perde, mas só
+  depois de alguém perder tempo.

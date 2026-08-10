@@ -198,7 +198,63 @@ O commit 1 sozinho já tem valor: sem ele, nenhuma medida futura sobre conclusã
 |---|---|---|---|
 | 1 | M-03 antecipação | **fechado**, 2 call sites conferidos | nenhum |
 | 2 | M-04 nota primária | **fechado**, UAT-H1/H2 cobrem | nenhum |
-| 3 | M-02 XP infinito | **furo real** na parcela `xpPonderado` | ~70 linhas, 4 arquivos |
-| — | *Achado extra:* espelho UAT derivou da produção | **bloqueia validar o item 3** | ~10 linhas, pré-requisito |
+| 3 | M-02 XP infinito | **fechado** — opção B, commit `d79b89c` | executado |
+| — | *Achado extra:* espelho UAT derivou da produção | **fechado** no mesmo commit | executado |
 
-**PARADA — fim do planejamento.** Aguardando: (a) autorização, (b) escolha A/B/C/D para o M-02.
+---
+
+## Execução — 04/08/2026, commit `d79b89c`
+
+Este documento era um **plano**. Foi executado; o registro abaixo existe para
+que ninguém o releia como decisão pendente. Se você chegou aqui procurando o
+estado atual do projeto, ele está em `ROADMAP.md`, não aqui.
+
+**Opção escolhida: B** — teto diário de tempo estimado, espelhando
+`maxRevisoesComBonusPorDia`. As duas parcelas do XP passam a usar a mesma
+régua.
+
+| Arquivo | O que entrou |
+|---|---|
+| `lib/domain/gamificacao_service.dart` | `revisoesConcluidasNoDia()` e `podeCreditarTempoEstimado()`, ao lado da constante `maxRevisoesComBonusPorDia` que já existia |
+| `lib/application/revisao_use_case.dart` | `minutos ?? (dentroDoTeto ? config.minutosPadraoRevisao : 0)` — leitura ANTES de marcar a revisão como feita, então a contagem é das conclusões anteriores do dia |
+| `test/uat/uat_revisoes_em_dia_test.dart` | Espelho `Mundo` lê `const Configuracoes().minutosPadraoRevisao` em vez de `0` digitado; UAT-H2 reescrito; UAT-H2b e UAT-H2c novos |
+| `test/correcoes_auditoria_test.dart` | Grupo M-02b: contagem por dia, revisão sem `dataConclusao` fora da conta, teto de tempo |
+| `test/revisao_desempenho_test.dart` | Cobertura de conclusão além do teto |
+
+**Forma da implementação.** O teto foi expresso como *gate de contagem* (as 3
+primeiras conclusões do dia creditam `minutosPadraoRevisao`; da 4ª em diante a
+sessão entra com 0 min), não como orçamento de minutos. O efeito é o mesmo que
+`3 × minutosPadraoRevisao` por dia, e reaproveita a constante existente em vez
+de introduzir uma segunda.
+
+**Questões e acertos nunca são descartados** — o teto corta só o tempo não
+cronometrado. Tempo INFORMADO (`minutos != null`) passa inteiro: é medição, não
+estimativa.
+
+### Alternativas descartadas
+
+**A — não creditar quando `diasDeAtraso < 0`.** Mais simples e sem estado, mas
+ataca só o vetor da antecipação: concluir revisões *vencidas* em lote continuava
+inflando. E cobrava o preço em quem revisa adiantado de verdade, que é
+comportamento desejável.
+
+**C — marcar a sessão como gerada por revisão e excluí-la do `xpPonderado`.**
+Conceitualmente a mais limpa, e a única que também protegeria streak e heatmap
+(ver "Risco residual" abaixo). Descartada por exigir campo novo em
+`RegistroHora` + `toJson`/`fromJson` + migração — schema estava fora do escopo
+da onda. Continua sendo a solução correta se o vetor de streak virar problema
+real.
+
+**D — aceitar o risco.** Descartada: o loop era de 1 clique.
+
+### Risco residual conhecido (não fechado pela opção B)
+
+O teto limita o XP, **não** o streak. `StatsService.pisoMinutosStreak` é 15 min
+e o teto diário rende `3 × minutosPadraoRevisao`. Com o padrão de 10 min isso dá
+30 min/dia — acima do piso. Nas opções do seletor (0/5/10/15/20/30), só
+`minutosPadraoRevisao = 0` deixa o dia abaixo do piso; 5 min já empata em 15.
+
+Ou seja: concluir 3 revisões por dia ainda acende a chama e pinta o heatmap sem
+estudo cronometrado. O que a opção B garantiu é que isso não escala — o ganho
+por dia é constante e pequeno, em vez de linear no número de conclusões.
+Fechar de vez exige a opção C.
