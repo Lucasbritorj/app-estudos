@@ -12,7 +12,7 @@ Legenda de esforço: **P** = até meio dia · **M** = 1-3 dias · **G** = 1-2 se
 
 | Campo | Valor | Como conferir |
 |---|---|---|
-| Branch | `main`, sincronizada com `origin/main` @ `5d20cb4` | `git status -sb` |
+| Branch | `main`, sincronizada com `origin/main` @ `f7d82bf` | `git status -sb` |
 | Remote | `https://github.com/Lucasbritorj/app-estudos.git` | `git remote -v` |
 | Working tree | limpa | `git status --porcelain` |
 | Commits | 60 | `git rev-list --count --all` |
@@ -100,7 +100,6 @@ necessário e afeta pouca gente; registrado para não ser redescoberto como bug.
 | F6 | **Notificação acionável** ("Acertei"/"Errei" direto do lembrete) | Revisão feita no semáforo é revisão feita. `flutter_local_notifications` já suporta actions. | M |
 | F7 | **Nota de corte** vs prontidão projetada | Transforma "70% de prontidão" em "acima/abaixo do corte do ano passado". | M |
 | F8 | **Backup automático agendado** | Hoje depende de o usuário lembrar. O `BackupUseCase` já sabe serializar tudo. | M |
-| F9 | **PWA instalável** (ícone, splash) | O app já é publicado na web e é local-first; falta o manifesto completo. | P |
 | F10 | **Lei seca / artigo lido** | Direito se estuda por artigo. Encaixa no modelo de Leituras. | M |
 | F11 | **Sincronização multi-dispositivo** | `atualizadoEm` e tombstones já preparam isso. Falta o transporte — e a decisão de produto (servidor, custo, privacidade) que quebra o "100% offline". | G |
 | F12 | **Ciclo de estudos rotativo clássico** | O app tem ciclo por utilidade (Elo/peso); o rodízio tradicional é o que muita gente espera encontrar. | M |
@@ -146,10 +145,9 @@ Tema: o que muda a natureza do produto.
 
 ## 6. Se houver pouco tempo
 
-**Confirmar CI e `Permissions-Policy`** (minutos, e fecham a última incerteza de
-infraestrutura), depois **F9 (PWA)** e **F3 (PDF semanal)** — meio dia cada,
-aproveitando código que já existe.
-
+Pré-voo CI e `Permissions-Policy` confirmados em 25/08 (runs 31413614424 e
+32712826552). F9 já estava no disco em `f7d82bf` (manifesto + ícones +
+standalone + load splash `#0F1115`). Próximo P: **F3 (PDF semanal)**.
 ---
 
 ## 7. Manutenção deste arquivo
