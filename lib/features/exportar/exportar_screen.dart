@@ -57,7 +57,17 @@ class ExportarScreen extends ConsumerWidget {
   }
 
   Future<Uint8List> _gerarPdf(WidgetRef ref) async {
-    final registros = ref.read(registrosProvider);
+    final agora = DateTime.now();
+    final inicio = StatsService.inicioDaSemana(agora);
+    final fimDia = DateTime(agora.year, agora.month, agora.day);
+    bool naSemana(DateTime data) {
+      final d = DateTime(data.year, data.month, data.day);
+      final i = DateTime(inicio.year, inicio.month, inicio.day);
+      return !d.isBefore(i) && !d.isAfter(fimDia);
+    }
+
+    final registros =
+        ref.read(registrosProvider).where((r) => naSemana(r.data)).toList();
     final materias = ref.read(materiasProvider);
     final materiasPorId = {for (final m in materias) m.id: m};
     final topicosPorId = {for (final t in ref.read(topicosProvider)) t.id: t};
@@ -65,15 +75,16 @@ class ExportarScreen extends ConsumerWidget {
     final porMateria = StatsService.minutosPorMateria(registros);
     final total = registros.fold(0, (soma, r) => soma + r.minutos);
     final ordenados = [...registros]..sort((a, b) => a.data.compareTo(b.data));
-
+    final periodo =
+        '${formatarData(inicio)} – ${formatarData(fimDia)}';
     final doc = pw.Document();
     doc.addPage(
       pw.MultiPage(
         build: (contexto) => [
-          pw.Header(level: 0, text: 'Relatório de estudos'),
+          pw.Header(level: 0, text: 'Relatório semanal'),
           pw.Paragraph(
             text:
-                'Total: ${formatarMinutos(total)} · média/dia ${formatarMinutos(resumo.media)} · melhor dia ${formatarMinutos(resumo.maximo)}',
+                '$periodo · Total: ${formatarMinutos(total)} · média/dia ${formatarMinutos(resumo.media)} · melhor dia ${formatarMinutos(resumo.maximo)}',
           ),
           pw.Header(level: 1, text: 'Horas por matéria'),
           pw.TableHelper.fromTextArray(
@@ -96,11 +107,6 @@ class ExportarScreen extends ConsumerWidget {
                       : r.tarefa,
                   '${r.minutos}',
                   r.paginasLidas?.toString() ?? '',
-                  // Último decimal do app que ainda saía com PONTO. É um PDF
-                  // em pt-BR — a coluna ao lado já usa `formatarData` no
-                  // padrão dd/MM/yyyy —, então "3.5 pág/h" destoava do resto
-                  // do documento. Diferente do CSV do modelo estrela, que
-                  // mantém ponto de propósito por ser formato de máquina.
                   r.paginasPorHora == null
                       ? ''
                       : formatarDecimal(r.paginasPorHora!),
