@@ -94,7 +94,7 @@ necessário e afeta pouca gente; registrado para não ser redescoberto como bug.
 | # | Funcionalidade | Racional | Esforço |
 |---|---|---|---|
 | F2 | **Importar questões em lote** (CSV/planilha) | Quem já mantém caderno no Excel migra sem redigitar. `xlsx_reader` já existe. | M |
-| F3 | **Relatório PDF semanal automático** | O gerador de PDF já existe; falta o recorte semanal e o agendamento. | P |
+| F3 | **Relatório PDF semanal automático** | Recorte segunda→hoje no disco em `85c67aa` (`StatsService.registrosNaSemanaAte`). Falta o agendamento. | P (resto) |
 | F4 | **Cronograma dia-a-dia até a prova** | A prontidão já projeta o domínio na data e o edital já mede cobertura — falta virar plano executável. Peça que amarra planejamento, edital e revisão. | G |
 | F5 | **Exportar caderno para Anki** | Boa parte dos concurseiros já vive no Anki; exportar em vez de competir aumenta adoção. | M |
 | F6 | **Notificação acionável** ("Acertei"/"Errei" direto do lembrete) | Revisão feita no semáforo é revisão feita. `flutter_local_notifications` já suporta actions. | M |
@@ -112,15 +112,14 @@ necessário e afeta pouca gente; registrado para não ser redescoberto como bug.
 
 Os dois bloqueios do roadmap anterior (repo sem `remote`; deploy web parado)
 foram resolvidos: o remote existe e `main` está sincronizada, e o deploy foi
-religado em `83f564e` → `6f471c3` → `dd5c7f2`. **O que falta é confirmação por
-execução, não trabalho:**
+religado em `83f564e` → `6f471c3` → `dd5c7f2`.
 
-1. **CI verde no runner.** O workflow existe e o push acontece, mas a execução
-   no runner do GitHub não foi conferida ao escrever isto.
-   → `gh run list --limit 5` (ou a aba Actions do repositório)
-2. **`Permissions-Policy` viva em produção.** Sem ela a câmera do caderno de
-   erros segue bloqueada no ar, independente do que diz o `vercel.json`.
-   → `curl -sI https://<dominio> | grep -i permissions-policy`
+**Confirmado por execução em 26/08/2026 (não só por existência de YAML):**
+
+1. **CI verde no runner.** Run [32878953019](https://github.com/Lucasbritorj/app-estudos/actions/runs/32878953019) (`CI`, `85c67aa`, success) e run [32879139972](https://github.com/Lucasbritorj/app-estudos/actions/runs/32879139972) (`Headers de produção`, success).
+2. **`Permissions-Policy` viva em produção.** `curl -sI https://app-estudos-neon.vercel.app` em 26/08/2026 20:37 -03 devolveu `permissions-policy: camera=(self), microphone=(), geolocation=(), payment=()` + CSP + HSTS.
+
+Não há mais item de pré-voo aberto nesta seção.
 
 ### Médio prazo — 1 a 2 meses
 Tema: reduzir atrito e fechar o ciclo de uso diário.
@@ -145,9 +144,10 @@ Tema: o que muda a natureza do produto.
 
 ## 6. Se houver pouco tempo
 
-Pré-voo CI e `Permissions-Policy` confirmados em 25/08 (runs 31413614424 e
-32712826552). F9 já estava no disco em `f7d82bf` (manifesto + ícones +
-standalone + load splash `#0F1115`). Próximo P: **F3 (PDF semanal)**.
+Pré-voo CI e `Permissions-Policy` reconfirmados em 26/08 (runs 32878953019 e
+32879139972; header vivo em `app-estudos-neon.vercel.app`). F3 recorte
+semanal já está no disco (`85c67aa`); o que falta de F3 é agendamento (vizinho
+de F8). Próximo P: **Q6 (golden do onboarding)**.
 ---
 
 ## 7. Manutenção deste arquivo

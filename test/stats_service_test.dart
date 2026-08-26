@@ -40,6 +40,36 @@ void main() {
     });
   });
 
+  group('registrosNaSemanaAte', () {
+    test('segunda desta semana entra; domingo anterior sai', () {
+      final segunda = reg(DateTime(2026, 7, 6, 9), 60);
+      final domingo = reg(DateTime(2026, 7, 5, 9), 120);
+      final quinta = reg(DateTime(2026, 7, 9, 21), 30);
+      final ids = StatsService.registrosNaSemanaAte(
+        [segunda, domingo, quinta],
+        hoje,
+      ).map((r) => r.id).toSet();
+      expect(ids, {segunda.id, quinta.id});
+    });
+
+    test('sexta futura da mesma semana fica fora — não é projeção', () {
+      final sexta = reg(DateTime(2026, 7, 10, 8), 45);
+      expect(
+        StatsService.registrosNaSemanaAte([sexta], hoje),
+        isEmpty,
+      );
+    });
+
+    test('hora do dia não empurra o registro para outro dia', () {
+      final madrugada = reg(DateTime(2026, 7, 9, 0, 1), 10);
+      final noite = reg(DateTime(2026, 7, 9, 23, 59), 10);
+      expect(
+        StatsService.registrosNaSemanaAte([madrugada, noite], hoje).length,
+        2,
+      );
+    });
+  });
+
   group('streakAtual', () {
     test('hoje + 2 dias anteriores = 3', () {
       final registros = [

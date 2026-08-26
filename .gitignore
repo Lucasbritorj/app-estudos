@@ -58,3 +58,7 @@ app.*.map.json
 *.jks
 *.keystore
 key.properties
+
+# Diffs de golden que falhou. O job `goldens` publica como artifact; versionar
+# aqui vira lixo (já aconteceu: 4 PNGs de 01_dashboard em test/failures/).
+test/failures/

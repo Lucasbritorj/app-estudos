@@ -52,6 +52,24 @@ class StatsService {
     );
   }
 
+  /// Registros da semana corrente até [hoje] (segunda → hoje, inclusive).
+  /// Dias futuros da semana ficam de fora: o PDF semanal é recorte do que
+  /// já aconteceu, não projeção. `minutosNaSemana` soma segunda–domingo;
+  /// este filtra a lista até o instante informado.
+  static List<RegistroHora> registrosNaSemanaAte(
+    List<RegistroHora> registros,
+    DateTime hoje,
+  ) {
+    final ini = inicioDaSemana(hoje);
+    final fim = dataSemHora(hoje);
+    return [
+      for (final r in registros)
+        if (!dataSemHora(r.data).isBefore(ini) &&
+            !dataSemHora(r.data).isAfter(fim))
+          r,
+    ];
+  }
+
   static int minutosNoMes(List<RegistroHora> registros, DateTime ref) =>
       minutosEntre(
         registros,
