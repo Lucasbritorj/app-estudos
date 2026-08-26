@@ -59,15 +59,11 @@ class ExportarScreen extends ConsumerWidget {
   Future<Uint8List> _gerarPdf(WidgetRef ref) async {
     final agora = DateTime.now();
     final inicio = StatsService.inicioDaSemana(agora);
-    final fimDia = DateTime(agora.year, agora.month, agora.day);
-    bool naSemana(DateTime data) {
-      final d = DateTime(data.year, data.month, data.day);
-      final i = DateTime(inicio.year, inicio.month, inicio.day);
-      return !d.isBefore(i) && !d.isAfter(fimDia);
-    }
-
-    final registros =
-        ref.read(registrosProvider).where((r) => naSemana(r.data)).toList();
+    final fimDia = StatsService.dataSemHora(agora);
+    final registros = StatsService.registrosNaSemanaAte(
+      ref.read(registrosProvider),
+      agora,
+    );
     final materias = ref.read(materiasProvider);
     final materiasPorId = {for (final m in materias) m.id: m};
     final topicosPorId = {for (final t in ref.read(topicosProvider)) t.id: t};
@@ -246,8 +242,10 @@ class ExportarScreen extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.picture_as_pdf_outlined),
-              title: const Text('PDF — relatório'),
-              subtitle: const Text('Resumo + horas por matéria + histórico'),
+              title: const Text('PDF — relatório semanal'),
+              subtitle: const Text(
+                'Segunda até hoje: horas por matéria + histórico',
+              ),
               onTap: () async {
                 final bytes = await _gerarPdf(ref);
                 if (context.mounted) {
