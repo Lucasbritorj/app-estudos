@@ -4,6 +4,11 @@
   "outputDirectory": "build/web",
   "installCommand": "echo 'sem install: o SDK vem no buildCommand'",
   "framework": null,
+  "functions": {
+    "api/concursos.js": {
+      "maxDuration": 20
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

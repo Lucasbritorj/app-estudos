@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../ambientes/ambientes_screen.dart';
 import '../busca/busca_screen.dart';
+import '../concursos/concursos_screen.dart';
 import '../materias/importar_edital.dart';
 import '../configuracoes/configuracoes_screen.dart';
 import '../exportar/exportar_screen.dart';
@@ -29,6 +30,14 @@ class MaisScreen extends ConsumerWidget {
       body: ConteudoCentral(
         child: ListView(
           children: [
+            ListTile(
+              leading: const Icon(Icons.travel_explore),
+              title: const Text('Concursos e editais'),
+              subtitle: const Text(
+                'Fontes oficiais, novidades e publicações acompanhadas',
+              ),
+              onTap: () => _abrir(context, const ConcursosScreen()),
+            ),
             ListTile(
               leading: const Icon(Icons.search),
               title: const Text('Buscar'),

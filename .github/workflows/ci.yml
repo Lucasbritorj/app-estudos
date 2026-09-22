@@ -32,6 +32,13 @@ jobs:
       - name: Dependências
         run: flutter pub get
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Coletor de concursos
+        run: node --test tool/concursos/*.test.cjs
+
       # `dart format --set-exit-if-changed` fica FORA do gate de propósito.
       # O código foi escrito no short style (formatter pré-Dart 3.7) e o SDK
       # 3.12.2 usa o tall style: reformatar mexeria em 109 dos 204 arquivos

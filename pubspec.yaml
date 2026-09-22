@@ -44,6 +44,7 @@ dependencies:
   # ^0.20.2 (não .3): flutter_localizations fixa intl 0.20.2 no SDK.
   intl: ^0.20.2
   uuid: ^4.5.3
+  web: ^1.1.1
   flutter_local_notifications: ^22.0.1
   timezone: ^0.11.1
   flutter_timezone: ^5.1.0

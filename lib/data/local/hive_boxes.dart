@@ -8,6 +8,7 @@ import '../models/aula.dart';
 import '../models/configuracoes.dart';
 import '../models/resumo.dart';
 import '../models/revisao.dart';
+import '../repositories/conclusoes_revisao_repositorio.dart';
 import '../../domain/revisao_service.dart';
 
 /// Boxes Hive: cada registro é um Map JSON — sem codegen de adapters.
@@ -18,6 +19,7 @@ class HiveBoxes {
   static const aulas = 'aulas';
   static const registros = 'registros';
   static const revisoes = 'revisoes';
+  static const conclusoesRevisao = 'conclusoes_revisao';
   static const config = 'config';
   static const planejamento = 'planejamento';
   static const leituras = 'leituras';
@@ -56,6 +58,7 @@ class HiveBoxes {
       Hive.openBox<Map>(aulas),
       Hive.openBox<Map>(registros),
       Hive.openBox<Map>(revisoes),
+      Hive.openBox<Map>(conclusoesRevisao),
       Hive.openBox<Map>(config),
       Hive.openBox<Map>(planejamento),
       Hive.openBox<Map>(leituras),
@@ -105,6 +108,7 @@ class HiveBoxes {
     // aula) — roda em TODO boot, não só na migração de schema, pra religar
     // órfãos que um crash entre escritas multi-box pode criar a qualquer
     // momento (Hive não tem transação), não só na atualização única de v1->v2.
+    await ConclusoesRevisaoRepositorio.recuperar();
     await repararOrfaos();
   }
 

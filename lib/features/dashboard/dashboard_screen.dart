@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app.dart';
+import '../plano_diario/card_plano_pessoal.dart';
+import '../plano_diario/plano_diario_screen.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/estado_vazio.dart';
 import '../../data/repositories/ambiente_filtros.dart';
@@ -50,6 +52,16 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(ambienteAtivo?.nome ?? 'Visão Geral'),
         actions: [
+          IconButton(
+            tooltip: 'Plano pessoal',
+            icon: const Icon(Icons.calendar_month),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => const PlanoDiarioScreen(),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Buscar',
             icon: const Icon(Icons.search),
@@ -103,8 +115,8 @@ class DashboardScreen extends ConsumerWidget {
                   final colunas = constraints.maxWidth >= 1360
                       ? 3
                       : constraints.maxWidth >= 980
-                          ? 2
-                          : 1;
+                      ? 2
+                      : 1;
 
                   // Cards que se auto-escondem virariam "célula fantasma" na
                   // masonry (slot de altura zero deslocando o balanço), então
@@ -118,14 +130,16 @@ class DashboardScreen extends ConsumerWidget {
                       ref.watch(questsDoDiaProvider).isNotEmpty ||
                       ref.watch(insightsProvider).isNotEmpty;
                   final alertas = ref.watch(alertasProvider);
-                  final temAlertas = alertas.atrasadasPorMateria.isNotEmpty ||
+                  final temAlertas =
+                      alertas.atrasadasPorMateria.isNotEmpty ||
                       alertas.falsoDominio.isNotEmpty;
-                  final temProntidao =
-                      ref.watch(prontidaoProvider) != null;
-                  final temRevisoesHoje =
-                      ref.watch(revisoesDeHojeProvider).isNotEmpty;
-                  final temDesempenho =
-                      ref.watch(desempenhoPorMateriaProvider).isNotEmpty;
+                  final temProntidao = ref.watch(prontidaoProvider) != null;
+                  final temRevisoesHoje = ref
+                      .watch(revisoesDeHojeProvider)
+                      .isNotEmpty;
+                  final temDesempenho = ref
+                      .watch(desempenhoPorMateriaProvider)
+                      .isNotEmpty;
                   final temRetencao =
                       ref.watch(trueRetentionProvider).geral != null;
                   final caderno = ref.watch(resumoCadernoProvider);
@@ -198,9 +212,7 @@ class DashboardScreen extends ConsumerWidget {
                                 ),
                                 child: Text(
                                   _mensagemDoDia(hoje),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
+                                  style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
                                         color: VizColors.inkSecondary,
                                         fontStyle: FontStyle.italic,
@@ -212,6 +224,7 @@ class DashboardScreen extends ConsumerWidget {
                               // Fica em largura total, fora da masonry, porque
                               // é o elemento da regra dos 3 segundos — enfiado
                               // na grade, "Estudar agora" viraria mais um card.
+                              const CardPlanoPessoal(),
                               if (temPlanoDeHoje) const CardPlanoDeHoje(),
                               // Geralzão: faixa de KPIs, tudo de relance.
                               const HeroGeral(),
@@ -289,8 +302,7 @@ class _EstadoVazio extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           TextButton.icon(
-            onPressed: () =>
-                ref.read(abaProvider.notifier).ir(Abas.cronometro),
+            onPressed: () => ref.read(abaProvider.notifier).ir(Abas.cronometro),
             icon: const Icon(Icons.timer_outlined, size: 18),
             label: const Text('Ou estude agora com o cronômetro'),
           ),

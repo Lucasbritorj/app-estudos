@@ -13,7 +13,6 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/ambiente.dart';
 import '../../data/repositories/ambiente_filtros.dart';
 import '../../data/repositories/configuracoes_repositorio.dart';
-import '../../data/repositories/planejamento_repositorio.dart';
 import '../../data/repositories/repositorios.dart';
 import '../../domain/export_service.dart';
 import '../../domain/import_service.dart';
@@ -71,8 +70,7 @@ class ExportarScreen extends ConsumerWidget {
     final porMateria = StatsService.minutosPorMateria(registros);
     final total = registros.fold(0, (soma, r) => soma + r.minutos);
     final ordenados = [...registros]..sort((a, b) => a.data.compareTo(b.data));
-    final periodo =
-        '${formatarData(inicio)} – ${formatarData(fimDia)}';
+    final periodo = '${formatarData(inicio)} – ${formatarData(fimDia)}';
     final doc = pw.Document();
     doc.addPage(
       pw.MultiPage(
@@ -208,21 +206,7 @@ class ExportarScreen extends ConsumerWidget {
                 'arquivo bem maior.',
               ),
               onTap: () {
-                final json = ExportService.jsonCompleto(
-                  ambientes: ref.read(ambientesProvider),
-                  materias: ref.read(materiasProvider),
-                  topicos: ref.read(topicosProvider),
-                  aulas: ref.read(aulasProvider),
-                  registros: ref.read(registrosProvider),
-                  revisoes: ref.read(revisoesProvider),
-                  leituras: ref.read(leiturasProvider),
-                  planejamento: ref.read(planejamentoProvider),
-                  simulados: ref.read(simuladosProvider),
-                  resumos: ref.read(resumosProvider),
-                  questoesErradas: ref.read(questoesErradasProvider),
-                  anexos: ref.read(anexosQuestaoRepositorioProvider).todos(),
-                  configuracoes: ref.read(configuracoesProvider),
-                );
+                final json = ref.read(backupUseCaseProvider).snapshotAtual();
                 _compartilharTexto(
                   context,
                   json,
@@ -513,34 +497,16 @@ class ExportarScreen extends ConsumerWidget {
               }
               Navigator.pop(dialogContext);
 
-              await ref
-                  .read(ambientesProvider.notifier)
-                  .mesclar(backup.ambientesOuGeral(DateTime.now()));
-              await ref
-                  .read(materiasProvider.notifier)
-                  .mesclar(backup.materias);
-              await ref.read(topicosProvider.notifier).mesclar(backup.topicos);
-              await ref.read(aulasProvider.notifier).mesclar(backup.aulas);
-              await ref
-                  .read(registrosProvider.notifier)
-                  .mesclar(backup.registros);
-              await ref
-                  .read(revisoesProvider.notifier)
-                  .mesclar(backup.revisoes);
-              await ref
-                  .read(leiturasProvider.notifier)
-                  .mesclar(backup.leituras);
-              await ref
-                  .read(simuladosProvider.notifier)
-                  .mesclar(backup.simulados);
-              await ref.read(resumosProvider.notifier).mesclar(backup.resumos);
-              await ref
-                  .read(questoesErradasProvider.notifier)
-                  .mesclar(backup.questoesErradas);
-              await ref
-                  .read(anexosQuestaoRepositorioProvider)
-                  .mesclar(backup.anexos);
-
+              try {
+                await ref.read(backupUseCaseProvider).mesclar(backup);
+              } catch (erro) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Falha ao mesclar: $erro')),
+                  );
+                }
+                return;
+              }
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Mesclado: ${backup.resumo}.')),
@@ -615,6 +581,17 @@ class ExportarScreen extends ConsumerWidget {
               // build já pode ter saído da árvore.
               final messenger = ScaffoldMessenger.of(context);
               final backupUseCase = ref.read(backupUseCaseProvider);
+              final conflitos = backupUseCase.conflitosDaSubstituicao(backup);
+              if (conflitos.isNotEmpty) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${conflitos.join('; ')}. Use "Importar e mesclar".',
+                    ),
+                  ),
+                );
+                return;
+              }
               final confirmado = await showDialog<bool>(
                 context: context,
                 builder: (confirmContext) => AlertDialog(
@@ -645,8 +622,8 @@ class ExportarScreen extends ConsumerWidget {
                 messenger.showSnackBar(
                   SnackBar(
                     content: Text(
-                      'Falha ao restaurar: $erro. Os dados anteriores foram '
-                      'recolocados.',
+                      'Falha ao restaurar: $erro. Se necessário, use Desfazer '
+                      'para recuperar a cópia local anterior.',
                     ),
                   ),
                 );
@@ -659,8 +636,8 @@ class ExportarScreen extends ConsumerWidget {
                   action: SnackBarAction(
                     label: 'Desfazer',
                     onPressed: () async {
-                      final voltou =
-                          await backupUseCase.desfazerUltimaRestauracao();
+                      final voltou = await backupUseCase
+                          .desfazerUltimaRestauracao();
                       messenger.showSnackBar(
                         SnackBar(
                           content: Text(

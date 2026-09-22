@@ -12,6 +12,8 @@ import '../data/models/resumo.dart';
 import '../data/models/revisao.dart';
 import '../data/models/simulado.dart';
 import '../data/models/topico.dart';
+import 'plano_diario_service.dart';
+import '../features/concursos/estado_concursos.dart';
 
 class BackupImportado {
   final List<Ambiente> ambientes;
@@ -35,6 +37,8 @@ class BackupImportado {
   /// Preferências do backup; null em backup antigo (ou de ambiente), e aí a
   /// configuração local NÃO é tocada.
   final Configuracoes? configuracoes;
+  final Map<String, Map> extensoes;
+  final List<Map> conclusoesRevisao;
 
   /// Marca de escopo gravada pelo gerador (`ExportService.escopoAmbiente`
   /// no backup de um ambiente). Null = backup completo.
@@ -65,6 +69,8 @@ class BackupImportado {
     this.questoesErradas = const [],
     this.anexos = const {},
     this.configuracoes,
+    this.extensoes = const {},
+    this.conclusoesRevisao = const [],
     this.escopo,
     this.chavesPresentes = const {},
   });
@@ -168,6 +174,45 @@ class ImportService {
     }
 
     return BackupImportado(
+      extensoes: () {
+        final bruto = mapa['extensoes'];
+        if (bruto == null) return <String, Map>{};
+        if (bruto is! Map) throw const FormatException('Extensões inválidas.');
+        final resultado = <String, Map>{};
+        for (final chave in ['planoDiario', 'concursos']) {
+          if (bruto[chave] == null) continue;
+          if (bruto[chave] is! Map) {
+            throw FormatException('Extensão $chave inválida.');
+          }
+          resultado[chave] = Map<String, dynamic>.from(bruto[chave] as Map);
+          if (chave == 'planoDiario') validarPlanoDiario(resultado[chave]!);
+          if (chave == 'concursos') validarEstadoConcursos(resultado[chave]);
+        }
+        return resultado;
+      }(),
+      conclusoesRevisao: lista('conclusoesRevisao', (json) {
+        if (json['id'] is! String ||
+            json['feita'] is! Map ||
+            json['aplicada'] is! bool) {
+          throw const FormatException('Conclusão de revisão inválida.');
+        }
+        Revisao.fromJson(Map<String, dynamic>.from(json['feita'] as Map));
+        if (json['id'] != (json['feita'] as Map)['id'] ||
+            (json['feita'] as Map)['feita'] != true ||
+            json['reforco'] is! bool ||
+            (json['taxaAcerto'] != null && json['taxaAcerto'] is! num)) {
+          throw const FormatException('Recibo de revisão inconsistente.');
+        }
+        if (json['sessao'] != null) {
+          RegistroHora.fromJson(
+            Map<String, dynamic>.from(json['sessao'] as Map),
+          );
+        }
+        if (json['proxima'] != null) {
+          Revisao.fromJson(Map<String, dynamic>.from(json['proxima'] as Map));
+        }
+        return json;
+      }),
       // Backups antigos não têm 'ambientes' — lista() devolve vazio.
       ambientes: lista('ambientes', Ambiente.fromJson),
       materias: lista('materias', Materia.fromJson),

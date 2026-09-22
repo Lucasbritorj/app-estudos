@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
+import 'notificacoes_revisao.dart';
 
 import '../core/notificacoes/notificacoes_service.dart';
 import '../data/local/hive_boxes.dart';
 import '../data/repositories/configuracoes_repositorio.dart';
+import '../data/repositories/conclusoes_revisao_repositorio.dart';
 import '../data/repositories/planejamento_repositorio.dart';
 import '../data/repositories/repositorios.dart';
 import '../domain/export_service.dart';
@@ -44,6 +46,14 @@ class BackupUseCase {
     // reproduzir (o usuário fotografou a página uma vez).
     anexos: _ref.read(anexosQuestaoRepositorioProvider).todos(),
     configuracoes: _ref.read(configuracoesProvider),
+    extensoes: {
+      for (final chave in ['planoDiario', 'concursos'])
+        if (Hive.box<Map>(HiveBoxes.config).get(chave) case final Map valor)
+          chave: valor,
+    },
+    conclusoesRevisao: Hive.isBoxOpen('conclusoes_revisao')
+        ? Hive.box<Map>('conclusoes_revisao').values.toList()
+        : const [],
   );
 
   /// Snapshot guardado, se houver.
@@ -67,10 +77,21 @@ class BackupUseCase {
   /// Backup parcial (de um ambiente) é recusado aqui, não só na tela: as
   /// coleções globais dele vêm vazias por escopo e apagariam leituras,
   /// resumos e cronograma.
-  Future<void> restaurarSubstituindo(BackupImportado backup) async {
+  Future<void> restaurarSubstituindo(BackupImportado backup) =>
+      ConclusoesRevisaoRepositorio.exclusivo(
+        () => _restaurarSubstituindo(backup),
+      );
+
+  Future<void> _restaurarSubstituindo(BackupImportado backup) async {
     if (backup.parcial) {
       throw StateError(
         'Backup de um único ambiente não pode substituir tudo — use mesclar.',
+      );
+    }
+    final conflitos = conflitosDaSubstituicao(backup);
+    if (conflitos.isNotEmpty) {
+      throw StateError(
+        '${conflitos.join('; ')}. Use Importar e mesclar para preservar os vínculos.',
       );
     }
     final snapshot = snapshotAtual();
@@ -90,15 +111,109 @@ class BackupUseCase {
     }
   }
 
+  /// Detecta vínculos válidos hoje que a substituição quebraria em coleções
+  /// preservadas pelo formato legado. Órfãos anteriores continuam recuperáveis
+  /// pela tela já existente e não impedem restaurar um snapshot de recuperação.
+  List<String> conflitosDaSubstituicao(BackupImportado backup) {
+    final atuais = _ref.read(materiasProvider).map((m) => m.id).toSet();
+    final futuras = backup.materias.map((m) => m.id).toSet();
+    final topicosAtuais = _ref.read(topicosProvider).map((t) => t.id).toSet();
+    final topicosFuturos = backup.topicos.map((t) => t.id).toSet();
+    bool perdeMateria(String id) =>
+        atuais.contains(id) && !futuras.contains(id);
+    final conflitos = <String>[];
+    if (!backup.mencionou('questoesErradas')) {
+      final afetadas = _ref
+          .read(questoesErradasProvider)
+          .where(
+            (q) =>
+                perdeMateria(q.materiaId) ||
+                (q.topicoId != null &&
+                    topicosAtuais.contains(q.topicoId) &&
+                    !topicosFuturos.contains(q.topicoId)),
+          )
+          .length;
+      if (afetadas > 0) {
+        conflitos.add(
+          '$afetadas questões preservadas perderiam matéria ou tópico',
+        );
+      }
+    }
+    if (!backup.mencionou('aulas')) {
+      final afetadas = _ref
+          .read(aulasProvider)
+          .where((a) => perdeMateria(a.materiaId))
+          .length;
+      if (afetadas > 0) {
+        conflitos.add('$afetadas aulas preservadas perderiam matéria');
+      }
+    }
+    return conflitos;
+  }
+
   /// Volta ao estado anterior à última restauração e consome o snapshot.
   /// Devolve false quando não há nada para desfazer.
-  Future<bool> desfazerUltimaRestauracao() async {
+  Future<bool> desfazerUltimaRestauracao() =>
+      ConclusoesRevisaoRepositorio.exclusivo(_desfazerUltimaRestauracao);
+
+  Future<bool> _desfazerUltimaRestauracao() async {
     final snapshot = snapshotGuardado;
     if (snapshot == null) return false;
     await _aplicarSubstituindo(ImportService.parseBackup(snapshot.json));
     await descartarSnapshot();
     return true;
   }
+
+  /// Mescla dados e recibos sob o mesmo lock das conclusões. Preferências e
+  /// planejamento pessoais permanecem locais, conforme a ação anunciada na UI.
+  Future<void> mesclar(
+    BackupImportado backup,
+  ) => ConclusoesRevisaoRepositorio.exclusivo(() async {
+    await _ref
+        .read(ambientesProvider.notifier)
+        .mesclar(backup.ambientesOuGeral(DateTime.now()));
+    await _ref.read(materiasProvider.notifier).mesclar(backup.materias);
+    await _ref.read(topicosProvider.notifier).mesclar(backup.topicos);
+    await _ref.read(aulasProvider.notifier).mesclar(backup.aulas);
+    await _ref.read(registrosProvider.notifier).mesclar(backup.registros);
+    // Recibos locais são definitivos: um snapshot antigo não pode reabrir
+    // a revisão concluída nem recriá-la após exclusão intencional pelo usuário.
+    // recuperar() não reaplica recibos já aplicados, justamente para respeitar
+    // essa exclusão; portanto a proteção precisa acontecer antes da mesclagem.
+    final journal = ConclusoesRevisaoRepositorio.box;
+    final concluidas = {
+      ...journal.keys,
+      ...backup.conclusoesRevisao.map((recibo) => recibo['id']),
+    };
+    await _ref
+        .read(revisoesProvider.notifier)
+        .mesclar(
+          backup.revisoes
+              .where(
+                (revisao) =>
+                    !concluidas.contains(revisao.id) ||
+                    // Recibo importado bloqueia versão pendente, mas permite
+                    // restaurar a versão concluída contida no próprio backup.
+                    (revisao.feita && !journal.containsKey(revisao.id)),
+              )
+              .toList(),
+        );
+    await _ref.read(leiturasProvider.notifier).mesclar(backup.leituras);
+    await _ref.read(simuladosProvider.notifier).mesclar(backup.simulados);
+    await _ref.read(resumosProvider.notifier).mesclar(backup.resumos);
+    await _ref
+        .read(questoesErradasProvider.notifier)
+        .mesclar(backup.questoesErradas);
+    await _ref.read(anexosQuestaoRepositorioProvider).mesclar(backup.anexos);
+    for (final recibo in backup.conclusoesRevisao) {
+      if (!journal.containsKey(recibo['id'])) {
+        await journal.put(recibo['id'], recibo);
+      }
+    }
+    await ConclusoesRevisaoRepositorio.recuperar();
+    _ref.invalidate(registrosProvider);
+    _ref.invalidate(revisoesProvider);
+  });
 
   /// Ordem filhos→pais, igual a [ApagarDadosUseCase.apagarTudo]: nenhuma
   /// leitura no meio do processo vê filho apontando para pai que já sumiu.
@@ -165,6 +280,29 @@ class BackupUseCase {
     await _ref
         .read(planejamentoProvider.notifier)
         .substituir(backup.planejamento);
+    if (backup.mencionou('extensoes')) {
+      final configBox = Hive.box<Map>(HiveBoxes.config);
+      for (final chave in ['planoDiario', 'concursos']) {
+        final valor = backup.extensoes[chave];
+        if (valor == null) {
+          await configBox.delete(chave);
+        } else {
+          await configBox.put(chave, valor);
+        }
+      }
+    }
+    if (Hive.isBoxOpen('conclusoes_revisao')) {
+      final journal = Hive.box<Map>('conclusoes_revisao');
+      await journal.clear();
+      if (backup.mencionou('conclusoesRevisao')) {
+        await journal.putAll({
+          for (final item in backup.conclusoesRevisao) item['id']: item,
+        });
+      }
+      await ConclusoesRevisaoRepositorio.recuperar();
+      _ref.invalidate(registrosProvider);
+      _ref.invalidate(revisoesProvider);
+    }
 
     // Preferências só são tocadas quando o arquivo as traz: backup antigo (sem
     // a chave) não pode zerar a meta semanal de quem está restaurando.
@@ -173,14 +311,21 @@ class BackupUseCase {
       await _ref
           .read(configuracoesProvider.notifier)
           .salvar(preferencias.copyWith(limparAmbienteAtivo: true));
-      await NotificacoesService.agendarLembreteDiario(
-        preferencias.horaLembreteEstudo,
-      );
     }
 
     // As revisões restauradas têm ids novos: os lembretes agendados apontavam
     // para o conjunto antigo e ficariam órfãos no sistema operacional.
     await NotificacoesService.cancelarTodas();
+    final configRestaurada = _ref.read(configuracoesProvider);
+    await NotificacoesService.agendarLembreteDiario(
+      configRestaurada.horaLembreteEstudo,
+    );
+    for (final revisao in _ref.read(revisoesProvider)) {
+      await NotificacoesRevisao.sincronizar(
+        revisao,
+        configRestaurada.horaNotificacao,
+      );
+    }
   }
 }
 
