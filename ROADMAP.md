@@ -77,7 +77,7 @@ necessário e afeta pouca gente; registrado para não ser redescoberto como bug.
 
 | # | Problema | Onde | Esforço |
 |---|---|---|---|
-| B16 | Prova em andamento continua fora do backup (deliberado — estado preso ao relógio local), mas não há como exportá-la nem avisá-la ao trocar de aparelho. | `export_service.dart` | M |
+| — | *(B16 resolvido: exportar o backup completo com prova em andamento pede confirmação e explica que ela não vai junto. A prova segue fora do backup de propósito.)* | | |
 | — | *(B20 resolvido: `agoraProvider` de uma linha + 1 call site.)* | | |
 
 ## 3. Qualidade e infraestrutura
