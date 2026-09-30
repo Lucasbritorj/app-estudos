@@ -27,6 +27,7 @@ import 'package:app_estudos/features/busca/busca_screen.dart';
 import 'package:app_estudos/features/caderno/questoes_orfas_screen.dart';
 import 'package:app_estudos/features/leituras/leituras_screen.dart';
 import 'package:app_estudos/features/mapa/mapa_estudos_screen.dart';
+import 'package:app_estudos/features/onboarding/onboarding_screen.dart';
 import 'package:app_estudos/features/materias/materias_screen.dart';
 import 'package:app_estudos/features/planejamento/planejamento_screen.dart';
 import 'package:app_estudos/features/resumos/resumos_screen.dart';
@@ -769,6 +770,25 @@ void main() {
       tamanho: const Size(900, 1100),
     );
   });
+
+  // Q6: onboarding é multi-passo, então um golden por passo. Cada passo
+  // chega tocando "Próximo" a partir do primeiro, como o usuário faz.
+  for (var passo = 1; passo <= 4; passo++) {
+    testWidgets('onboarding passo $passo', (tester) async {
+      await capturar(
+        tester,
+        const OnboardingScreen(),
+        '20_onboarding_$passo',
+        tamanho: const Size(420, 820),
+        antesDeCapturar: (tester) async {
+          for (var i = 1; i < passo; i++) {
+            await tester.tap(find.text('Próximo'));
+            await tester.pumpAndSettle();
+          }
+        },
+      );
+    });
+  }
 }
 
 /// Pasta material_fonts do SDK: FLUTTER_ROOT quando definido, senão deduz a
@@ -806,4 +826,5 @@ Future<void> _carregarFonte(String familia, List<String> caminhos) async {
     loader.addFont(Future.value(ByteData.view(bytes.buffer)));
   }
   if (algum) await loader.load();
+
 }
