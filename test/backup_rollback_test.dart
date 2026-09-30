@@ -140,38 +140,44 @@ void main() {
       );
     });
 
-    test('ambiente ativo do backup nunca é restaurado (pode não existir)', () async {
-      await semearEstadoOriginal();
-      final json = ExportService.jsonCompleto(
-        materias: const [],
-        topicos: const [],
-        aulas: const [],
-        registros: const [],
-        revisoes: const [],
-        leituras: const [],
-        planejamento: const {},
-        configuracoes: const Configuracoes(ambienteAtivoId: 'amb-que-sumiu'),
-      );
-      await container
-          .read(backupUseCaseProvider)
-          .restaurarSubstituindo(ImportService.parseBackup(json));
-      expect(container.read(configuracoesProvider).ambienteAtivoId, isNull);
-    });
+    test(
+      'ambiente ativo do backup nunca é restaurado (pode não existir)',
+      () async {
+        await semearEstadoOriginal();
+        final json = ExportService.jsonCompleto(
+          materias: const [],
+          topicos: const [],
+          aulas: const [],
+          registros: const [],
+          revisoes: const [],
+          leituras: const [],
+          planejamento: const {},
+          configuracoes: const Configuracoes(ambienteAtivoId: 'amb-que-sumiu'),
+        );
+        await container
+            .read(backupUseCaseProvider)
+            .restaurarSubstituindo(ImportService.parseBackup(json));
+        expect(container.read(configuracoesProvider).ambienteAtivoId, isNull);
+      },
+    );
   });
 
   group('B4 — rollback da importação destrutiva', () {
-    test('snapshotAtual serializa tudo, inclusive caderno e preferências', () async {
-      await semearEstadoOriginal();
-      final snapshot = ImportService.parseBackup(
-        container.read(backupUseCaseProvider).snapshotAtual(),
-      );
-      expect(snapshot.materias.single.id, 'm-original');
-      expect(snapshot.registros.single.minutos, 90);
-      expect(snapshot.questoesErradas.single.id, 'q-original');
-      expect(snapshot.planejamento, {1: 120});
-      expect(snapshot.configuracoes!.metaSemanalMinutos, 1500);
-      expect(snapshot.configuracoes!.minutosPadraoRevisao, 25);
-    });
+    test(
+      'snapshotAtual serializa tudo, inclusive caderno e preferências',
+      () async {
+        await semearEstadoOriginal();
+        final snapshot = ImportService.parseBackup(
+          container.read(backupUseCaseProvider).snapshotAtual(),
+        );
+        expect(snapshot.materias.single.id, 'm-original');
+        expect(snapshot.registros.single.minutos, 90);
+        expect(snapshot.questoesErradas.single.id, 'q-original');
+        expect(snapshot.planejamento, {1: 120});
+        expect(snapshot.configuracoes!.metaSemanalMinutos, 1500);
+        expect(snapshot.configuracoes!.minutosPadraoRevisao, 25);
+      },
+    );
 
     test('restaurar troca os dados e habilita o desfazer', () async {
       await semearEstadoOriginal();
@@ -210,45 +216,50 @@ void main() {
       expect(await useCase.desfazerUltimaRestauracao(), isFalse);
     });
 
-    test('backup parcial (de ambiente) é recusado no use case, não só na UI', () async {
-      await semearEstadoOriginal();
-      final parcial = ImportService.parseBackup(
-        ExportService.jsonAmbiente(
-          ambiente: Ambiente(
-            id: 'amb-x',
-            nome: 'Concurso X',
-            criadoEm: DateTime(2026, 1, 1),
+    test(
+      'backup parcial (de ambiente) é recusado no use case, não só na UI',
+      () async {
+        await semearEstadoOriginal();
+        final parcial = ImportService.parseBackup(
+          ExportService.jsonAmbiente(
+            ambiente: Ambiente(
+              id: 'amb-x',
+              nome: 'Concurso X',
+              criadoEm: DateTime(2026, 1, 1),
+            ),
+            materias: const [],
+            topicos: const [],
+            aulas: const [],
+            registros: const [],
+            revisoes: const [],
           ),
-          materias: const [],
-          topicos: const [],
-          aulas: const [],
-          registros: const [],
-          revisoes: const [],
-        ),
-      );
-      expect(
-        () => container
-            .read(backupUseCaseProvider)
-            .restaurarSubstituindo(parcial),
-        throwsA(isA<StateError>()),
-      );
-      // Nada foi tocado.
-      expect(container.read(materiasProvider).single.id, 'm-original');
-    });
+        );
+        expect(
+          () => container
+              .read(backupUseCaseProvider)
+              .restaurarSubstituindo(parcial),
+          throwsA(isA<StateError>()),
+        );
+        // Nada foi tocado.
+        expect(container.read(materiasProvider).single.id, 'm-original');
+      },
+    );
 
     test('restauração vazia não apaga as preferências locais', () async {
       await semearEstadoOriginal();
-      await container
-          .read(backupUseCaseProvider)
-          .restaurarSubstituindo(
-            ImportService.parseBackup('{"versao":1,"materias":[]}'),
-          );
+      await expectLater(
+        container
+            .read(backupUseCaseProvider)
+            .restaurarSubstituindo(
+              ImportService.parseBackup('{"versao":1,"materias":[]}'),
+            ),
+        throwsA(isA<StateError>()),
+      );
       // Backup sem 'configuracoes' preserva as preferências de quem restaura.
       expect(container.read(configuracoesProvider).metaSemanalMinutos, 1500);
-      expect(container.read(materiasProvider), isEmpty);
+      expect(container.read(materiasProvider).single.id, 'm-original');
     });
   });
-
 
   group('D-01 — restaurar backup antigo não apaga o que ele não menciona', () {
     /// Backup COMPLETO e válido, porém sem a chave [semAChave] — é o formato
@@ -278,22 +289,26 @@ void main() {
           ),
         );
 
-    test('backup pré-D-01 (sem "resumos") PRESERVA os resumos existentes',
-        () async {
-      // O cenário real: o diálogo de wipe manda exportar backup antes de
-      // apagar. Quem tem o arquivo mais antigo é quem mais precisa restaurar —
-      // e era exatamente quem perdia as páginas de resumo, em silêncio.
-      await semearResumo();
-      expect(container.read(resumosProvider), hasLength(1));
+    test(
+      'backup pré-D-01 (sem "resumos") PRESERVA os resumos existentes',
+      () async {
+        // O cenário real: o diálogo de wipe manda exportar backup antes de
+        // apagar. Quem tem o arquivo mais antigo é quem mais precisa restaurar —
+        // e era exatamente quem perdia as páginas de resumo, em silêncio.
+        await semearResumo();
+        expect(container.read(resumosProvider), hasLength(1));
 
-      await container
-          .read(backupUseCaseProvider)
-          .restaurarSubstituindo(ImportService.parseBackup(backupSem('resumos')));
+        await container
+            .read(backupUseCaseProvider)
+            .restaurarSubstituindo(
+              ImportService.parseBackup(backupSem('resumos')),
+            );
 
-      final resumos = container.read(resumosProvider);
-      expect(resumos, hasLength(1), reason: 'o arquivo não falou de resumos');
-      expect(resumos.single.texto, contains('cara de reproduzir'));
-    });
+        final resumos = container.read(resumosProvider);
+        expect(resumos, hasLength(1), reason: 'o arquivo não falou de resumos');
+        expect(resumos.single.texto, contains('cara de reproduzir'));
+      },
+    );
 
     test('backup com "resumos": [] ZERA — o arquivo falou vazio', () async {
       await semearResumo();

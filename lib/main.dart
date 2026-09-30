@@ -7,6 +7,8 @@ import 'package:hive_ce_flutter/hive_flutter.dart';
 
 import 'app.dart';
 import 'core/boot/falha_boot.dart';
+import 'core/boot/instancia_stub.dart'
+    if (dart.library.js_interop) 'core/boot/instancia_web.dart';
 import 'core/notificacoes/notificacoes_service.dart';
 import 'data/local/hive_boxes.dart';
 import 'data/models/configuracoes.dart';
@@ -32,9 +34,51 @@ void main() {
 /// "Tentar de novo" da [FalhaBootApp] — `runApp` pode ser chamado de novo e
 /// troca a árvore inteira, então uma segunda tentativa bem-sucedida substitui
 /// a tela de falha pelo app sem exigir que o usuário recarregue a página.
-Future<void> iniciar() async {
+Future<void>? _inicioPendente;
+Future<void> iniciar() => _inicioPendente ??= _iniciar().whenComplete(() => _inicioPendente = null);
+
+Future<void> _iniciar() async {
   WidgetsFlutterBinding.ensureInitialized();
   _instalarCapturaDeErro();
+  try {
+    if (!await adquirirInstancia()) {
+      runApp(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('O app já está aberto em outra aba ou janela.'),
+                  const Text(
+                    'Feche a outra janela para continuar com segurança.',
+                  ),
+                  FilledButton(
+                    onPressed: iniciar,
+                    child: const Text('Tentar novamente'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+  } catch (erro) {
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text(
+              'Não foi possível proteger os dados entre abas. Use Chrome ou Edge atualizado em HTTPS.\n$erro',
+            ),
+          ),
+        ),
+      ),
+    );
+    return;
+  }
 
   // Fronteira do que é fatal: sem armazenamento aberto e migrado não existe
   // app — todo o estado do produto mora no Hive. Falhar aqui precisa produzir

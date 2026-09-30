@@ -5,6 +5,7 @@ import 'package:hive_ce/hive.dart';
 import '../core/notificacoes/notificacoes_service.dart';
 import '../data/local/hive_boxes.dart';
 import '../data/repositories/configuracoes_repositorio.dart';
+import '../data/repositories/conclusoes_revisao_repositorio.dart';
 import '../data/repositories/planejamento_repositorio.dart';
 import '../data/repositories/repositorios.dart';
 
@@ -58,7 +59,15 @@ class ApagarDadosUseCase {
   /// não impõe integridade referencial — `substituirTudo` de qualquer uma
   /// isoladamente já funcionaria — mas assim nenhuma leitura no meio do
   /// processo pode ver um filho apontando pra um pai que já sumiu.
-  Future<void> apagarTudo() async {
+  Future<void> apagarTudo() => ConclusoesRevisaoRepositorio.exclusivo(_apagarTudo);
+
+  Future<void> _apagarTudo() async {
+    if (Hive.isBoxOpen('conclusoes_revisao')) {
+      await Hive.box<Map>('conclusoes_revisao').clear();
+    }
+    await Hive.box<Map>(
+      HiveBoxes.config,
+    ).deleteAll(['planoDiario', 'concursos', 'avisosRevisoes']);
     await _ref.read(questoesErradasProvider.notifier).substituirTudo([]);
     // Cascata do caderno de erros (F1): sem isto o wipe apagava as questões
     // mas deixava as fotos órfãs no box de anexos — bytes que nenhuma tela
@@ -85,9 +94,7 @@ class ApagarDadosUseCase {
     await _ref
         .read(configuracoesProvider.notifier)
         .salvar(
-          _ref
-              .read(configuracoesProvider)
-              .copyWith(limparAmbienteAtivo: true),
+          _ref.read(configuracoesProvider).copyWith(limparAmbienteAtivo: true),
         );
 
     // Sem isto o usuário apagava tudo e continuava recebendo lembrete de

@@ -4,11 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/utils/haptica.dart';
+import 'core/notificacoes/avisos_revisoes.dart';
 import 'data/repositories/configuracoes_repositorio.dart';
 import 'features/ambientes/ambientes_screen.dart';
 import 'features/busca/busca_screen.dart';
 import 'features/caderno/caderno_screen.dart';
 import 'features/configuracoes/configuracoes_screen.dart';
+import 'features/concursos/concursos_screen.dart';
+import 'features/concursos/concursos_atualizacao.dart';
 import 'features/cronometro/cronometro_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/edital/edital_screen.dart';
@@ -69,7 +72,7 @@ class AppEstudos extends StatelessWidget {
       // deixam o vidro dos cards aparecer em qualquer rota.
       builder: (context, child) =>
           LuminaBackground(child: child ?? const SizedBox.shrink()),
-      home: const _HomeShell(),
+      home: const ConcursosAtualizacao(child: _HomeShell()),
     );
   }
 }
@@ -92,15 +95,18 @@ class _HomeShell extends ConsumerWidget {
     }
 
     final aba = ref.watch(abaProvider);
-    final conteudo = IndexedStack(
-      index: aba,
-      children: const [
-        DashboardScreen(),
-        CronometroScreen(),
-        MateriasScreen(),
-        RevisoesScreen(),
-        MaisScreen(),
-      ],
+    final conteudo = AvisosRevisoes(
+      abrirRevisoes: () => ref.read(abaProvider.notifier).ir(Abas.revisoes),
+      child: IndexedStack(
+        index: aba,
+        children: const [
+          DashboardScreen(),
+          CronometroScreen(),
+          MateriasScreen(),
+          RevisoesScreen(),
+          MaisScreen(),
+        ],
+      ),
     );
 
     return LayoutBuilder(
@@ -169,8 +175,7 @@ class _Sidebar extends ConsumerWidget {
   static const _larguraColapsada = 72.0;
 
   /// Limiar de conteúdo, a meio caminho entre as duas larguras-alvo.
-  static const _larguraMeioTermo =
-      (_larguraExpandida + _larguraColapsada) / 2;
+  static const _larguraMeioTermo = (_larguraExpandida + _larguraColapsada) / 2;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -274,8 +279,7 @@ class _Sidebar extends ConsumerWidget {
                 rotulo: 'Dashboard',
                 ativo: aba == Abas.dashboard,
                 colapsado: estreita,
-                onTap: () =>
-                    ref.read(abaProvider.notifier).ir(Abas.dashboard),
+                onTap: () => ref.read(abaProvider.notifier).ir(Abas.dashboard),
               ),
               _ItemSidebar(
                 icone: Icons.timer_outlined,
@@ -283,8 +287,7 @@ class _Sidebar extends ConsumerWidget {
                 rotulo: 'Cronômetro',
                 ativo: aba == Abas.cronometro,
                 colapsado: estreita,
-                onTap: () =>
-                    ref.read(abaProvider.notifier).ir(Abas.cronometro),
+                onTap: () => ref.read(abaProvider.notifier).ir(Abas.cronometro),
               ),
               _ItemSidebar(
                 icone: Icons.library_books_outlined,
@@ -292,8 +295,7 @@ class _Sidebar extends ConsumerWidget {
                 rotulo: 'Matérias',
                 ativo: aba == Abas.materias,
                 colapsado: estreita,
-                onTap: () =>
-                    ref.read(abaProvider.notifier).ir(Abas.materias),
+                onTap: () => ref.read(abaProvider.notifier).ir(Abas.materias),
               ),
               _ItemSidebar(
                 icone: Icons.event_repeat_outlined,
@@ -301,11 +303,16 @@ class _Sidebar extends ConsumerWidget {
                 rotulo: 'Revisões',
                 ativo: aba == Abas.revisoes,
                 colapsado: estreita,
-                onTap: () =>
-                    ref.read(abaProvider.notifier).ir(Abas.revisoes),
+                onTap: () => ref.read(abaProvider.notifier).ir(Abas.revisoes),
               ),
               const SizedBox(height: 18),
               if (!estreita) const _RotuloSecao('Ferramentas'),
+              _ItemSidebar(
+                icone: Icons.travel_explore,
+                rotulo: 'Concursos',
+                colapsado: estreita,
+                onTap: () => abrir(const ConcursosScreen()),
+              ),
               _ItemSidebar(
                 icone: Icons.search,
                 rotulo: 'Buscar',
@@ -442,9 +449,7 @@ class _ItemSidebar extends StatelessWidget {
     final conteudo = colapsado
         ? Padding(
             padding: const EdgeInsets.symmetric(vertical: 11),
-            child: Center(
-              child: Icon(iconeEfetivo, size: 19, color: corIcone),
-            ),
+            child: Center(child: Icon(iconeEfetivo, size: 19, color: corIcone)),
           )
         : Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),

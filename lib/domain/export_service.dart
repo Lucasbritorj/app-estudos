@@ -379,6 +379,8 @@ class ExportService {
     // nada.
     Map<String, Uint8List> anexos = const {},
     Configuracoes? configuracoes,
+    Map<String, Map>? extensoes,
+    List<Map>? conclusoesRevisao,
     String? escopo,
   }) {
     return const JsonEncoder.withIndent('  ').convert({
@@ -412,6 +414,8 @@ class ExportService {
       // devolvia os dados e perdia a configuração. Campo tolerante — backup
       // sem ele continua válido na versão 1.
       'configuracoes': configuracoes?.toJson(),
+      'extensoes': ?extensoes,
+      'conclusoesRevisao': ?conclusoesRevisao,
     });
   }
 

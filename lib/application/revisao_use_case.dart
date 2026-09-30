@@ -1,5 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import 'package:hive_ce/hive.dart';
+import '../data/local/hive_boxes.dart';
+import '../data/repositories/conclusoes_revisao_repositorio.dart';
 
 import '../data/models/registro_hora.dart';
 import '../data/models/revisao.dart';
@@ -19,7 +23,10 @@ typedef ResultadoConclusao = ({
 /// Conclusão, adiamento e criação manual de revisões — a orquestração que
 /// vivia em RevisoesScreen, agora testável sem UI.
 class RevisaoUseCase {
-  RevisaoUseCase(this._ref);
+  RevisaoUseCase(this._ref, {this.aposEtapaPersistida});
+
+  @visibleForTesting
+  final Future<void> Function(String etapa)? aposEtapaPersistida;
   final Ref _ref;
 
   /// Conclui e emenda a próxima revisão — FSRS-lite adaptativo pelo
@@ -37,114 +44,119 @@ class RevisaoUseCase {
     int? questoes,
     int? acertos,
     int? minutos,
-  }) async {
+  }) => ConclusoesRevisaoRepositorio.exclusivo(() async {
+    await ConclusoesRevisaoRepositorio.recuperar();
+    _ref.invalidate(registrosProvider);
+    _ref.invalidate(revisoesProvider);
+    final anterior = ConclusoesRevisaoRepositorio.box.get(revisao.id);
+    if (anterior != null) return _resultado(anterior);
+
+    // O estado persistido prevalece sobre o objeto obsoleto recebido da UI.
+    final raw = Hive.box<Map>(HiveBoxes.revisoes).get(revisao.id);
+    final atual = raw == null
+        ? revisao
+        : Revisao.fromJson(Map<String, dynamic>.from(raw));
     final agora = DateTime.now();
     final config = _ref.read(configuracoesProvider);
-    // Tempo não informado cai na estimativa configurável em vez de 0: a sessão
-    // de 0 min zerava o "mínimo diário" do resumo e inflava a contagem de
-    // sessões sem nenhum tempo por trás. `minutosPadraoRevisao = 0` volta ao
-    // comportamento antigo.
-    //
-    // M-02: a ESTIMATIVA tem o mesmo teto diário do bônus de XP
-    // (`maxRevisoesComBonusPorDia`). Sem isso, concluir revisões antecipadas
-    // em sequência creditava minutos sem limite — inflando horas, XP base,
-    // streak e heatmap sem estudo nenhum. Da 4ª conclusão do dia em diante a
-    // sessão entra com 0 min.
-    //
-    // Tempo INFORMADO (`minutos != null`) nunca é cortado: é medição, não
-    // estimativa. Hoje nenhuma tela passa esse parâmetro, mas o contrato do
-    // caso de uso precisa ser honesto.
-    //
-    // Lido ANTES de marcar esta revisão como feita, então a contagem é das
-    // conclusões ANTERIORES do dia: as 3 primeiras creditam, a 4ª não.
-    final dentroDoTeto = GamificacaoService.podeCreditarTempoEstimado(
-      _ref.read(revisoesProvider),
-      agora,
-    );
+    final dentroDoTeto =
+        ConclusoesRevisaoRepositorio.concluidasNoDia(agora) <
+        GamificacaoService.maxRevisoesComBonusPorDia;
     final minutosDaSessao =
         minutos ?? (dentroDoTeto ? config.minutosPadraoRevisao : 0);
-    if (questoes != null && questoes > 0 && acertos != null) {
-      await _ref
-          .read(registrosProvider.notifier)
-          .salvar(
-            RegistroHora(
-              id: const Uuid().v4(),
-              data: agora,
-              materiaId: revisao.materiaId,
-              topicoId: revisao.topicoId,
-              tipo: TipoEstudo.pratica,
-              tarefa: 'Revisão: ${revisao.titulo}',
-              minutos: minutosDaSessao,
-              questoes: questoes,
-              acertos: acertos,
-            ),
-          );
-    }
-    final feita = revisao.copyWith(feita: true, dataConclusao: agora);
-    await _ref.read(revisoesProvider.notifier).salvar(feita);
-    await NotificacoesRevisao.sincronizar(feita, config.horaNotificacao);
-
-    // Desempenho NA revisão é o sinal primário do passo FSRS (M-04): a janela
-    // das últimas 10 sessões diluía um 0/10 do recall entre sessões boas de
-    // outros tópicos — pior ainda nas cadeias de aula, que não têm topicoId e
-    // eram julgadas pela matéria inteira. A janela vira fallback para
-    // conclusão sem questões.
-    final taxaDaRevisao = (questoes != null && questoes > 0 && acertos != null)
-        ? (acertos.clamp(0, questoes)) / questoes
+    final temDesempenho = questoes != null && questoes > 0 && acertos != null;
+    final sessao = temDesempenho
+        ? RegistroHora(
+            id: const Uuid().v4(),
+            data: agora,
+            materiaId: atual.materiaId,
+            topicoId: atual.topicoId,
+            tipo: TipoEstudo.pratica,
+            tarefa: 'Revisão: ${atual.titulo}',
+            minutos: minutosDaSessao,
+            questoes: questoes,
+            acertos: acertos,
+          )
         : null;
-    final taxaJanela = RevisaoService.taxaAcertoDe(
-      _ref.read(registrosProvider),
-      materiaId: revisao.materiaId,
-      topicoId: revisao.topicoId,
-    );
-    final taxa = taxaDaRevisao ?? taxaJanela;
+    final taxa = temDesempenho
+        ? acertos.clamp(0, questoes) / questoes
+        : RevisaoService.taxaAcertoDe(
+            _ref.read(registrosProvider),
+            materiaId: atual.materiaId,
+            topicoId: atual.topicoId,
+          );
     final agendada = DateTime(
-      revisao.dataAgendada.year,
-      revisao.dataAgendada.month,
-      revisao.dataAgendada.day,
+      atual.dataAgendada.year,
+      atual.dataAgendada.month,
+      atual.dataAgendada.day,
     );
-    // Diferença entre DIAS de calendário, não entre instantes: `inDays` trunca
-    // em direção ao zero, então concluir 3 dias antes do vencimento às 20h dava
-    // -2 e o freio de antecipação saía sistematicamente um dia mais fraco.
     final diasDeAtraso = DateTime(
       agora.year,
       agora.month,
       agora.day,
     ).difference(agendada).inDays;
     final passo = RevisaoService.proximoPassoFsrs(
-      estabilidade: revisao.estabilidade,
-      dificuldade: revisao.dificuldade,
-      intervaloAtual: revisao.intervaloDias,
+      estabilidade: atual.estabilidade,
+      dificuldade: atual.dificuldade,
+      intervaloAtual: atual.intervaloDias,
       diasDeAtraso: diasDeAtraso,
       taxaAcerto: taxa,
     );
-    if (passo == null) {
-      return (proxima: null, taxaAcerto: taxa, reforco: false);
-    }
-
-    final tituloBase = revisao.titulo.replaceFirst(
+    final tituloBase = atual.titulo.replaceFirst(
       RegExp(r' \((\d+d|reforço)\)$'),
       '',
     );
-    final proxima = Revisao(
-      id: const Uuid().v4(),
-      materiaId: revisao.materiaId,
-      topicoId: revisao.topicoId,
-      // Linhagem da cadeia: sem o aulaId a invariante "uma cadeia por aula"
-      // (dedupe em criarCadeiaParaAula) perderia as sucessoras de vista.
-      aulaId: revisao.aulaId,
-      titulo: passo.reforco
-          ? '$tituloBase (reforço)'
-          : '$tituloBase (${passo.dias}d)',
-      dataAgendada: DateTime(agora.year, agora.month, agora.day + passo.dias),
-      intervaloDias: passo.intervalo,
-      estabilidade: passo.estabilidade,
-      dificuldade: passo.dificuldade,
+    final proxima = passo == null
+        ? null
+        : Revisao(
+            id: const Uuid().v4(),
+            materiaId: atual.materiaId,
+            topicoId: atual.topicoId,
+            aulaId: atual.aulaId,
+            titulo: passo.reforco
+                ? '$tituloBase (reforço)'
+                : '$tituloBase (${passo.dias}d)',
+            dataAgendada: DateTime(
+              agora.year,
+              agora.month,
+              agora.day + passo.dias,
+            ),
+            intervaloDias: passo.intervalo,
+            estabilidade: passo.estabilidade,
+            dificuldade: passo.dificuldade,
+          );
+    final feita = atual.copyWith(feita: true, dataConclusao: agora);
+    final operacao = <String, dynamic>{
+      'id': atual.id,
+      'feita': feita.toJson(),
+      'sessao': sessao?.toJson(),
+      'proxima': proxima?.toJson(),
+      'taxaAcerto': taxa,
+      'reforco': passo?.reforco ?? false,
+      'aplicada': false,
+    };
+    await ConclusoesRevisaoRepositorio.guardar(operacao);
+    await ConclusoesRevisaoRepositorio.aplicar(
+      operacao,
+      aposEtapa: aposEtapaPersistida,
     );
-    await _ref.read(revisoesProvider.notifier).salvar(proxima);
-    await NotificacoesRevisao.sincronizar(proxima, config.horaNotificacao);
-    return (proxima: proxima, taxaAcerto: taxa, reforco: passo.reforco);
-  }
+    _ref.invalidate(registrosProvider);
+    _ref.invalidate(revisoesProvider);
+    await NotificacoesRevisao.sincronizar(feita, config.horaNotificacao);
+    if (proxima != null) {
+      await NotificacoesRevisao.sincronizar(proxima, config.horaNotificacao);
+    }
+    return _resultado(operacao);
+  });
+
+  ResultadoConclusao _resultado(Map operacao) => (
+    proxima: operacao['proxima'] == null
+        ? null
+        : Revisao.fromJson(
+            Map<String, dynamic>.from(operacao['proxima'] as Map),
+          ),
+    taxaAcerto: (operacao['taxaAcerto'] as num?)?.toDouble(),
+    reforco: operacao['reforco'] as bool,
+  );
 
   Future<Revisao> adiar(Revisao revisao, int dias) async {
     final base = revisao.dataAgendada;
