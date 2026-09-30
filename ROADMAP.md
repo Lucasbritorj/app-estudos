@@ -86,7 +86,7 @@ necessário e afeta pouca gente; registrado para não ser redescoberto como bug.
 |---|---|---|
 | Q3 | **Sem tema claro** (dark-only, sem `ThemeMode`). O Lumina já é tokenizado: é trabalho de paleta, não refatoração. | M |
 | Q5 | **Sem desfazer** fora da importação. Excluir matéria/tópico/questão continua irreversível com só um diálogo. Agora que `BackupUseCase` existe, dá para generalizar o padrão de snapshot. | M |
-| Q6 | Goldens cobrem **19 telas**. Falta só `onboarding` (fluxo multi-passo, precisa de um golden por passo). | P |
+| Q6 | ~~Goldens cobrem 19 telas; faltava `onboarding`.~~ **Resolvido 30/09:** `20_onboarding_1..4`, um golden por passo. | P |
 | Q9 | Sem teste de integração ponta a ponta (`integration_test`) — a suíte é unit + widget isolado. | M |
 
 ## 4. Funcionalidades sugeridas
@@ -147,7 +147,7 @@ Tema: o que muda a natureza do produto.
 Pré-voo CI e `Permissions-Policy` reconfirmados em 26/08 (runs 32878953019 e
 32879139972; header vivo em `app-estudos-neon.vercel.app`). F3 recorte
 semanal já está no disco (`85c67aa`); o que falta de F3 é agendamento (vizinho
-de F8). Próximo P: **Q6 (golden do onboarding)**.
+de F8). Q6 resolvido em 30/09. Não há próximo P aberto na seção 3.
 ---
 
 ## 7. Manutenção deste arquivo
