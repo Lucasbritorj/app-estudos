@@ -50,6 +50,7 @@ class _AvisosRevisoesState extends ConsumerState<AvisosRevisoes>
   @override
   void initState() {
     super.initState();
+    if (!kIsWeb) return;
     WidgetsBinding.instance.addObserver(this);
     _timer = Timer.periodic(const Duration(minutes: 1), (_) => _verificar());
     WidgetsBinding.instance.addPostFrameCallback((_) => _verificar());

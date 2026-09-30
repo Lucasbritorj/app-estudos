@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'concursos_store.dart';
 
@@ -22,6 +23,10 @@ class _ConcursosAtualizacaoState extends State<ConcursosAtualizacao>
   @override
   void initState() {
     super.initState();
+    // A coleta só existe na PWA (cliente_stub lança fora da web). Sem esta
+    // guarda, a gravação de 'tentativa' no box config ocupava a fila do Hive
+    // em ambiente sem web e travava as escritas seguintes da configuração.
+    if (!kIsWeb) return;
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _atualizar());
     _timer = Timer.periodic(const Duration(hours: 6), (_) => _atualizar());
