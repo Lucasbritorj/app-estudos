@@ -36,24 +36,24 @@ void main() {
     final store = ConcursosStore(box: box, consulta: query);
     final now = DateTime(2026, 9, 7);
     await store.atualizar(agora: now);
-    expect(calls, 3);
+    expect(calls, 2);
     await ConcursosStore(
       box: box,
       consulta: query,
     ).atualizar(agora: now.add(const Duration(hours: 1)));
-    expect(calls, 3);
+    expect(calls, 2);
     await store.atualizar(
       manual: true,
       agora: now.add(const Duration(minutes: 4)),
     );
-    expect(calls, 3);
+    expect(calls, 2);
     await store.atualizar(
       manual: true,
       agora: now.add(const Duration(minutes: 5)),
     );
-    expect(calls, 6);
+    expect(calls, 4);
     await store.atualizar(agora: now.add(const Duration(hours: 7)));
-    expect(calls, 9);
+    expect(calls, 6);
   });
   test(
     'falha mantém cache e histórico; mudança guarda versão anterior',
@@ -79,6 +79,25 @@ void main() {
       expect(store.state['publicacoes']['a']['anterior']['versao'], '1');
     },
   );
+  test(
+    'acompanhamento antigo da Cesgranrio fica no estado e não é consultado',
+    () async {
+      await box.put('concursos', {
+        'acompanhados': ['cesgranrio:sema-mt-2026', 'fgv:seplagrj'],
+      });
+      final fontes = <String>[];
+      final store = ConcursosStore(
+        box: box,
+        consulta: (s, id) async {
+          fontes.add('$s:$id');
+          return response('1');
+        },
+      );
+      await store.atualizar(agora: DateTime(2026, 9, 30));
+      expect(fontes, unorderedEquals(['fgv:', 'cebraspe:', 'fgv:seplagrj']));
+      expect(store.state['acompanhados'], contains('cesgranrio:sema-mt-2026'));
+    },
+  );
   test('concorrência não duplica consultas', () async {
     var calls = 0;
     final store = ConcursosStore(
@@ -90,7 +109,7 @@ void main() {
       },
     );
     await Future.wait([store.atualizar(), store.atualizar()]);
-    expect(calls, 3);
+    expect(calls, 2);
   });
   for (final restore in [false, true]) {
     test(

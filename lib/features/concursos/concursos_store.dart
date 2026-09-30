@@ -25,8 +25,11 @@ class ConcursosStore {
       final targets = <String>[
         'fgv:',
         'cebraspe:',
-        'cesgranrio:',
-        ...List<String>.from(snapshot['acompanhados'] ?? []),
+        // Cesgranrio saiu das fontes (responde 403 à coleta). Acompanhamentos
+        // antigos dela continuam válidos no estado, mas não são mais consultados.
+        ...List<String>.from(
+          snapshot['acompanhados'] ?? [],
+        ).where((alvo) => !alvo.startsWith('cesgranrio:')),
       ];
       for (final target in targets.toSet()) {
         final current = state;

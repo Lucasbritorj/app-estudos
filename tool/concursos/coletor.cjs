@@ -1,8 +1,8 @@
 const {createHash}=require('node:crypto');
-const SOURCES={fgv:'https://conhecimento.fgv.br/concursos',cesgranrio:'https://www.cesgranrio.org.br/concursos/',cebraspe:'https://apis.cebraspe.org.br/cebraspe/eventos/tipo/concursos/'};
-const HOSTS=new Set(['conhecimento.fgv.br','www.cesgranrio.org.br','concursos.cesgranrio.org.br','apis.cebraspe.org.br','www.cebraspe.org.br','cdn.cebraspe.org.br']);
+const SOURCES={fgv:'https://conhecimento.fgv.br/concursos',cebraspe:'https://apis.cebraspe.org.br/cebraspe/eventos/tipo/concursos/'};
+const HOSTS=new Set(['conhecimento.fgv.br','apis.cebraspe.org.br','www.cebraspe.org.br','cdn.cebraspe.org.br']);
 function safe(url){const u=new URL(url);if(u.protocol!=='https:'||!HOSTS.has(u.hostname)||u.port||u.username||u.password)throw Error('destino não permitido');return u.href;}
-function sourceUrl(fonte,id=''){if(!Object.hasOwn(SOURCES,fonte)||typeof id!=='string'||(id&&!/^[a-zA-Z0-9_-]{1,100}$/.test(id)))throw Error('fonte ou concurso inválido');return id?({fgv:`https://conhecimento.fgv.br/concursos/${id}`,cesgranrio:`https://www.cesgranrio.org.br/concurso/${id}/`,cebraspe:`https://apis.cebraspe.org.br/cebraspe/eventos/${id}`})[fonte]:SOURCES[fonte];}
+function sourceUrl(fonte,id=''){if(!Object.hasOwn(SOURCES,fonte)||typeof id!=='string'||(id&&!/^[a-zA-Z0-9_-]{1,100}$/.test(id)))throw Error('fonte ou concurso inválido');return id?({fgv:`https://conhecimento.fgv.br/concursos/${id}`,cebraspe:`https://apis.cebraspe.org.br/cebraspe/eventos/${id}`})[fonte]:SOURCES[fonte];}
 async function readSafe(url,fetcher=fetch,binary=false){const signal=AbortSignal.timeout(8000);for(let i=0;i<4;i++){const r=await fetcher(safe(url),{redirect:'manual',signal,headers:{accept:'application/json,text/html,application/pdf','user-agent':'AppEstudos/1.0 (consulta publica)'}});if([301,302,303,307,308].includes(r.status)){url=safe(new URL(r.headers.get('location'),url).href);continue;}if(!r.ok)throw Error(`Fonte retornou HTTP ${r.status}`);if(Number(r.headers.get('content-length'))>2_000_000)throw Error('Resposta excedeu limite');let size=0;const chunks=[];for await(const chunk of r.body){size+=chunk.length;if(size>2_000_000)throw Error('Resposta excedeu limite');chunks.push(chunk);}return binary?Buffer.concat(chunks):Buffer.concat(chunks).toString('utf8');}throw Error('Redirecionamentos em excesso');}
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const clean=s=>String(s??'').replace(/<[^>]*>/g,' ').replace(/&(?:amp|nbsp|quot|lt|gt);/g,x=>({'&amp;':'&','&nbsp;':' ','&quot;':'"','&lt;':'<','&gt;':'>'})[x]).replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/\s+/g,' ').trim();
@@ -18,7 +18,7 @@ function parse(fonte,body,id=''){
   for(const m of body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)){
    const title=clean(m[2]);if(title.length<3||/nosso portf[oó]lio/i.test(title))continue;
    let u;try{u=new URL(m[1].replace(/&amp;/g,'&'),base);safe(u.href);}catch{continue;}
-   const catalog=fonte==='fgv'?u.hostname==='conhecimento.fgv.br'&&/^\/concursos\/[\w-]+\/?$/.test(u.pathname):u.hostname==='www.cesgranrio.org.br'&&/^\/concurso\/[\w-]+\/$/.test(u.pathname);
+   const catalog=u.hostname==='conhecimento.fgv.br'&&/^\/concursos\/[\w-]+\/?$/.test(u.pathname);
    const document=id&&(/\.(pdf|html)$/i.test(u.pathname)||(/edital|retifica|comunicado/i.test(title)&&u.href!==base));
    if(!id&&!catalog||id&&!document)continue;
    result.push(row(fonte,u.href,title,null,id||u.pathname.split('/').filter(Boolean).at(-1)));
