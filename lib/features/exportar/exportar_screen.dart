@@ -23,6 +23,29 @@ import '../../domain/xlsx_reader.dart';
 class ExportarScreen extends ConsumerWidget {
   const ExportarScreen({super.key});
 
+  Future<bool?> _confirmarSemProva(BuildContext context) => showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Prova em andamento'),
+      content: const Text(
+        'Há uma prova cronometrada em andamento. Ela NÃO entra no backup: '
+        'se você restaurar este arquivo em outro aparelho, a prova e as '
+        'respostas marcadas não vão junto. Finalize a prova antes para '
+        'guardar o resultado.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Exportar sem a prova'),
+        ),
+      ],
+    ),
+  );
+
   String get _carimbo {
     final agora = DateTime.now();
     return '${agora.year}-${agora.month.toString().padLeft(2, '0')}-${agora.day.toString().padLeft(2, '0')}';
@@ -205,7 +228,15 @@ class ExportarScreen extends ConsumerWidget {
                 'Fotos do enunciado anexadas ao caderno de erros deixam o '
                 'arquivo bem maior.',
               ),
-              onTap: () {
+              onTap: () async {
+                // B16: a prova em andamento fica fora do backup de propósito
+                // (estado preso ao relógio local). O subtítulo sozinho não
+                // bastava: quem troca de aparelho perdia a prova sem aviso.
+                if (ref.read(execucaoProvaProvider) != null &&
+                    await _confirmarSemProva(context) != true) {
+                  return;
+                }
+                if (!context.mounted) return;
                 final json = ref.read(backupUseCaseProvider).snapshotAtual();
                 _compartilharTexto(
                   context,
