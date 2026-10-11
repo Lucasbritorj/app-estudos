@@ -10,6 +10,7 @@ import '../../data/repositories/configuracoes_repositorio.dart';
 import 'notificacao_browser_stub.dart'
     if (dart.library.js_interop) 'notificacao_browser_web.dart'
     as browser;
+import 'notificacoes_service.dart';
 
 List<Revisao> revisoesParaAvisar(
   List<Revisao> revisoes,
@@ -50,7 +51,7 @@ class _AvisosRevisoesState extends ConsumerState<AvisosRevisoes>
   @override
   void initState() {
     super.initState();
-    if (!kIsWeb) return;
+    if (!kIsWeb || !NotificacoesService.habilitadas) return;
     WidgetsBinding.instance.addObserver(this);
     _timer = Timer.periodic(const Duration(minutes: 1), (_) => _verificar());
     WidgetsBinding.instance.addPostFrameCallback((_) => _verificar());

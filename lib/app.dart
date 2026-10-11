@@ -50,7 +50,11 @@ class Abas {
 }
 
 class AppEstudos extends StatelessWidget {
-  const AppEstudos({super.key});
+  const AppEstudos({super.key, this.consultarConcursos = true});
+
+  /// A coleta de concursos só existe na web e fala com a rede. O padrão
+  /// permanece ligado; o teste de integração desliga este seam.
+  final bool consultarConcursos;
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +76,10 @@ class AppEstudos extends StatelessWidget {
       // deixam o vidro dos cards aparecer em qualquer rota.
       builder: (context, child) =>
           LuminaBackground(child: child ?? const SizedBox.shrink()),
-      home: const ConcursosAtualizacao(child: _HomeShell()),
+      home: ConcursosAtualizacao(
+        enabled: consultarConcursos,
+        child: const _HomeShell(),
+      ),
     );
   }
 }

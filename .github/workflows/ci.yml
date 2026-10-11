@@ -83,3 +83,52 @@ jobs:
           name: golden-failures
           path: test/failures/
           if-no-files-found: ignore
+
+  integracao-web:
+    name: Integração web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Chrome do runner + ChromeDriver da mesma milestone, só em RUNNER_TEMP.
+      # Fonte: storage.googleapis.com/chrome-for-testing-public. Sem action extra.
+      - name: ChromeDriver em 4444
+        run: |
+          set -euo pipefail
+          CHROME_BIN=$(command -v google-chrome || command -v google-chrome-stable)
+          CHROME_VER=$("$CHROME_BIN" --version | awk '{print $3}')
+          echo "Chrome ${CHROME_VER}"
+          BASE="https://storage.googleapis.com/chrome-for-testing-public"
+          ZIP="${RUNNER_TEMP}/chromedriver.zip"
+          if ! curl -fsSL "${BASE}/${CHROME_VER}/linux64/chromedriver-linux64.zip" -o "${ZIP}"; then
+            MILESTONE=${CHROME_VER%%.*}
+            VER=$(curl -fsSL https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json \
+              | python3 -c "import json,sys; print(json.load(sys.stdin)['milestones']['${MILESTONE}']['version'])")
+            echo "ChromeDriver da milestone ${MILESTONE}: ${VER}"
+            curl -fsSL "${BASE}/${VER}/linux64/chromedriver-linux64.zip" -o "${ZIP}"
+          fi
+          unzip -q "${ZIP}" -d "${RUNNER_TEMP}/chromedriver"
+          "${RUNNER_TEMP}/chromedriver/chromedriver-linux64/chromedriver" --port=4444 &
+          echo $! > "${RUNNER_TEMP}/chromedriver.pid"
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:4444/status && exit 0
+            sleep 0.5
+          done
+          echo "ChromeDriver não respondeu em 4444" >&2
+          exit 1
+
+      - name: Q9 web-server
+        run: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/sessao_revisao_test.dart -d web-server --browser-name chrome --no-pub
+
+      - name: Parar ChromeDriver
+        if: always()
+        run: kill "$(cat "${RUNNER_TEMP}/chromedriver.pid")" || true

@@ -87,7 +87,7 @@ necessário e afeta pouca gente; registrado para não ser redescoberto como bug.
 | Q3 | **Sem tema claro** (dark-only, sem `ThemeMode`). O Lumina já é tokenizado: é trabalho de paleta, não refatoração. | M |
 | Q5 | **Sem desfazer** fora da importação. Excluir matéria/tópico/questão continua irreversível com só um diálogo. Agora que `BackupUseCase` existe, dá para generalizar o padrão de snapshot. | M |
 | Q6 | ~~Goldens cobrem 19 telas; faltava `onboarding`.~~ **Resolvido 30/09:** `20_onboarding_1..4`, um golden por passo. | P |
-| Q9 | Sem teste de integração ponta a ponta (`integration_test`) — a suíte é unit + widget isolado. | M |
+| Q9 | ~~Sem teste de integração ponta a ponta.~~ **Resolvido 07/10:** `integration_test/sessao_revisao_test.dart` registra sessão teórica que completa a aula, persiste 1 registro, cria a revisão (`aulaId`, intervalo 7) e a mostra na aba Revisões. Runner: `flutter drive --driver=test_driver/integration_test.dart --target=integration_test/sessao_revisao_test.dart -d web-server --browser-name chrome --no-pub`. Conclusão da revisão fica fora: o diálogo agrega exceções não discriminadas no runner web. | P |
 
 ## 4. Funcionalidades sugeridas
 
@@ -128,7 +128,7 @@ Tema: reduzir atrito e fechar o ciclo de uso diário.
 2. **Q3 — tema claro**.
 3. **Q5 — desfazer** generalizado, reusando o padrão de snapshot do `BackupUseCase`.
 4. **F8 — backup automático** e **F6 — notificação acionável**.
-5. **Q9 — teste de integração** ponta a ponta.
+5. ~~Q9 — teste de integração ponta a ponta.~~ Resolvido 07/10 no runner `web-server`.
 
 ### Longo prazo — 3 a 6 meses
 Tema: o que muda a natureza do produto.

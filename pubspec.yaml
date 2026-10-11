@@ -68,6 +68,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  # SDK oficial. Q9 não entra no `flutter test` sem device. O gate é:
+  # flutter drive --driver=test_driver/integration_test.dart --target=integration_test/sessao_revisao_test.dart -d web-server --browser-name chrome --no-pub
+  # com ChromeDriver em 127.0.0.1:4444.
+  integration_test:
+    sdk: flutter
+
   # Transitiva via flutter_test, promovida a direta: test/hoje_provider_test.dart
   # usa fakeAsync() para inspecionar Timer pendente sem widget (M-06).
   fake_async: ^1.3.3

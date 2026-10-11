@@ -11,7 +11,14 @@ class NotificacoesService {
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool _pronto = false;
 
+  /// Desliga lembrete de plataforma sem alterar a persistência. O teste web
+  /// desliga e restaura; o app publicado permanece ligado.
+  static bool habilitadas = true;
+
+  static bool get _podeAgendar => habilitadas && _pronto;
+
   static Future<void> inicializar() async {
+    if (!habilitadas) return;
     try {
       tzdata.initializeTimeZones();
       final info = await FlutterTimezone.getLocalTimezone();
@@ -41,7 +48,7 @@ class NotificacoesService {
     required DateTime dia,
     required int hora,
   }) async {
-    if (!_pronto) return;
+    if (!_podeAgendar) return;
     try {
       final quando = tz.TZDateTime(
         tz.local,
@@ -71,7 +78,7 @@ class NotificacoesService {
   }
 
   static Future<void> cancelar(String id) async {
-    if (!_pronto) return;
+    if (!_podeAgendar) return;
     try {
       await _plugin.cancel(id: _idNumerico(id));
     } catch (erro) {
@@ -84,7 +91,7 @@ class NotificacoesService {
   /// recebendo lembrete de revisão que não existe mais, sem nenhuma tela onde
   /// desligar.
   static Future<void> cancelarTodas() async {
-    if (!_pronto) return;
+    if (!_podeAgendar) return;
     try {
       await _plugin.cancelAll();
     } catch (erro) {
@@ -97,7 +104,7 @@ class NotificacoesService {
   /// Lembrete diário de estudo na [hora] (repete todo dia); null desliga.
   /// Idempotente: sempre cancela o anterior antes de agendar.
   static Future<void> agendarLembreteDiario(int? hora) async {
-    if (!_pronto) return;
+    if (!_podeAgendar) return;
     try {
       await _plugin.cancel(id: _idLembreteDiario);
       if (hora == null) return;
