@@ -1,9 +1,14 @@
 name: CI
 
 on:
+  # Push só na main: a branch de trabalho já roda pelo PR, não precisa rodar duas vezes.
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
+
+# Token do CI só lê o código. Doc: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#permissions
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

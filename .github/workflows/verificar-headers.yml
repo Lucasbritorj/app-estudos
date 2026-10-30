@@ -14,6 +14,10 @@ on:
     - cron: '0 9 * * 1'
   workflow_dispatch:
 
+# Token do CI só lê o código: o job só faz checkout e consulta a URL de produção.
+permissions:
+  contents: read
+
 jobs:
   verificar-headers:
     name: Headers de produção batem com vercel.json
